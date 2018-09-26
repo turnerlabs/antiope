@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template creates a cross account role for audit from the defined Security account
+Parameters:
+
+  SecurityAccountNumber:
+    Description: The 12 digit AWS account number to grant access to.
+    MinLength: '12'
+    AllowedPattern: '[0-9]+'
+    MaxLength: '12'
+    Type: String
+
+  RoleName:
+    Description: The name of the Role to be created
+    Default: 'Security-Audit'
+    Type: String
+
+Resources:
+  SecurityCrossAccountRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/SecurityAudit
+      - arn:aws:iam::aws:policy/ReadOnlyAccess
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Action: sts:AssumeRole
+          Sid: ''
+          Effect: Allow
+          Principal:
+            AWS: !Join ['', ['arn:aws:iam::', !Ref 'SecurityAccountNumber',':root']]
+      Policies:
+        - PolicyName: IAMSimulateResources
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action: "iam:Simulate*"
+                Resource: "*"
+        - PolicyName: SecurityTools
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                - "trustedAdvisor:*"
+                - "health:*"
+                - "aws-portal:View*"
+                - "acm:*"
+                - "inspector:*"
+                - "support:*"
+                Resource: "*"
+        - PolicyName: ProtectSensitiveData
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: DenyGetObject
+                Effect: "Deny"
+                Action:
+                - "s3:GetObject*"
+                - "s3:ListMultipartUploadParts"
+                - "s3:GetReplicationConfiguration"
+                - "s3:ListObjects"
+                Resource: "*"
+              - Sid: DenyListBucketOnTaggedBuckets
+                Effect: "Deny"
+                Action:
+                - "s3:ListBucket*"
+                Resource: "*"
+              - Sid: BlockDynamoDB
+                Effect: "Deny"
+                Action:
+                - dynamodb:GetItem
+                - dynamodb:BatchGetItem
+                - dynamodb:Query
+                - dynamodb:GetRecords
+                - dynamodb:Scan
+                Resource: "*"
+        - PolicyName: PermitEnableGuardDuty
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: FullGuardDuty
+                Effect: "Allow"
+                Action:
+                  - "guardduty:*"
+                Resource: "*"
+              - Sid: EnableGuardDutyRole
+                Effect: "Allow"
+                Action:
+                  - "iam:CreateRole"
+                  - "iam:AttachRolePolicy"
+                  - "iam:CreatePolicy"
+                  - "iam:PutRolePolicy"
+                  - "iam:PassRole"
+                  - "iam:Delete*"
+                Resource: "*" #FIXME
+              - Effect: "Allow"
+                Action: "iam:CreateServiceLinkedRole"
+                Resource: "*"
+                Condition:
+                  StringLike:
+                    iam:AWSServiceName: "guardduty.amazonaws.com"
+
+Outputs:
+  RoleARN:
+    Description: The ARN of the Audit role that can be assumed by the Security account.
+    Value: !GetAtt [SecurityCrossAccountRole, Arn]
+  TemplateVersion:
+    Value: 1.0.0

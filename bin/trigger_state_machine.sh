@@ -1,0 +1,34 @@
+#!/bin/bash
+
+RESOURCEID="InventoryProcessStateMachine"
+
+ENV=$1
+EVENT=$2
+if [ -z $ENV ] ; then
+    echo "Must specify ENV"
+    exit 1
+fi
+
+# If the user didn't pass in an event file, then get the payer list via the stack's parameters (using this ugly jq command)
+if [ -z $EVENT ] ; then
+    EVENT="${ENV}-test-event.json" # file to save the event as
+    PAYERLIST=`aws cloudformation describe-stacks --stack-name antiope-${ENV} | jq -r '.Stacks[].Parameters[]|select(.ParameterKey=="pPayerAccountList").ParameterValue'`
+    if [ -z "$PAYERLIST" ] ; then
+        echo "Didn't find the payerlist in stack antiope-${ENV}. Aborting..."
+        exit 1
+    fi
+    echo "{\"payer\": [ ${PAYERLIST} ] }" > $EVENT
+elif [ ! -f $EVENT ] ; then
+    echo "Cannot find file $EVENT. Aborting..."
+    exit 1
+fi
+
+DATE=`date +%Y-%m-%d-%H-%M`
+STATEMACHINE_ARN=`aws cloudformation describe-stack-resources --stack-name antiope-${ENV} --output text | grep ${RESOURCEID} | awk '{print $3}'`
+if [ -z $STATEMACHINE_ARN ] ; then
+    echo "Unable to find StateMachine Arn for Stack antiope-${ENV}. Aborting.."
+    exit 1
+fi
+
+aws stepfunctions start-execution --state-machine-arn ${STATEMACHINE_ARN} --name "make-trigger-${DATE}" --input file://$EVENT
+
