@@ -129,7 +129,7 @@ def get_consolidated_billing_subaccounts(session_creds):
 
 
 def create_or_update_account(a, account_table):
-    print(u"Adding account {} with name {} and email {}".format(a[u'Id'], a[u'Name'], a[u'Email']))
+    logger.info(u"Adding account {} with name {} and email {}".format(a[u'Id'], a[u'Name'], a[u'Email']))
     if 'JoinedTimestamp' in a:
         a[u'JoinedTimestamp'] = a[u'JoinedTimestamp'].isoformat() # Gotta convert to mmake the json save
     try:

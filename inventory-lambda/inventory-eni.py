@@ -60,7 +60,7 @@ def discover_enis(account, region):
     interfaces += response['NetworkInterfaces']
 
     for eni in interfaces:
-        print(eni)
+        # print(eni)
         eni['region']           = region
         eni['account_id']       = account.account_id
         eni['account_name']     = account.account_name
