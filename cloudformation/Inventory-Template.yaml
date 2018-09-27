@@ -815,9 +815,9 @@ Resources:
                 "view": "timeSeries",
                 "stacked": false,
                 "metrics": [
-                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${AccountDBTable.Arn}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
-                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${VpcInventoryDBTable.Arn}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
-                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${HistoricalBillingDataTable.Arn}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ]
+                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${AccountDBTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
+                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${VpcInventoryDBTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
+                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${HistoricalBillingDataTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ]
                 ],
                 "region": "${AWS::Region}",
                 "title": "DDB Throttling"
@@ -855,12 +855,12 @@ Resources:
                 "view": "timeSeries",
                 "stacked": false,
                 "metrics": [
-                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${AccountDBTable.Arn}", { "stat": "Sum", "period": 60 } ],
-                  [ ".", "ConsumedWriteCapacityUnits", "TableName", "${AccountDBTable.Arn}", { "stat": "Sum", "period": 60 } ],
-                  [ ".", "ConsumedReadCapacityUnits", "TableName", "${VpcInventoryDBTable.Arn}", { "stat": "Sum", "period": 60 } ],
-                  [ ".", "ConsumedWriteCapacityUnits", "TableName", "${VpcInventoryDBTable.Arn}", { "stat": "Sum", "period": 60 } ],
-                  [ ".", "ConsumedReadCapacityUnits", "TableName", "${HistoricalBillingDataTable.Arn}", { "stat": "Sum", "period": 60 } ],
-                  [ ".", "ConsumedWriteCapacityUnits", "TableName", "${HistoricalBillingDataTable.Arn}", { "stat": "Sum", "period": 60 } ]
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${AccountDBTable}", { "stat": "Sum", "period": 60 } ],
+                  [ ".", "ConsumedWriteCapacityUnits", "TableName", "${AccountDBTable}", { "stat": "Sum", "period": 60 } ],
+                  [ ".", "ConsumedReadCapacityUnits", "TableName", "${VpcInventoryDBTable}", { "stat": "Sum", "period": 60 } ],
+                  [ ".", "ConsumedWriteCapacityUnits", "TableName", "${VpcInventoryDBTable}", { "stat": "Sum", "period": 60 } ],
+                  [ ".", "ConsumedReadCapacityUnits", "TableName", "${HistoricalBillingDataTable}", { "stat": "Sum", "period": 60 } ],
+                  [ ".", "ConsumedWriteCapacityUnits", "TableName", "${HistoricalBillingDataTable}", { "stat": "Sum", "period": 60 } ]
                 ],
                 "region": "${AWS::Region}",
                 "title": "DynamoDB Activity",
@@ -907,7 +907,7 @@ Resources:
               "properties": {
                 "view": "timeSeries",
                 "stacked": false,
-                "metrics": [[ "AWS/S3", "BucketSizeBytes", "StorageType", "StandardStorage", "BucketName", "antiope-inventory", { "period": 86400 } ] ],
+                "metrics": [[ "AWS/S3", "BucketSizeBytes", "StorageType", "StandardStorage", "BucketName", "${pBucketName}", { "period": 86400 } ] ],
                 "region": "us-east-1",
                 "yAxis": {"left": {"min": 0 } },
                 "title": "Inventory Storage Used"
@@ -922,7 +922,7 @@ Resources:
               "properties": {
                 "view": "timeSeries",
                 "stacked": false,
-                "metrics": [[ "AWS/S3", "NumberOfObjects", "StorageType", "AllStorageTypes", "BucketName", "antiope-inventory", { "period": 86400 } ] ],
+                "metrics": [[ "AWS/S3", "NumberOfObjects", "StorageType", "AllStorageTypes", "BucketName", "${pBucketName}", { "period": 86400 } ] ],
                 "region": "us-east-1",
                 "yAxis": {"left": {"min": 0 } },
                 "title": "Inventory Object Count"
