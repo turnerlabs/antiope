@@ -7,6 +7,7 @@ import os
 import time
 import datetime
 from dateutil import tz
+import re
 
 from lib.account import *
 from lib.common import *
@@ -82,7 +83,7 @@ def process_trusted_account(principal):
     # Principals can be an ARN, or just an account ID.
     if principal.startswith("arn"):
         account_id = principal.split(':')[4]
-    elif re.march('^[0-9]{12}$', principal):
+    elif re.match('^[0-9]{12}$', principal):
         account_id = principal
     elif principal == "*":
         raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!")
@@ -97,7 +98,7 @@ def process_trusted_account(principal):
         ConsistentRead=True
     )
     if 'Item' not in response:
-        print(u"Adding foreign account {}".format(account_id))
+        logger.info(u"Adding foreign account {}".format(account_id))
         try:
             response = account_table.put_item(
                 Item={
