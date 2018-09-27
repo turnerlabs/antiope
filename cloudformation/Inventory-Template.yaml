@@ -45,6 +45,16 @@ Parameters:
     Type: Number
     Default: 5
 
+  pSmallLambdaSize:
+    Description: Memory footprint for smaller Lambda
+    Type: Number
+    Default: 128
+
+  pLargeLambdaSize:
+    Description: Memory footprint for Lambdas processing lots of resources
+    Type: Number
+    Default: 768
+
 Resources:
 
   InventoryLambdaRole:
@@ -147,6 +157,7 @@ Resources:
       Handler: pull_organization_data.handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -212,6 +223,7 @@ Resources:
       Handler: inventory-vpc.lambda_handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -233,6 +245,7 @@ Resources:
       Handler: inventory-eni.lambda_handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -254,6 +267,7 @@ Resources:
       Handler: inventory-health-report.lambda_handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -275,6 +289,7 @@ Resources:
   #     Handler: inventory_stacks.handler
   #     Runtime: python3.6
   #     Timeout: 300
+  #     MemorySize: !Ref pSmallLambdaSize
   #     Role: !GetAtt InventoryLambdaRole.Arn
   #     Code:
   #       S3Bucket: !Ref pDeployBucket
@@ -296,6 +311,7 @@ Resources:
       Handler: inventory-instances-sg.lambda_handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -317,6 +333,7 @@ Resources:
       Handler: get_billing_data.handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -339,6 +356,7 @@ Resources:
       Handler: inventory-route53.lambda_handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -360,6 +378,7 @@ Resources:
       Handler: inventory-buckets.lambda_handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
@@ -381,6 +400,7 @@ Resources:
       Handler: inventory-iam.lambda_handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pDeployBucket
