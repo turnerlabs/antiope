@@ -1,7 +1,7 @@
 
 
 # Customize these Settings
-export DEPLOYBUCKET ?= antiope-inventory
+export STACK_PREFIX ?= FIXME
 
 ifndef env
 # $(error env is not set)
@@ -13,12 +13,12 @@ ifndef version
 endif
 
 # Shouldn't be overridden
-export STACK_PREFIX ?= antiope
 export STACK_TEMPLATE ?= cloudformation/Inventory-Template.yaml
 export LAMBDA_PACKAGE ?= antiope-lambda-$(version).zip
 export manifest ?= cloudformation/Inventory-Manifest-$(env).yaml
 export STACK_NAME=$(STACK_PREFIX)-$(env)
 export OBJECT_KEY ?= lambda-packages/$(LAMBDA_PACKAGE)
+export DEPLOYBUCKET ?= $(STACK_NAME)
 
 FUNCTIONS = $(STACK_NAME)-pull-organization-data \
 			$(STACK_NAME)-get-billing-data \
@@ -78,3 +78,6 @@ purge:
 	purge_ddb_table.py --table $(STACK_TEMPLATE)-accounts --key_attribute account_id --force
 	purge_ddb_table.py --table $(STACK_TEMPLATE)-billing-data --key_attribute account_id --force
 	purge_ddb_table.py --table $(STACK_TEMPLATE)-vpc-inventory --key_attribute vpc_id --force
+
+trigger:
+	./bin/trigger_state_machine.sh $(STACK_NAME)
