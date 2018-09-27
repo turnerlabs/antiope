@@ -1,6 +1,7 @@
 # Antiope
 AWS Inventory &amp; Compliance Framework
 
+*Note: The interesting stuff is happening on the development branch till we're ready for a general release*
 
 ## Purpose
 Antiope is intended to be an open sourced framework for managing resources across hundreds of AWS Accounts. From a trusted Security Account, Antiope will leverage Cross Account Assume Roles to gather up resource data and store them in an inventory bucket. This bucket can then be index by ELK or your SEIM of choice to provide easy searching of resources across hundreds of AWS accounts.
