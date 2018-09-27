@@ -73,7 +73,7 @@ def discover_domains(account):
 
         # Need to make sure the resource name is unique and service identifiable.
         resource_name = "domain-{}".format(domain['DomainName'])
-        save_resource_to_s3(resource_name, domain)
+        save_resource_to_s3("route53", resource_name, domain)
 
 def discover_zones(account):
     '''
@@ -112,7 +112,7 @@ def discover_zones(account):
         # Need to make sure the resource name is unique and service identifiable.
         # Zone Ids look like "/hostedzone/Z2UFNORDFDSFTZ"
         resource_name = "hostedzone-{}".format(zone['Id'].split("/")[2])
-        save_resource_to_s3(resource_name, zone)
+        save_resource_to_s3("route53", resource_name, zone)
 
 
 

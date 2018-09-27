@@ -73,7 +73,7 @@ def discover_roles(account):
 
         # Need to make sure the resource name is unique and service identifiable.
         resource_name = "role-{}-{}".format(account.account_id, role['RoleName'])
-        save_resource_to_s3(resource_name, role)
+        save_resource_to_s3("iam", resource_name, role)
 
 def process_trusted_account(principal):
     '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
@@ -137,7 +137,7 @@ def discover_users(account):
 
         # Need to make sure the resource name is unique and service identifiable.
         resource_name = "user-{}-{}".format(account.account_id, user['UserName'])
-        save_resource_to_s3(resource_name, user)
+        save_resource_to_s3("iam", resource_name, user)
 
 
 

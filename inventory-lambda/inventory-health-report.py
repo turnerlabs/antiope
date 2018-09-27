@@ -51,7 +51,7 @@ def lambda_handler(event, context):
 
         s3client = boto3.client('s3')
         s3response = s3client.put_object(
-            ACL='public-read', #FIXME
+            # ACL='public-read', #FIXME
             Body=json.dumps(data, sort_keys=True, default=str, indent=2),
             Bucket=os.environ['INVENTORY_BUCKET'],
             ContentType='application/json',

@@ -74,7 +74,7 @@ def discover_vpcs(target_account, region):
         # Also VPN & DX might need to be here.
 
         # Save all VPCs!
-        save_resource_to_s3(v['VpcId'], v)
+        save_resource_to_s3("ec2", v['VpcId'], v)
 
         item = {
                     'vpc_id':               v['VpcId'],

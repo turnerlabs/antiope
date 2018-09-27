@@ -42,12 +42,7 @@ def lambda_handler(event, context):
                 for instance in reservation['Instances']:
                     instance['account_id'] = message['account_id']
                     instance['region'] = r
-                    response = s3_client.put_object(
-                        Body=json.dumps(instance, sort_keys=True, default=str, indent=2),
-                        Bucket=os.environ['INVENTORY_BUCKET'],
-                        ContentType='application/json',
-                        Key='Resources/%s.json' % instance['InstanceId']
-                    )
+                    save_resource_to_s3("ec2", instance['InstanceId'], instance)
 
             # describe ec2 security groups
 
@@ -58,12 +53,8 @@ def lambda_handler(event, context):
             for sec_group in sec_groups:
                 sec_group['account_id'] = message['account_id']
                 sec_group['region'] = r
-                response = s3_client.put_object(
-                    Body=json.dumps(sec_group, sort_keys=True, default=str, indent=2),
-                    Bucket=os.environ['INVENTORY_BUCKET'],
-                    ContentType='application/json',
-                    Key='Resources/%s.json' % sec_group['GroupId']
-                )
+                save_resource_to_s3("ec2", sec_group['GroupId'], sec_group)
+
     except AssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()

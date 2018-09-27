@@ -139,8 +139,7 @@ def discover_buckets(account):
             if e.response['Error']['Code'] != 'NoSuchCORSConfiguration':
                 b['errors']['CORSRules'] = e
 
-        resource_name = "bucket-{}".format(bucket_name)
-        save_resource_to_s3(resource_name, b)
+        save_resource_to_s3("bucket", bucket_name, b)
 
 
 

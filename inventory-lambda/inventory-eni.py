@@ -67,16 +67,7 @@ def discover_enis(account, region):
         eni['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
         # Save all interfaces!
-        try:
-            object_key = "Resources/{}.json".format(eni['NetworkInterfaceId'])
-            s3client.put_object(
-                Body=json.dumps(eni, sort_keys=True, default=str, indent=2),
-                Bucket=os.environ['INVENTORY_BUCKET'],
-                ContentType='application/json',
-                Key=object_key,
-            )
-        except ClientError as e:
-            logger.error("Unable to save object {}: {}".format(object_key, e))
+        save_resource_to_s3("eni", eni['NetworkInterfaceId'], eni)
 
         # Now build up the Public IP Objects
         if 'Association' in eni and 'PublicIp' in eni['Association']:
