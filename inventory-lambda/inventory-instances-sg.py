@@ -16,6 +16,8 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+INSTANCE_RESOURCE_PATH = "ec2/instance"
+SG_RESOURCE_PATH = "ec2/securitygroup"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -42,7 +44,7 @@ def lambda_handler(event, context):
                 for instance in reservation['Instances']:
                     instance['account_id'] = message['account_id']
                     instance['region'] = r
-                    save_resource_to_s3("ec2", instance['InstanceId'], instance)
+                    save_resource_to_s3(INSTANCE_RESOURCE_PATH, instance['InstanceId'], instance)
 
             # describe ec2 security groups
 
@@ -53,7 +55,7 @@ def lambda_handler(event, context):
             for sec_group in sec_groups:
                 sec_group['account_id'] = message['account_id']
                 sec_group['region'] = r
-                save_resource_to_s3("ec2", sec_group['GroupId'], sec_group)
+                save_resource_to_s3(SG_RESOURCE_PATH, sec_group['GroupId'], sec_group)
 
     except AssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

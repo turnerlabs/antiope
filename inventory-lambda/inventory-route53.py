@@ -17,6 +17,8 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+DOMAIN_RESOURCE_PATH = "route53/domains"
+ZONE_RESOURCE_PATH = "route53/hostedzone"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -72,8 +74,7 @@ def discover_domains(account):
             domain['Tags'] = response['TagList']
 
         # Need to make sure the resource name is unique and service identifiable.
-        resource_name = "domain-{}".format(domain['DomainName'])
-        save_resource_to_s3("route53", resource_name, domain)
+        save_resource_to_s3(DOMAIN_RESOURCE_PATH, domain['DomainName'], domain)
 
 def discover_zones(account):
     '''
@@ -108,11 +109,9 @@ def discover_zones(account):
         if 'VPCs' in response:
             zone['AuthorizedVPCs'] = response['VPCs']
 
-
         # Need to make sure the resource name is unique and service identifiable.
         # Zone Ids look like "/hostedzone/Z2UFNORDFDSFTZ"
-        resource_name = "hostedzone-{}".format(zone['Id'].split("/")[2])
-        save_resource_to_s3("route53", resource_name, zone)
+        save_resource_to_s3(ZONE_RESOURCE_PATH, zone['Id'].split("/")[2], zone)
 
 
 

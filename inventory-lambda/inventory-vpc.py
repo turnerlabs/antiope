@@ -17,6 +17,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+RESOURCE_PATH = "ec2/vpc"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -74,7 +75,7 @@ def discover_vpcs(target_account, region):
         # Also VPN & DX might need to be here.
 
         # Save all VPCs!
-        save_resource_to_s3("ec2", v['VpcId'], v)
+        save_resource_to_s3(RESOURCE_PATH, v['VpcId'], v)
 
         item = {
                     'vpc_id':               v['VpcId'],

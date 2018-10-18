@@ -17,6 +17,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+RESOURCE_PATH = "ec2/eni"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -67,7 +68,7 @@ def discover_enis(account, region):
         eni['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
         # Save all interfaces!
-        save_resource_to_s3("eni", eni['NetworkInterfaceId'], eni)
+        save_resource_to_s3(RESOURCE_PATH, eni['NetworkInterfaceId'], eni)
 
         # Now build up the Public IP Objects
         if 'Association' in eni and 'PublicIp' in eni['Association']:

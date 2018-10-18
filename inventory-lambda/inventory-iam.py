@@ -18,6 +18,8 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+USER_RESOURCE_PATH = "iam/user"
+ROLE_RESOURCE_PATH = "iam/role"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -72,8 +74,8 @@ def discover_roles(account):
                     process_trusted_account(s['Principal']['AWS'])
 
         # Need to make sure the resource name is unique and service identifiable.
-        resource_name = "role-{}-{}".format(account.account_id, role['RoleName'])
-        save_resource_to_s3("iam", resource_name, role)
+        resource_name = "{}-{}".format(role['RoleName'], account.account_id)
+        save_resource_to_s3(ROLE_RESOURCE_PATH, resource_name, role)
 
 def process_trusted_account(principal):
     '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
@@ -110,7 +112,6 @@ def process_trusted_account(principal):
         except ClientError as e:
             raise AccountUpdateError(u"Unable to create {}: {}".format(a[u'Name'], e))
 
-
 def discover_users(account):
     '''
         Queries AWS to determine what Route53 Zones are hosted in an AWS Account
@@ -136,8 +137,8 @@ def discover_users(account):
             user['MFADevice'] = response['MFADevices'][0]
 
         # Need to make sure the resource name is unique and service identifiable.
-        resource_name = "user-{}-{}".format(account.account_id, user['UserName'])
-        save_resource_to_s3("iam", resource_name, user)
+        resource_name = "{}-{}".format(user['UserName'], account.account_id)
+        save_resource_to_s3(USER_RESOURCE_PATH, resource_name, user)
 
 
 

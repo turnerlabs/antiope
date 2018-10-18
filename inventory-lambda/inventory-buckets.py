@@ -17,6 +17,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+RESOURCE_PATH = "s3/bucket"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -139,7 +140,7 @@ def discover_buckets(account):
             if e.response['Error']['Code'] != 'NoSuchCORSConfiguration':
                 b['errors']['CORSRules'] = e
 
-        save_resource_to_s3("bucket", bucket_name, b)
+        save_resource_to_s3(RESOURCE_PATH, bucket_name, b)
 
 
 

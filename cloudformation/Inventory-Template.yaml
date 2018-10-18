@@ -30,6 +30,11 @@ Parameters:
     Description: Comma Delimited list of payer accounts to process
     Type: String
 
+  pIamUserName:
+    Type: String
+    Description: <optional> IAM Username with access to the Inventory Bucket
+    Default: NONE
+
   pExecutionRate:
     Description: How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
     Type: String
@@ -55,7 +60,34 @@ Parameters:
     Type: Number
     Default: 768
 
+Conditions:
+  CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
+
 Resources:
+
+  InventoryIAMUser:
+    Condition: CreateIAMUser
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref pIamUserName
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+
 
   InventoryLambdaRole:
     Type: AWS::IAM::Role

@@ -21,6 +21,7 @@ deploy_stack.rb -g cloudformation/Inventory-Template.yaml > cloudformation/Inven
     1. pBucketName and pDeployBucket are the name of the Inventory bucket you created above
     3. pPayerAccountList is a comma seperated list of the payer account IDs for your organization
     4. Any Tags you want the stack to have can be added in the Tags Section. All tags will propagate to the Lambda Functions and DynamoDB Tables.
+5. Set STACK_PREFIX in the makefile
 5. Execute a make deploy to create the stack
 ```bash
 make env=prod deploy
