@@ -18,6 +18,17 @@ inventory-lambda/semver.py
 inventory-lambda/lib/
 
 cloudformation/Inventory-Manifest-*.yaml
+cloudformation/SearchCluster-Manifest-*.yaml
+
+search-lambda/*dist-info
+search-lambda/*.zip
+search-lambda/urllib3*
+search-lambda/requests*
+search-lambda/lib/
+
+
+
+
 
 # Created by https://www.gitignore.io/api/osx,python
 
