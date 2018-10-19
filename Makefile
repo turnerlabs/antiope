@@ -1,7 +1,7 @@
 
 
 # Customize these Settings
-export STACK_PREFIX ?= FIXME
+export STACK_PREFIX ?= SET_THIS_FIRST
 
 ifndef env
 # $(error env is not set)
@@ -15,8 +15,8 @@ endif
 # Shouldn't be overridden
 export STACK_TEMPLATE ?= cloudformation/Inventory-Template.yaml
 export LAMBDA_PACKAGE ?= antiope-lambda-$(version).zip
-export manifest ?= cloudformation/Inventory-Manifest-$(env).yaml
 export STACK_NAME=$(STACK_PREFIX)-$(env)
+export manifest ?= cloudformation/Inventory-Manifest-$(STACK_NAME).yaml
 export OBJECT_KEY ?= lambda-packages/$(LAMBDA_PACKAGE)
 export DEPLOYBUCKET ?= $(STACK_NAME)
 
@@ -28,6 +28,7 @@ FUNCTIONS = $(STACK_NAME)-pull-organization-data \
 			$(STACK_NAME)-route53-inventory \
 			$(STACK_NAME)-bucket-inventory \
 			$(STACK_NAME)-iam-inventory \
+			$(STACK_NAME)-ecs-inventory \
 			$(STACK_NAME)-health-inventory
 
 
