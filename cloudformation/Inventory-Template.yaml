@@ -446,6 +446,28 @@ Resources:
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
 
+  ECSInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ecs-inventory"
+      Description: Inventory ECS Clusters & Tasks
+      Handler: inventory-ecs.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pDeployBucket
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
   #
   # StateMachine
   #
@@ -694,6 +716,21 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
+  ECSnventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ECSInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  ECSInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [ECSInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
   #
   # DynamoDB Tables
   #
@@ -787,6 +824,7 @@ Resources:
                   [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -812,6 +850,7 @@ Resources:
                   [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",

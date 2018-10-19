@@ -5,7 +5,7 @@ PYTHON=python3
 PIP=pip3
 
 FILES=pull_organization_data.py get_billing_data.py inventory-instances-sg.py inventory-health-report.py inventory-eni.py inventory-vpc.py \
-		inventory-route53.py inventory-buckets.py inventory-iam.py
+		inventory-route53.py inventory-buckets.py inventory-iam.py inventory-ecs.py
 
 DEPENDENCIES=yaml semver.py  lib
 
