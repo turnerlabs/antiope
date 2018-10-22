@@ -7,10 +7,6 @@ Parameters:
     Description: Name of the bucket to hold the images
     Type: String
 
-  pDeployBucket:
-    Description: Name of a bucket where all the Lambda deploy Zips are kept
-    Type: String
-
   pLambdaZipFile:
     Description: File Name for the lambdas
     Type: String
@@ -191,7 +187,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -255,7 +251,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -279,7 +275,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -301,7 +297,7 @@ Resources:
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -323,7 +319,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -345,7 +341,7 @@ Resources:
   #     MemorySize: !Ref pSmallLambdaSize
   #     Role: !GetAtt InventoryLambdaRole.Arn
   #     Code:
-  #       S3Bucket: !Ref pDeployBucket
+  #       S3Bucket: !Ref pBucketName
   #       S3Key: !Sub ${pLambdaZipFile}
   #     Environment:
   #       Variables:
@@ -359,7 +355,7 @@ Resources:
   InstancesSecurityGroupsInventoryLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-instances-securitygroups-inventory"
+      FunctionName: !Sub "${AWS::StackName}-instances-sg-inventory"
       Description: Inventory instances and security groups to a JSON file in S3
       Handler: inventory-instances-sg.lambda_handler
       Runtime: python3.6
@@ -367,7 +363,7 @@ Resources:
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -389,7 +385,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -412,7 +408,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -434,7 +430,7 @@ Resources:
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -456,7 +452,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -478,7 +474,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:

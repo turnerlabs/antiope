@@ -41,7 +41,7 @@ export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(STACK_NAME)-pull-organization-data \
 			$(STACK_NAME)-get-billing-data \
-			$(STACK_NAME)-instances-securitygroups-inventory \
+			$(STACK_NAME)-instances-sg-inventory \
 			$(STACK_NAME)-eni-inventory \
 			$(STACK_NAME)-vpc-inventory \
 			$(STACK_NAME)-route53-inventory \
@@ -74,7 +74,7 @@ cfn-validate: $(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) pLambdaZipFile=$(OBJECT_KEY) pDeployBucket=$(BUCKET) pEnvironment=$(env)  --force
+	deploy_stack.rb -m $(manifest) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pEnvironment=$(env)  --force
 
 #
 # Lambda Targets
