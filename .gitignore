@@ -15,7 +15,9 @@ aws-inventory/lambda/jdcal.py
 aws-inventory/lambda/semver.py
 aws-inventory/lambda/lib/
 
-*Manifest-*.yaml
+*Manifest.yaml
+config.env
+*test-events/*
 
 # Created by https://www.gitignore.io/api/osx,python
 
