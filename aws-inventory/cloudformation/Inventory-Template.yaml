@@ -247,8 +247,7 @@ Resources:
       Handler: report-accounts.handler
       Runtime: python3.6
       Timeout: 300
-      MemorySize: 1024
-      MemorySize: !Ref pSmallLambdaSize
+      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
