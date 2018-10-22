@@ -1,7 +1,16 @@
 
 
-# Customize these Settings
-export STACK_PREFIX ?= SET_THIS_FIRST
+include ../config.env
+export
+
+# STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
+ifndef STACK_PREFIX
+	$(error STACK_PREFIX is not set)
+endif
+
+ifndef BUCKET
+	$(error BUCKET is not set)
+endif
 
 ifndef env
 # $(error env is not set)
@@ -12,14 +21,24 @@ ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
 endif
 
-# Shouldn't be overridden
-export STACK_TEMPLATE ?= cloudformation/Inventory-Template.yaml
-export LAMBDA_PACKAGE ?= antiope-lambda-$(version).zip
-export STACK_NAME=$(STACK_PREFIX)-$(env)
-export manifest ?= cloudformation/Inventory-Manifest-$(STACK_NAME).yaml
-export OBJECT_KEY ?= lambda-packages/$(LAMBDA_PACKAGE)
-export DEPLOYBUCKET ?= $(STACK_NAME)
+# Specific to this stack
+export STACK_NAME=aws-inventory
+# Filename for the CFT to deploy
+export STACK_TEMPLATE=cloudformation/Inventory-Template.yaml
 
+# Name of the Zip file with all the function code and dependencies
+export LAMBDA_PACKAGE=$(STACK_NAME)-lambda-$(version).zip
+
+# The full name of the stack in Cloudformation. This must match the manifest file
+export FULL_STACK_NAME=$(STACK_PREFIX)-$(env)-$(STACK_NAME)
+
+# Name of the manifest file.
+export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
+
+# location in the Antiope bucket where we drop lambda-packages
+export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
+
+# List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(STACK_NAME)-pull-organization-data \
 			$(STACK_NAME)-get-billing-data \
 			$(STACK_NAME)-instances-securitygroups-inventory \
@@ -37,12 +56,13 @@ FUNCTIONS = $(STACK_NAME)-pull-organization-data \
 
 # Run all tests
 test: cfn-validate
-	cd inventory-lambda && $(MAKE) test
+	cd lambda && $(MAKE) test
 
-deploy: package upload cfn-deploy
+# Do everything
+deploy: package upload cfn-deploy templates
 
 clean:
-	cd inventory-lambda && $(MAKE) clean
+	cd lambda && $(MAKE) clean
 
 #
 # Cloudformation Targets
@@ -54,36 +74,36 @@ cfn-validate: $(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) pLambdaZipFile=$(OBJECT_KEY) pDeployBucket=$(DEPLOYBUCKET) pEnvironment=$(env)  --force
+	deploy_stack.rb -m $(manifest) pLambdaZipFile=$(OBJECT_KEY) pDeployBucket=$(BUCKET) pEnvironment=$(env)  --force
 
 #
 # Lambda Targets
 #
 package:
-	cd inventory-lambda && $(MAKE) package
+	cd lambda && $(MAKE) package
 
 upload: package
-	aws s3 cp inventory-lambda/$(LAMBDA_PACKAGE) s3://$(DEPLOYBUCKET)/$(OBJECT_KEY)
+	aws s3 cp lambda/$(LAMBDA_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
 
 # # Update the Lambda Code without modifying the CF Stack
 update: package $(FUNCTIONS)
 	for f in $(FUNCTIONS) ; do \
-	  aws lambda update-function-code --function-name $$f --zip-file fileb://inventory-lambda/$(LAMBDA_PACKAGE) ; \
+	  aws lambda update-function-code --function-name $$f --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 	done
 
-
+# Update one specific function. Called as "make fupdate function=<fillinstackprefix>-aws-inventory-ecs-inventory"
 fupdate: package
-	aws lambda update-function-code --function-name $(function) --zip-file fileb://inventory-lambda/$(LAMBDA_PACKAGE) ; \
+	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
 # This will prompt for confirmation
 purge:
-	purge_ddb_table.py --table $(STACK_TEMPLATE)-accounts --key_attribute account_id --force
-	purge_ddb_table.py --table $(STACK_TEMPLATE)-billing-data --key_attribute account_id --force
-	purge_ddb_table.py --table $(STACK_TEMPLATE)-vpc-inventory --key_attribute vpc_id --force
+	purge_ddb_table.py --table $(FULL_STACK_NAME)-accounts --key_attribute account_id --force
+	purge_ddb_table.py --table $(FULL_STACK_NAME)-billing-data --key_attribute account_id --force
+	purge_ddb_table.py --table $(FULL_STACK_NAME)-vpc-inventory --key_attribute vpc_id --force
 
 trigger:
-	./bin/trigger_state_machine.sh $(STACK_NAME)
+	./bin/trigger_state_machine.sh $(FULL_STACK_NAME)
 
 
 templates:
-	aws s3 cp html_templates/* s3://$(DEPLOYBUCKET)/Templates/
+	aws s3 cp html_templates/* s3://$(BUCKET)/Templates/
