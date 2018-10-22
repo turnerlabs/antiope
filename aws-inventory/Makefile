@@ -39,17 +39,17 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
-FUNCTIONS = $(STACK_NAME)-pull-organization-data \
-			$(STACK_NAME)-get-billing-data \
-			$(STACK_NAME)-instances-sg-inventory \
-			$(STACK_NAME)-eni-inventory \
-			$(STACK_NAME)-vpc-inventory \
-			$(STACK_NAME)-route53-inventory \
-			$(STACK_NAME)-bucket-inventory \
-			$(STACK_NAME)-iam-inventory \
-			$(STACK_NAME)-ecs-inventory \
-			$(STACK_NAME)-health-inventory \
-			$(STACK_NAME)-create-account-report
+FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
+			$(FULL_STACK_NAME)-get-billing-data \
+			$(FULL_STACK_NAME)-instances-sg-inventory \
+			$(FULL_STACK_NAME)-eni-inventory \
+			$(FULL_STACK_NAME)-vpc-inventory \
+			$(FULL_STACK_NAME)-route53-inventory \
+			$(FULL_STACK_NAME)-bucket-inventory \
+			$(FULL_STACK_NAME)-iam-inventory \
+			$(FULL_STACK_NAME)-ecs-inventory \
+			$(FULL_STACK_NAME)-health-inventory \
+			$(FULL_STACK_NAME)-create-account-report
 
 
 .PHONY: $(FUNCTIONS)
@@ -102,7 +102,7 @@ purge:
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-vpc-inventory --key_attribute vpc_id --force
 
 trigger:
-	./bin/trigger_state_machine.sh $(FULL_STACK_NAME)
+	../bin/trigger_state_machine.sh $(FULL_STACK_NAME)
 
 
 templates:
