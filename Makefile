@@ -29,7 +29,8 @@ FUNCTIONS = $(STACK_NAME)-pull-organization-data \
 			$(STACK_NAME)-bucket-inventory \
 			$(STACK_NAME)-iam-inventory \
 			$(STACK_NAME)-ecs-inventory \
-			$(STACK_NAME)-health-inventory
+			$(STACK_NAME)-health-inventory \
+			$(STACK_NAME)-create-account-report
 
 
 .PHONY: $(FUNCTIONS)
@@ -82,3 +83,7 @@ purge:
 
 trigger:
 	./bin/trigger_state_machine.sh $(STACK_NAME)
+
+
+templates:
+	aws s3 cp html_templates/* s3://$(DEPLOYBUCKET)/Templates/
