@@ -88,7 +88,7 @@ def handler(event, context):
 
     # This assumes only three {} in the template
     try:
-        file = html_body.format(len(active_accounts), table_data, datetime.datetime.now())
+        file = html_body.format(os.environ['INVENTORY_BUCKET'], len(active_accounts), table_data, datetime.datetime.now())
     except Exception as e:
         logger.error("Error generating HTML Report. Template correct? : {}".format(e))
         raise
