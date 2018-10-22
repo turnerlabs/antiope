@@ -547,7 +547,7 @@ Resources:
             Effect: Allow
             Resource:
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
-              - !GetAtt GetBillingDataLambdaFunction.Arn
+              - !GetAtt CreateAccountReportLambdaFunction.Arn
 
       - PolicyName: LambdaLogging
         PolicyDocument:
