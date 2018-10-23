@@ -292,7 +292,7 @@ Resources:
       Description: AWS Lamdba to to inventory all public IPs & ENIs in an account
       Handler: inventory-eni.lambda_handler
       Runtime: python3.6
-      Timeout: 300
+      Timeout: 600
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
@@ -425,7 +425,7 @@ Resources:
       Description: Inventory S3 Buckets and their attributes
       Handler: inventory-buckets.lambda_handler
       Runtime: python3.6
-      Timeout: 300
+      Timeout: 600
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
@@ -841,7 +841,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-instances-securitygroups-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
@@ -868,7 +868,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-instances-securitygroups-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
