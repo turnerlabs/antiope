@@ -7,10 +7,6 @@ Parameters:
     Description: Name of the bucket to hold the images
     Type: String
 
-  pDeployBucket:
-    Description: Name of a bucket where all the Lambda deploy Zips are kept
-    Type: String
-
   pLambdaZipFile:
     Description: File Name for the lambdas
     Type: String
@@ -87,7 +83,6 @@ Resources:
             - s3:GetBucketLocation
             Effect: Allow
             Resource: '*'
-
 
   InventoryLambdaRole:
     Type: AWS::IAM::Role
@@ -177,6 +172,25 @@ Resources:
             - sns:publish
             Resource:
               - !Ref TriggerAccountInventoryFunctionTopic
+              - !Ref NewActiveAccountTopic
+              - !Ref NewForeignAccountTopic
+      - PolicyName: DataTableStream
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+              - dynamodb:DescribeStream
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:ListStreams
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource:
+              - !GetAtt AccountDBTable.StreamArn
 
   #
   # State Machine Functions
@@ -192,7 +206,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -244,6 +258,75 @@ Resources:
               raise Exception(event['Cause'])
           ### End of Function
 
+  CreateAccountReportLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-create-account-report"
+      Description: Create an HTML Report with all the AWS Accounts
+      Handler: report-accounts.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+  #
+  # New Account Handling
+  #
+  NewAccountHandlerLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-new_account_handler"
+      Description: Function to Handle the discovery of new Accounts written to the Accounts DDB Table
+      Handler: new_account_handler.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          # Specific to this function
+          ACTIVE_TOPIC: !Ref NewActiveAccountTopic
+          FOREIGN_TOPIC: !Ref NewForeignAccountTopic
+      # Tags inherited from Stack
+
+  DataTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    DependsOn: InventoryLambdaRole
+    Properties:
+      BatchSize: 25 #trigger one lambda per document
+      Enabled: True
+      EventSourceArn: !GetAtt AccountDBTable.StreamArn
+      FunctionName: !GetAtt NewAccountHandlerLambdaFunction.Arn
+      StartingPosition: LATEST #always start at the tail of the stream
+
+  NewActiveAccountTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Notifications of a new AWS Account"
+
+  NewForeignAccountTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Notifications for discovery of a foreign AWS Account"
   #
   # Parallel Execution Functions
   #
@@ -258,7 +341,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -276,11 +359,11 @@ Resources:
       Description: AWS Lamdba to to inventory all public IPs & ENIs in an account
       Handler: inventory-eni.lambda_handler
       Runtime: python3.6
-      Timeout: 300
+      Timeout: 600
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -302,7 +385,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -324,7 +407,7 @@ Resources:
   #     MemorySize: !Ref pSmallLambdaSize
   #     Role: !GetAtt InventoryLambdaRole.Arn
   #     Code:
-  #       S3Bucket: !Ref pDeployBucket
+  #       S3Bucket: !Ref pBucketName
   #       S3Key: !Sub ${pLambdaZipFile}
   #     Environment:
   #       Variables:
@@ -338,7 +421,7 @@ Resources:
   InstancesSecurityGroupsInventoryLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-instances-securitygroups-inventory"
+      FunctionName: !Sub "${AWS::StackName}-instances-sg-inventory"
       Description: Inventory instances and security groups to a JSON file in S3
       Handler: inventory-instances-sg.lambda_handler
       Runtime: python3.6
@@ -346,7 +429,7 @@ Resources:
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -368,7 +451,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -391,7 +474,7 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -409,11 +492,11 @@ Resources:
       Description: Inventory S3 Buckets and their attributes
       Handler: inventory-buckets.lambda_handler
       Runtime: python3.6
-      Timeout: 300
+      Timeout: 600
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -435,7 +518,29 @@ Resources:
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+  ECSInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ecs-inventory"
+      Description: Inventory ECS Clusters & Tasks
+      Handler: inventory-ecs.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
@@ -508,7 +613,7 @@ Resources:
             Effect: Allow
             Resource:
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
-              - !GetAtt GetBillingDataLambdaFunction.Arn
+              - !GetAtt CreateAccountReportLambdaFunction.Arn
 
       - PolicyName: LambdaLogging
         PolicyDocument:
@@ -545,8 +650,17 @@ Resources:
             },
             "WaitForLambdaExecutionsToComplete": {
               "Type": "Wait",
-              "Seconds": 250,
-              "End": true
+              "Seconds": 300,
+              "Next": "CreateAccountReportLambdaFunction"
+            },
+            "CreateAccountReportLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${CreateAccountReportLambdaFunction.Arn}",
+              "End": true,
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+              }]
             }
           }
         }
@@ -694,6 +808,21 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
+  ECSnventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ECSInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  ECSInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [ECSInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
   #
   # DynamoDB Tables
   #
@@ -712,6 +841,8 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: !Ref pTableReadUnits
         WriteCapacityUnits: !Ref pTableWriteUnits
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
 
   # This table stores the vpc inventory
   VpcInventoryDBTable:
@@ -779,7 +910,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-instances-securitygroups-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
@@ -787,6 +918,9 @@ Resources:
                   [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -804,7 +938,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-instances-securitygroups-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
@@ -812,6 +946,9 @@ Resources:
                   [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -960,9 +1097,6 @@ Resources:
                 "title": "Inventory Object Count"
               }
             }
-
-
-
           ]
         }
 
@@ -974,3 +1108,8 @@ Outputs:
     Value: !Ref pLambdaZipFile
   InventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
+  NewAccountNotificationTopic:
+    Value: !Ref NewActiveAccountTopic
+  ForeignAccountNotificationTopic:
+    Value: !Ref NewForeignAccountTopic
+

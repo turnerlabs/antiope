@@ -5,20 +5,9 @@ Notes.md
 
 *.zip
 *-test-event.json
+*dist-info
 
 # required python packages for the lambda that should not be committed
-inventory-lambda/et_xmlfile
-inventory-lambda/aws_scorecard
-inventory-lambda/openpyxl
-inventory-lambda/yaml
-inventory-lambda/jdcal.py
-inventory-lambda/*dist-info
-inventory-lambda/*.zip
-inventory-lambda/semver.py
-inventory-lambda/lib/
-
-cloudformation/Inventory-Manifest-*.yaml
-cloudformation/SearchCluster-Manifest-*.yaml
 
 search-lambda/*dist-info
 search-lambda/*.zip
@@ -26,9 +15,16 @@ search-lambda/urllib3*
 search-lambda/requests*
 search-lambda/lib/
 
+aws-inventory/lambda/et_xmlfile
+aws-inventory/lambda/openpyxl
+aws-inventory/lambda/yaml
+aws-inventory/lambda/jdcal.py
+aws-inventory/lambda/semver.py
+aws-inventory/lambda/lib/
 
-
-
+*Manifest.yaml
+config.env
+*test-events/*
 
 # Created by https://www.gitignore.io/api/osx,python
 

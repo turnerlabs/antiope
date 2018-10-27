@@ -65,19 +65,20 @@ def discover_roles(account):
         # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
         for s in role['AssumeRolePolicyDocument']['Statement']:
             if s['Principal'] == "*": # Dear mother of god, you're p0wned
+                logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
                 raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role['Arn']))
             elif 'AWS' in s['Principal']:  # This means it's trusting an AWS Account and not an AWS Service.
                 if type(s['Principal']['AWS']) is list:
                     for p in s['Principal']['AWS']:
-                        process_trusted_account(p)
+                        process_trusted_account(p, role['Arn'])
                 else:
-                    process_trusted_account(s['Principal']['AWS'])
+                    process_trusted_account(s['Principal']['AWS'], role['Arn'])
 
         # Need to make sure the resource name is unique and service identifiable.
         resource_name = "{}-{}".format(role['RoleName'], account.account_id)
         save_resource_to_s3(ROLE_RESOURCE_PATH, resource_name, role)
 
-def process_trusted_account(principal):
+def process_trusted_account(principal, role_arn):
     '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
@@ -88,7 +89,8 @@ def process_trusted_account(principal):
     elif re.match('^[0-9]{12}$', principal):
         account_id = principal
     elif principal == "*":
-        raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!")
+        logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
+        raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
         return() # No accounts to add to the DB
     else:
         logger.error("Unable to identify what kind of AWS Principal this is: {}".format(principal))
