@@ -172,6 +172,25 @@ Resources:
             - sns:publish
             Resource:
               - !Ref TriggerAccountInventoryFunctionTopic
+              - !Ref NewActiveAccountTopic
+              - !Ref NewForeignAccountTopic
+      - PolicyName: DataTableStream
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+              - dynamodb:DescribeStream
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:ListStreams
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource:
+              - !GetAtt AccountDBTable.StreamArn
 
   #
   # State Machine Functions
@@ -260,6 +279,54 @@ Resources:
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
+
+  #
+  # New Account Handling
+  #
+  NewAccountHandlerLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-new_account_handler"
+      Description: Function to Handle the discovery of new Accounts written to the Accounts DDB Table
+      Handler: new_account_handler.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          # Specific to this function
+          ACTIVE_TOPIC: !Ref NewActiveAccountTopic
+          FOREIGN_TOPIC: !Ref NewForeignAccountTopic
+      # Tags inherited from Stack
+
+  DataTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    DependsOn: InventoryLambdaRole
+    Properties:
+      BatchSize: 25 #trigger one lambda per document
+      Enabled: True
+      EventSourceArn: !GetAtt AccountDBTable.StreamArn
+      FunctionName: !GetAtt NewAccountHandlerLambdaFunction.Arn
+      StartingPosition: LATEST #always start at the tail of the stream
+
+  NewActiveAccountTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Notifications of a new AWS Account"
+
+  NewForeignAccountTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Notifications for discovery of a foreign AWS Account"
   #
   # Parallel Execution Functions
   #
@@ -774,6 +841,8 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: !Ref pTableReadUnits
         WriteCapacityUnits: !Ref pTableWriteUnits
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
 
   # This table stores the vpc inventory
   VpcInventoryDBTable:
@@ -851,6 +920,7 @@ Resources:
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -878,6 +948,7 @@ Resources:
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -1026,9 +1097,6 @@ Resources:
                 "title": "Inventory Object Count"
               }
             }
-
-
-
           ]
         }
 
@@ -1040,3 +1108,8 @@ Outputs:
     Value: !Ref pLambdaZipFile
   InventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
+  NewAccountNotificationTopic:
+    Value: !Ref NewActiveAccountTopic
+  ForeignAccountNotificationTopic:
+    Value: !Ref NewForeignAccountTopic
+

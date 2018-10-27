@@ -49,7 +49,8 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-iam-inventory \
 			$(FULL_STACK_NAME)-ecs-inventory \
 			$(FULL_STACK_NAME)-health-inventory \
-			$(FULL_STACK_NAME)-create-account-report
+			$(FULL_STACK_NAME)-create-account-report \
+			$(FULL_STACK_NAME)-new_account_handler
 
 
 .PHONY: $(FUNCTIONS)
