@@ -308,27 +308,6 @@ Resources:
           FOREIGN_TOPIC: !Ref NewForeignAccountTopic
       # Tags inherited from Stack
 
-  # EchoFunction:
-  #   Type: AWS::Lambda::Function
-  #   Properties:
-  #     Code: #actual code, which echos the incoming event
-  #       ZipFile: >
-  #         'use strict';
-  #         var AWS = require("aws-sdk");
-
-  #         exports.handler = (event, context, callback) => {
-
-  #             event.Records.forEach((record) => {
-  #                 console.log('Stream record: ', JSON.stringify(record, null, 2));
-  #                 console.log('Stream record: ', JSON.stringify(record.dynamodb, null, 2));
-  #             });
-  #             callback(null, `Successfully processed ${event.Records.length} records.`);
-  #         };
-  #     Handler: index.handler
-  #     Role: !GetAtt InventoryLambdaRole.Arn
-  #     Runtime: nodejs6.10
-  #     Timeout: 300
-
   DataTableStream:
     Type: AWS::Lambda::EventSourceMapping
     DependsOn: InventoryLambdaRole
@@ -1118,9 +1097,6 @@ Resources:
                 "title": "Inventory Object Count"
               }
             }
-
-
-
           ]
         }
 
@@ -1132,3 +1108,8 @@ Outputs:
     Value: !Ref pLambdaZipFile
   InventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
+  NewAccountNotificationTopic:
+    Value: !Ref NewActiveAccountTopic
+  ForeignAccountNotificationTopic:
+    Value: !Ref NewForeignAccountTopic
+
