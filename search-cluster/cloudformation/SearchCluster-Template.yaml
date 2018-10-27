@@ -7,24 +7,10 @@ Parameters:
     Description: Name of the bucket to hold the images
     Type: String
 
-  pDeployBucket:
-    Description: Name of a bucket where all the Lambda deploy Zips are kept
-    Type: String
-
   pLambdaZipFile:
     Description: File Name for the lambdas
     Type: String
     Default: inventory.zip
-
-  pAssumeRoleArn:
-    Description: Arn Name of the Role the lambda needs to assume to do cross account Access
-    Type: String
-    Default: arn:aws:iam::*:role/Security-Audit
-
-  pRoleName:
-    Description: Default name of the AssumeRole to assume into accounts
-    Type: String
-    Default: Security-Audit
 
   pEmailAddress:
     Type: String
@@ -196,18 +182,13 @@ Resources:
       # MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
-        S3Bucket: !Ref pDeployBucket
+        S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
       Environment:
         Variables:
           ROLE_SESSION_NAME: !Ref AWS::StackName
           INVENTORY_BUCKET: !Ref pBucketName
           ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
-          # ACCOUNT_TABLE: !Ref AccountDBTable
-          # VPC_TABLE: !Ref VpcInventoryDBTable
-          # ROLE_NAME: !Ref pRoleName
-          # # Specific to this function
-          # TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
       # Tags inherited from Stack
 
   SearchIngestEventQueue:

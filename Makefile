@@ -17,60 +17,14 @@ inventory-deploy:
 inventory-update:
 	cd aws-inventory && $(MAKE) update
 
+search-deploy:
+	cd search-cluster && $(MAKE) deploy
+
+search-update:
+	cd search-clustery && $(MAKE) update
+
 clean:
 	cd aws-inventory && $(MAKE) clean
-	cd search-lambda && $(MAKE) clean
+	cd search-cluster && $(MAKE) clean
 
-#####
-
-
-# Search Stack Vars
-export SEARCH_STACK_TEMPLATE ?= cloudformation/SearchCluster-Template.yaml
-export SEARCH_MANIFEST ?= cloudformation/SearchCluster-Manifest-$(SEARCH_STACK).yaml
-export SEARCH_LAMBDA_PACKAGE ?= antiope-lambda-search-$(version).zip
-export SEARCH_OBJECT_KEY ?= lambda-packages/$(SEARCH_LAMBDA_PACKAGE)
-SEARCH_FUNCTIONS = $(SEARCH_STACK)-ingest-s3
-
-
-
-.PHONY: $(SEARCH_FUNCTIONS)
-
-# Run all tests
-test: cfn-validate
-	cd inventory-lambda && $(MAKE) test
-	cd search-lambda && $(MAKE) test
-
-deploy: package upload cfn-deploy
-
-
-#
-# Cloudformation Targets
-#
-
-# Validate the template
-cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region us-east-1 --template-body file://$(SEARCH_STACK_TEMPLATE) 1> /dev/null
-
-
-
-
-
-
-
-# Search Stack Targets
-search-deploy: search-package search-upload search-deploy
-
-search-package:
-	cd search-lambda && $(MAKE) package
-
-search-upload: search-package
-	aws s3 cp search-lambda/$(SEARCH_LAMBDA_PACKAGE) s3://$(DEPLOYBUCKET)/$(SEARCH_OBJECT_KEY)
-
-search-deploy: cfn-validate $(SEARCH_MANIFEST)
-	deploy_stack.rb -m $(SEARCH_MANIFEST) pLambdaZipFile=$(SEARCH_OBJECT_KEY) pDeployBucket=$(DEPLOYBUCKET) --force
-
-search-update: search-package $(SEARCH_FUNCTIONS)
-	for f in $(SEARCH_FUNCTIONS) ; do \
-	  aws lambda update-function-code --function-name $$f --zip-file fileb://search-lambda/$(SEARCH_LAMBDA_PACKAGE) ; \
-	done
 

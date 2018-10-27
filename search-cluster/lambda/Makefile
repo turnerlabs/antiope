@@ -20,11 +20,11 @@ clean:
 
 # # Create the package Zip. Assumes all tests were done
 zipfile: deps $(FILES) $(DEPENDENCIES)
-	zip -r $(SEARCH_LAMBDA_PACKAGE) $^
+	zip -r $(LAMBDA_PACKAGE) $^
 
 test: $(FILES)
 	for f in $^; do $(PYTHON) -m py_compile $$f; if [ $$? -ne 0 ] ; then echo "$$f FAILS" ; exit 1; fi done
 
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
-	cp -a ../lib .
+	cp -a ../../lib .
