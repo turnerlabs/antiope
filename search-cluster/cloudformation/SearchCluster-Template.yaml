@@ -7,6 +7,11 @@ Parameters:
     Description: Name of the bucket to hold the images
     Type: String
 
+  pDomainName:
+    Description: Name of the Elasticsearch Domain
+    Type: String
+    MaxLength: 28
+
   pLambdaZipFile:
     Description: File Name for the lambdas
     Type: String
@@ -22,6 +27,12 @@ Parameters:
     Default: AntiopeIDPool
     ConstraintDescription: pIdentityPoolName must only contain uppercase and lowercase letters and numbers
     AllowedPattern: "[A-Za-z0-9]+"
+
+  pClusterInstanceType:
+    Type: String
+    Description: Size of the ES Cluster
+    Default: t2.small.elasticsearch
+    ConstraintDescription: Must be a valid Elasticsearch Service InstanceType (https://aws.amazon.com/elasticsearch-service/pricing/)
 
 Resources:
 
@@ -52,9 +63,7 @@ Resources:
               AWS: !GetAtt CognitoKibanaAuthRole.Arn
             Action: "es:*"
             Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${AWS::StackName}/*"
-
-              # !Join [ "", ["arn:aws:es:", !Ref "AWS::Region", ":" , !Ref "AWS::AccountId", ":domain/", !Ref ESDomainName, "/*" ] ]
-      DomainName: !Ref AWS::StackName
+      DomainName: !Ref pDomainName
       EBSOptions:
         EBSEnabled: true
         Iops: 0
@@ -65,7 +74,7 @@ Resources:
         DedicatedMasterEnabled: false
         InstanceCount: 1
         ZoneAwarenessEnabled: false
-        InstanceType: t2.small.elasticsearch
+        InstanceType: !Ref pClusterInstanceType
       ElasticsearchVersion: 6.3
       # Encryption at rest is not supported with t2.small.elasticsearch
       # EncryptionAtRestOptions:
