@@ -62,7 +62,7 @@ Resources:
             Principal:
               AWS: !GetAtt CognitoKibanaAuthRole.Arn
             Action: "es:*"
-            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${AWS::StackName}/*"
+            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${pDomainName}/*"
       DomainName: !Ref pDomainName
       EBSOptions:
         EBSEnabled: true
