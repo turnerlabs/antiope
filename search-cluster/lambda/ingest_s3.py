@@ -15,7 +15,7 @@ from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
@@ -40,7 +40,9 @@ def lambda_handler(event, context):
 
         # logger.info("Record: {}".format(json.dumps(record, sort_keys=True)))
         message = json.loads(record['body'])
-        logger.debug("message: {}".format(json.dumps(message, sort_keys=True)))
+        logger.info("message: {}".format(json.dumps(message, sort_keys=True)))
+        if 'Records' not in message:
+            continue
 
         for s3_record in message['Records']:
             bucket=s3_record['s3']['bucket']['name']
