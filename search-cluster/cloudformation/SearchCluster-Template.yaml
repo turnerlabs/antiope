@@ -34,6 +34,12 @@ Parameters:
     Default: t2.small.elasticsearch
     ConstraintDescription: Must be a valid Elasticsearch Service InstanceType (https://aws.amazon.com/elasticsearch-service/pricing/)
 
+  pClusterInstanceCount:
+    Type: Number
+    Description: Cluster Instance Count
+    Default: 1
+
+
 Resources:
 
   SearchClusterDomain:
@@ -72,7 +78,7 @@ Resources:
       ElasticsearchClusterConfig:
         # FIXME
         DedicatedMasterEnabled: false
-        InstanceCount: 1
+        InstanceCount: !Ref pClusterInstanceCount
         ZoneAwarenessEnabled: false
         InstanceType: !Ref pClusterInstanceType
       ElasticsearchVersion: 6.3
@@ -187,7 +193,7 @@ Resources:
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
-      Timeout: 300
+      Timeout: 60
       # MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
@@ -394,7 +400,7 @@ Resources:
                     "width": 9,
                     "height": 3,
                     "properties": {
-                        "markdown": "# Links and Info\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* [Cluster Health] (https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)"
+                        "markdown": "# Links and Info\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)"
                     }
                 },
                 {
