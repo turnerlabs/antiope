@@ -1,0 +1,486 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy the Inventory Component of Antiope
+
+Parameters:
+
+  pBucketName:
+    Description: Name of the bucket to hold the images
+    Type: String
+
+  pDomainName:
+    Description: Name of the Elasticsearch Domain
+    Type: String
+    MaxLength: 28
+
+  pLambdaZipFile:
+    Description: File Name for the lambdas
+    Type: String
+    Default: inventory.zip
+
+  pEmailAddress:
+    Type: String
+    Description: Default Username for Cognito
+
+  pIdentityPoolName:
+    Type: String
+    Description: Name of the Identity Pool. Cannot contain non-alphanumeric char
+    Default: AntiopeIDPool
+    ConstraintDescription: pIdentityPoolName must only contain uppercase and lowercase letters and numbers
+    AllowedPattern: "[A-Za-z0-9]+"
+
+  pClusterInstanceType:
+    Type: String
+    Description: Size of the ES Cluster
+    Default: t2.small.elasticsearch
+    ConstraintDescription: Must be a valid Elasticsearch Service InstanceType (https://aws.amazon.com/elasticsearch-service/pricing/)
+
+  pClusterInstanceCount:
+    Type: Number
+    Description: Cluster Instance Count
+    Default: 1
+
+
+Resources:
+
+  SearchClusterDomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      # AccessPolicies:
+      #   Version: "2012-10-17"
+      #   Statement:
+      #     - Effect: "Allow"
+      #       Principal:
+      #         AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+      #       Action: "es:*"
+      #       Resource: "*"
+      #     - Effect: "Allow"
+      #       Principal: "*"
+      #       Action: "es:*"
+      #       Resource: "*"
+      #       Condition:
+      #         IpAddress:
+      #           aws:SourceIp:
+      #           - 99.161.92.198
+      AccessPolicies:
+        Version: 2012-10-17
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: !GetAtt CognitoKibanaAuthRole.Arn
+            Action: "es:*"
+            Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${pDomainName}/*"
+      DomainName: !Ref pDomainName
+      EBSOptions:
+        EBSEnabled: true
+        Iops: 0
+        VolumeSize: 20
+        VolumeType: "gp2"
+      ElasticsearchClusterConfig:
+        # FIXME
+        DedicatedMasterEnabled: false
+        InstanceCount: !Ref pClusterInstanceCount
+        ZoneAwarenessEnabled: false
+        InstanceType: !Ref pClusterInstanceType
+      ElasticsearchVersion: 6.3
+      # Encryption at rest is not supported with t2.small.elasticsearch
+      # EncryptionAtRestOptions:
+      #   Enabled: True
+      #   KmsKeyId: !Ref SearchClusterKMSKey
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: "0"
+
+  SearchClusterKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Ref AWS::StackName
+      Enabled: True
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "allow-iam"
+        Statement:
+          - Sid: "Allow everyone use of the key"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "kms:*"
+            Resource: "*"
+          - Sid: "Allow s3 use of the key"
+            Effect: "Allow"
+            Principal:
+              Service: "s3.amazonaws.com"
+            Action:
+              - "kms:GenerateDataKey"
+              - "kms:Decrypt"
+            Resource: "*"
+
+  SearchClusterKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${AWS::StackName}"
+      TargetKeyId: !Ref SearchClusterKMSKey
+
+  #
+  # Ingest Lambda
+  #
+  IngestLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+        - Sid: EmuLambdaTestTrust
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+      - PolicyName: LambdaLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: '*'
+            Action:
+            - logs:*
+            Effect: Allow
+      - PolicyName: GetMessages
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: !GetAtt SearchIngestEventQueue.Arn
+            Action:
+            - sqs:*
+            Effect: Allow
+      - PolicyName: IndexData
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: !Sub "${SearchClusterDomain.DomainArn}/*"
+            Action:
+            - es:*
+            Effect: Allow
+
+  #
+  # Ingestion Function Functions
+  #
+  SearchIngestS3Function:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ingest-s3"
+      Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
+      Handler: ingest_s3.lambda_handler
+      Runtime: python3.6
+      Timeout: 60
+      # MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt IngestLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
+      # Tags inherited from Stack
+
+  SearchIngestEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      # KmsMasterKeyId: SearchClusterKMSKey
+      # KmsDataKeyReusePeriodSeconds: 86400
+      MessageRetentionPeriod: 345600 # (4 days)
+      ReceiveMessageWaitTimeSeconds: 10
+      # RedrivePolicy:
+      #   FIXME
+      VisibilityTimeout: 300
+
+  SearchIngestEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SearchIngestEventQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: AllowS3
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - SQS:SendMessage
+          Resource: !GetAtt SearchIngestEventQueue.Arn
+          Condition:
+            ArnLike:
+              aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+
+  SearchIngestS3FunctionMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10 # Max
+      Enabled: True
+      EventSourceArn: !GetAtt SearchIngestEventQueue.Arn
+      FunctionName: !GetAtt SearchIngestS3Function.Arn
+
+  #
+  # Cognito Auth to ES/Kibana
+  #
+  # Implementation stolen from:
+  # https://aws.amazon.com/blogs/security/visualizing-amazon-guardduty-findings/
+  CognitoUserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-UserPool"
+
+  CognitoUserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      GenerateSecret: false  #not sure what the default is - if false, then we don't need this property
+      UserPoolId: !Ref CognitoUserPool
+
+  KibanaUser:
+    Type: "AWS::Cognito::UserPoolUser"
+    Properties:
+      Username: !Ref pEmailAddress
+      UserAttributes:
+      - Name: "email"
+        Value: !Ref pEmailAddress
+      UserPoolId: !Ref CognitoUserPool
+
+  ESEnableCognitoRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonESCognitoAccess
+
+  CognitoKibanaAuthRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action:
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": authenticated
+
+  CognitoKibanaAuthPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: Cognito_Kibana_Auth_Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - "mobileanalytics:PutEvents"
+              - "cognito-sync:*"
+              - "cognito-identity:*"
+            Resource: "*"
+      Roles:
+        - !Ref CognitoKibanaAuthRole
+
+  CognitoKibanaUnauthRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Federated: "cognito-identity.amazonaws.com"
+            Action:
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": unauthenticated
+
+  CognitoKibanaUnauthPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: Cognito_Kibana_Auth_Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "mobileanalytics:PutEvents"
+              - "cognito-sync:*"
+            Resource: "*"
+      Roles:
+        - !Ref CognitoKibanaUnauthRole
+
+  CognitoIDPool:
+    Type: 'AWS::Cognito::IdentityPool'
+    Properties:
+      IdentityPoolName: !Ref pIdentityPoolName
+      AllowUnauthenticatedIdentities: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref CognitoUserPoolClient
+          ProviderName: !GetAtt CognitoUserPool.ProviderName
+
+  IdentityPoolRoleMapping:
+    Type: "AWS::Cognito::IdentityPoolRoleAttachment"
+    Properties:
+      IdentityPoolId: !Ref CognitoIDPool
+      Roles:
+        authenticated: !GetAtt CognitoKibanaAuthRole.Arn
+        unauthenticated: !GetAtt CognitoKibanaUnauthRole.Arn
+
+  #
+  # Dashboard
+  #
+  Dashboard:
+    Type: "AWS::CloudWatch::Dashboard"
+    Properties:
+      DashboardName: !Ref AWS::StackName
+      DashboardBody: !Sub |-
+        {
+            "widgets": [
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 0,
+                    "width": 15,
+                    "height": 3,
+                    "properties": {
+                        "metrics": [
+                            [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-ingest-s3", { "stat": "Sum", "period": 604800 } ],
+                            [ ".", "Errors", ".", ".", { "stat": "Sum", "period": 604800 } ],
+                            [ ".", "Throttles", ".", ".", { "stat": "Sum", "period": 604800 } ],
+                            [ ".", "Duration", ".", ".", { "stat": "Average", "period": 604800 } ]
+                        ],
+                        "view": "singleValue",
+                        "region": "us-east-1",
+                        "title": "Ingest Function Stats"
+                    }
+                },
+                {
+                    "type": "text",
+                    "x": 15,
+                    "y": 0,
+                    "width": 9,
+                    "height": 3,
+                    "properties": {
+                        "markdown": "# Links and Info\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 3,
+                    "width": 24,
+                    "height": 6,
+                    "properties": {
+                        "metrics": [
+                            [ "AWS/ES", "ElasticsearchRequests", "DomainName", "${SearchClusterDomain}", "ClientId", "${AWS::AccountId}", { "stat": "Maximum" } ],
+                            [ ".", "IndexingRate", ".", ".", ".", ".", { "stat": "Maximum" } ],
+                            [ ".", "SearchRate", ".", ".", ".", ".", { "stat": "Maximum" } ]
+                        ],
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "region": "us-east-1",
+                        "title": "Search Requests",
+                        "period": 300
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 9,
+                    "width": 24,
+                    "height": 6,
+                    "properties": {
+                        "metrics": [
+                            [ "AWS/ES", "Nodes", "DomainName", "${SearchClusterDomain}", "ClientId", "${AWS::AccountId}", { "stat": "Maximum" } ],
+                            [ ".", "KibanaHealthyNodes", ".", ".", ".", ".", { "stat": "Maximum" } ],
+                            [ ".", "ClusterStatus.green", ".", ".", ".", ".", { "stat": "Maximum" } ],
+                            [ ".", "ClusterStatus.red", ".", ".", ".", ".", { "stat": "Maximum" } ],
+                            [ ".", "ClusterStatus.yellow", ".", ".", ".", ".", { "stat": "Maximum" } ],
+                            [ ".", "MasterReachableFromNode", ".", ".", ".", ".", { "stat": "Maximum" } ]
+                        ],
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "region": "us-east-1",
+                        "title": "Node Stats",
+                        "period": 300
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 15,
+                    "width": 24,
+                    "height": 6,
+                    "properties": {
+                        "metrics": [
+                            [ "AWS/ES", "ClusterUsedSpace", "DomainName", "${SearchClusterDomain}", "ClientId", "${AWS::AccountId}" ],
+                            [ ".", "FreeStorageSpace", ".", ".", ".", "." ],
+                            [ ".", "DeletedDocuments", ".", ".", ".", ".", { "yAxis": "right" } ],
+                            [ ".", "SearchableDocuments", ".", ".", ".", ".", { "yAxis": "right" } ]
+                        ],
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "region": "us-east-1",
+                        "period": 300,
+                        "yAxis": {
+                          "left": {"min": 0 },
+                          "right": {"min": 0 }
+                        },
+                        "title": "Cluster Disk Space and Documents"
+                    }
+                }
+            ]
+        }
+
+Outputs:
+  StackName:
+    Value: !Ref AWS::StackName
+  InventoryStackVersion:
+    Value: !Ref pLambdaZipFile
+  ClusterEndpoint:
+    Value: !GetAtt SearchClusterDomain.DomainEndpoint
+  ESCognitoRole:
+    Description: "Use this role to enable Cognito authentication in Elasticsearch"
+    Value: !Ref ESEnableCognitoRole
+  KibanaURL:
+    Description: "The URL to access Kibana."
+    Value: !Sub "https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/"

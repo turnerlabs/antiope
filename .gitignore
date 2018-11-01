@@ -8,6 +8,22 @@ Notes.md
 *dist-info
 
 # required python packages for the lambda that should not be committed
+
+search-cluster/lambda/*dist-info
+search-cluster/lambda/*.zip
+search-cluster/lambda/urllib3*
+search-cluster/lambda/requests*
+search-cluster/lambda/lib/
+search-cluster/lambda/chardet/
+search-cluster/lambda/certifi/
+search-cluster/lambda/idna/
+search-cluster/lambda/bin/
+search-cluster/lambda/*.rst
+search-cluster/lambda/LICENSE
+search-cluster/lambda/NOTICE
+
+
+
 aws-inventory/lambda/et_xmlfile
 aws-inventory/lambda/openpyxl
 aws-inventory/lambda/yaml
