@@ -44,6 +44,7 @@ def lambda_handler(event, context):
                 for instance in reservation['Instances']:
                     instance['account_id'] = message['account_id']
                     instance['region'] = r
+                    instance['resource_type'] = "ec2-instance"
                     save_resource_to_s3(INSTANCE_RESOURCE_PATH, instance['InstanceId'], instance)
 
             # describe ec2 security groups
@@ -55,6 +56,7 @@ def lambda_handler(event, context):
             for sec_group in sec_groups:
                 sec_group['account_id'] = message['account_id']
                 sec_group['region'] = r
+                sec_group['resource_type'] = "ec2-sg"
                 save_resource_to_s3(SG_RESOURCE_PATH, sec_group['GroupId'], sec_group)
 
     except AssumeRoleError as e:

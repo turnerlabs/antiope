@@ -41,6 +41,7 @@ def lambda_handler(event, context):
                 cluster = ecs_client.describe_clusters(clusters=[cluster_arn], include=['STATISTICS'] )['clusters'][0]
                 cluster['account_id'] = message['account_id']
                 cluster['region'] = r
+                cluster['resource_type'] = "ecs-cluster"
                 cluster_name = "{}-{}".format(cluster['clusterName'], target_account.account_id)
                 save_resource_to_s3(CLUSTER_RESOURCE_PATH, cluster_name, cluster)
 
@@ -48,6 +49,7 @@ def lambda_handler(event, context):
                     task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn])['tasks'][0]
                     task['account_id'] = message['account_id']
                     task['region'] = r
+                    task['resource_type'] = "ecs-task"
                     task_name = "{}-{}".format(task['taskDefinitionArn'].split('/')[-1], target_account.account_id)
                     save_resource_to_s3(TASK_RESOURCE_PATH, task_name, task)
 
