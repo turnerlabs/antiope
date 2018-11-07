@@ -66,8 +66,10 @@ def discover_domains(account):
         domain['account_id']       = account.account_id
         domain['account_name']     = account.account_name
         domain['resource_type']    = "route53-domain"
+        domain['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
         # And the one bit of info that only list domains had.
         domain['TransferLock']     = d['TransferLock']
+
 
         # Not sure why Route53 product team makes me do a special call for tags.
         response = route53_client.list_tags_for_domain(DomainName=d['DomainName'])
@@ -96,7 +98,7 @@ def discover_zones(account):
         zone['account_id']       = account.account_id
         zone['account_name']     = account.account_name
         zone['resource_type']    = "route53-zone"
-        zone['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        zone['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
         # # Not sure why Route53 product team makes me do a special call for tags.
         # response = route53_client.list_tags_for_resource(

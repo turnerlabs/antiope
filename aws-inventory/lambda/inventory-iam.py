@@ -61,7 +61,7 @@ def discover_roles(account):
         role['account_id']       = account.account_id
         role['account_name']     = account.account_name
         role['resource_type']    = "iam-role"
-        role['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        role['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
         # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
         for s in role['AssumeRolePolicyDocument']['Statement']:

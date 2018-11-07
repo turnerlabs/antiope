@@ -42,6 +42,7 @@ def lambda_handler(event, context):
                 cluster['account_id'] = message['account_id']
                 cluster['region'] = r
                 cluster['resource_type'] = "ecs-cluster"
+                cluster['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
                 cluster_name = "{}-{}".format(cluster['clusterName'], target_account.account_id)
                 save_resource_to_s3(CLUSTER_RESOURCE_PATH, cluster_name, cluster)
 
@@ -50,6 +51,7 @@ def lambda_handler(event, context):
                     task['account_id'] = message['account_id']
                     task['region'] = r
                     task['resource_type'] = "ecs-task"
+                    task['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
                     task_name = "{}-{}".format(task['taskDefinitionArn'].split('/')[-1], target_account.account_id)
                     save_resource_to_s3(TASK_RESOURCE_PATH, task_name, task)
 

@@ -86,6 +86,7 @@ def discover_vpcs(target_account, region):
                     'region':               region,
                     'cidr_block':           v['CidrBlock'],
                     'default':              v['IsDefault']
+                    'last_seen':            str(datetime.datetime.now(tz.gettz('US/Eastern')))
                 }
 
         if 'VpnGateway' in v:
