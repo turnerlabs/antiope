@@ -551,6 +551,29 @@ Resources:
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
 
+  CloudTrailInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-cloudtrail-inventory"
+      Description: Inventory CloudTrails
+      Handler: inventory-cloudtrail.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+
   #
   # StateMachine
   #
@@ -822,6 +845,22 @@ Resources:
       Endpoint: !GetAtt [ECSInventoryLambdaFunction, Arn]
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  CloudTrailInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CloudTrailInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  CloudTrailInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [CloudTrailInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
 
   #
   # DynamoDB Tables
