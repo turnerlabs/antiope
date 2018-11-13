@@ -85,7 +85,7 @@ def discover_vpcs(target_account, region):
                     'account_id':           str(target_account.account_id),
                     'region':               region,
                     'cidr_block':           v['CidrBlock'],
-                    'default':              v['IsDefault']
+                    'default':              v['IsDefault'],
                     'last_seen':            str(datetime.datetime.now(tz.gettz('US/Eastern')))
                 }
 
