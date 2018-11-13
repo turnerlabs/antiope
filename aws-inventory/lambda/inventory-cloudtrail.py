@@ -44,7 +44,7 @@ def discover_trails(target_account, region):
     '''Iterate across all regions to discover CloudTrails'''
 
     ct_client = target_account.get_client('cloudtrail', region=region)
-    response = ct_client.describe_vpcs()
+    response = ct_client.describe_trails()
 
     for trail in response['trailList']:
 
@@ -53,7 +53,7 @@ def discover_trails(target_account, region):
             # Move along if the region of the trail is not the region we're making the call to
             continue
 
-        resource_name = "{}-{}-{}".format(account.account_id, region, trail['Name'])
+        resource_name = "{}-{}-{}".format(target_account.account_id, region, trail['Name'])
 
         event_response = ct_client.get_event_selectors(TrailName=trail['Name'])
         trail['EventSelectors'] = event_response['EventSelectors']
