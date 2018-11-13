@@ -65,7 +65,8 @@ def discover_enis(account, region):
         eni['region']           = region
         eni['account_id']       = account.account_id
         eni['account_name']     = account.account_name
-        eni['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        eni['resource_type']    = "ec2-eni"
+        eni['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
         # Save all interfaces!
         save_resource_to_s3(RESOURCE_PATH, eni['NetworkInterfaceId'], eni)

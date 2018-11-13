@@ -57,7 +57,8 @@ def discover_buckets(account):
         # Decorate with the account info
         b['account_id']       = account.account_id
         b['account_name']     = account.account_name
-        b['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        b['resource_type']    = "s3-bucket"
+        b['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
         b['errors'] = {}
 
 

@@ -21,6 +21,9 @@ search-cluster/lambda/bin/
 search-cluster/lambda/*.rst
 search-cluster/lambda/LICENSE
 search-cluster/lambda/NOTICE
+search-cluster/lambda/elasticsearch5/
+search-cluster/lambda/elasticsearch/
+
 
 
 

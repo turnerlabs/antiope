@@ -60,7 +60,8 @@ def discover_roles(account):
         # The Arn tells me the account_id, but I'll do this for consistency across the rest of the resources I collect
         role['account_id']       = account.account_id
         role['account_name']     = account.account_name
-        role['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        role['resource_type']    = "iam-role"
+        role['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
         # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
         for s in role['AssumeRolePolicyDocument']['Statement']:
@@ -132,6 +133,7 @@ def discover_users(account):
     for user in users:
         user['account_id']       = account.account_id
         user['account_name']     = account.account_name
+        user['resource_type']    = "iam-user"
         user['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
         response = iam_client.list_mfa_devices(UserName=user['UserName'])

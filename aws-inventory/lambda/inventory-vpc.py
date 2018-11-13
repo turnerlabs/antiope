@@ -75,6 +75,9 @@ def discover_vpcs(target_account, region):
         # Also VPN & DX might need to be here.
 
         # Save all VPCs!
+        v['resource_type']    = "ec2-vpc"
+        v['account_id']       = target_account.account_id
+        v['account_name']     = target_account.account_name
         save_resource_to_s3(RESOURCE_PATH, v['VpcId'], v)
 
         item = {
@@ -83,6 +86,7 @@ def discover_vpcs(target_account, region):
                     'region':               region,
                     'cidr_block':           v['CidrBlock'],
                     'default':              v['IsDefault']
+                    'last_seen':            str(datetime.datetime.now(tz.gettz('US/Eastern')))
                 }
 
         if 'VpnGateway' in v:
