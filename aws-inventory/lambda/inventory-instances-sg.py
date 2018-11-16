@@ -27,7 +27,6 @@ def lambda_handler(event, context):
     try:
 
         target_account = AWSAccount(message['account_id'])
-        s3_client = boto3.client('s3')
 
         regions = target_account.get_regions()
         if 'region' in message:
