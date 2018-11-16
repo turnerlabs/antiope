@@ -67,6 +67,7 @@ def discover_trails(target_account, region):
         trail['resource_type']    = "cloudtrail"
         trail['account_id']       = target_account.account_id
         trail['account_name']     = target_account.account_name
+        trail['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
         save_resource_to_s3(RESOURCE_PATH, resource_name, trail)
 
 
