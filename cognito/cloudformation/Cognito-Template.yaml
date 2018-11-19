@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy the Inventory Component of Antiope
+
+Parameters:
+
+  pEmailAddress:
+    Type: String
+    Description: Default Username for Cognito
+
+  pIdentityPoolName:
+    Type: String
+    Description: Name of the Identity Pool. Cannot contain non-alphanumeric char
+    Default: AntiopeIDPool
+    ConstraintDescription: pIdentityPoolName must only contain uppercase and lowercase letters and numbers
+    AllowedPattern: "[A-Za-z0-9]+"
+
+Resources:
+  #
+  # Cognito Auth to ES/Kibana
+  #
+  # Implementation stolen from:
+  # https://aws.amazon.com/blogs/security/visualizing-amazon-guardduty-findings/
+  CognitoUserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      UserPoolName: !Sub "${AWS::StackName}-UserPool"
+
+  CognitoUserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      GenerateSecret: false  #not sure what the default is - if false, then we don't need this property
+      UserPoolId: !Ref CognitoUserPool
+
+  KibanaUser:
+    Type: "AWS::Cognito::UserPoolUser"
+    Properties:
+      Username: !Ref pEmailAddress
+      UserAttributes:
+      - Name: "email"
+        Value: !Ref pEmailAddress
+      UserPoolId: !Ref CognitoUserPool
+
+  ESEnableCognitoRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonESCognitoAccess
+
+  CognitoKibanaAuthRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action:
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": authenticated
+
+  CognitoKibanaAuthPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: Cognito_Kibana_Auth_Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - "mobileanalytics:PutEvents"
+              - "cognito-sync:*"
+              - "cognito-identity:*"
+            Resource: "*"
+      Roles:
+        - !Ref CognitoKibanaAuthRole
+
+  CognitoKibanaUnauthRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Federated: "cognito-identity.amazonaws.com"
+            Action:
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": unauthenticated
+
+  CognitoKibanaUnauthPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: Cognito_Kibana_Auth_Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "mobileanalytics:PutEvents"
+              - "cognito-sync:*"
+            Resource: "*"
+      Roles:
+        - !Ref CognitoKibanaUnauthRole
+
+  CognitoIDPool:
+    Type: 'AWS::Cognito::IdentityPool'
+    Properties:
+      IdentityPoolName: !Ref pIdentityPoolName
+      AllowUnauthenticatedIdentities: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref CognitoUserPoolClient
+          ProviderName: !GetAtt CognitoUserPool.ProviderName
+
+  IdentityPoolRoleMapping:
+    Type: "AWS::Cognito::IdentityPoolRoleAttachment"
+    Properties:
+      IdentityPoolId: !Ref CognitoIDPool
+      Roles:
+        authenticated: !GetAtt CognitoKibanaAuthRole.Arn
+        unauthenticated: !GetAtt CognitoKibanaUnauthRole.Arn
+
+Outputs:
+  StackName:
+    Value: !Ref AWS::StackName
+  ESCognitoRole:
+    Description: "Use this role to enable Cognito authentication in Elasticsearch"
+    Value: !Ref ESEnableCognitoRole
+  CognitoKibanaAuthRoleARN:
+    Description: "Role for cognito Kibana auth"
+    Value: !GetAtt CognitoKibanaAuthRole.Arn

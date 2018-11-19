@@ -11,6 +11,9 @@ $(error BUCKET is not set)
 endif
 
 
+cognito-deploy:
+	cd cognito && $(MAKE) deploy
+
 inventory-deploy:
 	cd aws-inventory && $(MAKE) deploy
 
@@ -26,5 +29,5 @@ search-update:
 clean:
 	cd aws-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
-
+	cd cognito && $(MAKE) clean
 
