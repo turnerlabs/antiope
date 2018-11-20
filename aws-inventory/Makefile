@@ -48,6 +48,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-bucket-inventory \
 			$(FULL_STACK_NAME)-iam-inventory \
 			$(FULL_STACK_NAME)-ecs-inventory \
+			$(FULL_STACK_NAME)-es-inventory \
 			$(FULL_STACK_NAME)-cloudtrail-inventory \
 			$(FULL_STACK_NAME)-health-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
