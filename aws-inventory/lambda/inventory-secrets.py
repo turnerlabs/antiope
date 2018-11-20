@@ -55,11 +55,14 @@ def discover_secrets(target_account, region):
 
 def process_secret(client, secret, target_account, region):
 
-    resource_name = "{}-{}-{}".format(target_account.account_id, region, secret['Name'])
+    resource_name = "{}-{}-{}".format(target_account.account_id, region, secret['Name'].replace("/", "-"))
 
     response = client.get_resource_policy(SecretId=secret['ARN'])
-    secret['ResourcePolicy']    = json.loads(response['ResourcePolicy'])
-    secret['Tags']              = parse_tags(secret['Tags'])
+    if 'ResourcePolicy' in response:
+        secret['ResourcePolicy']    = json.loads(response['ResourcePolicy'])
+    if 'Tags' in secret:
+        secret['Tags']              = parse_tags(secret['Tags'])
+
     secret['resource_type']     = "secretsmanager"
     secret['region']            = region
     secret['account_id']        = target_account.account_id
