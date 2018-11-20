@@ -551,6 +551,74 @@ Resources:
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
 
+  CloudTrailInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-cloudtrail-inventory"
+      Description: Inventory CloudTrails
+      Handler: inventory-cloudtrail.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+  ElasticSearchInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-es-inventory"
+      Description: Inventory ElasticSearch Service Domains
+      Handler: inventory-es.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+  SecretsManagerInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-secrets-inventory"
+      Description: Inventory Secrets Manager Secrets
+      Handler: inventory-secrets.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+
+
   #
   # StateMachine
   #
@@ -823,6 +891,53 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
+  CloudTrailInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CloudTrailInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  CloudTrailInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [CloudTrailInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  ElasticSearchInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ElasticSearchInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  ElasticSearchInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [ElasticSearchInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  SecretsManagernventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SecretsManagerInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  SecretsManagerInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [SecretsManagerInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+
+
   #
   # DynamoDB Tables
   #
@@ -919,6 +1034,9 @@ Resources:
                   [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
@@ -947,6 +1065,9 @@ Resources:
                   [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]

@@ -27,7 +27,6 @@ def lambda_handler(event, context):
     try:
 
         target_account = AWSAccount(message['account_id'])
-        s3_client = boto3.client('s3')
 
         regions = target_account.get_regions()
         if 'region' in message:
@@ -42,10 +41,11 @@ def lambda_handler(event, context):
             # dump info about instances to S3 as json
             for reservation in instance_reservations:
                 for instance in reservation['Instances']:
-                    instance['account_id'] = message['account_id']
-                    instance['region'] = r
-                    instance['resource_type'] = "ec2-instance"
-                    instance['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+                    instance['account_id']      = message['account_id']
+                    instance['account_name']    = target_account.account_name
+                    instance['region']          = r
+                    instance['resource_type']   = "ec2-instance"
+                    instance['last_seen']       = str(datetime.datetime.now(tz.gettz('US/Eastern')))
                     save_resource_to_s3(INSTANCE_RESOURCE_PATH, instance['InstanceId'], instance)
 
             # describe ec2 security groups
@@ -55,10 +55,11 @@ def lambda_handler(event, context):
 
             # dump info about security groups to S3 as json
             for sec_group in sec_groups:
-                sec_group['account_id'] = message['account_id']
-                sec_group['region'] = r
-                sec_group['resource_type'] = "ec2-sg"
-                sec_group['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+                sec_group['account_id']     = message['account_id']
+                sec_group['account_name']   = target_account.account_name
+                sec_group['region']         = r
+                sec_group['resource_type']  = "ec2-sg"
+                sec_group['last_seen']      = str(datetime.datetime.now(tz.gettz('US/Eastern')))
                 save_resource_to_s3(SG_RESOURCE_PATH, sec_group['GroupId'], sec_group)
 
     except AssumeRoleError as e:
