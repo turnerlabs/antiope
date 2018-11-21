@@ -47,7 +47,7 @@ def discover_repos(target_account, region):
     response = client.describe_repositories(registryId=target_account.account_id)
     while 'nextToken' in response:  # Gotta Catch 'em all!
         repos += response['repositories']
-        response = client.list_secrets(nextToken=response['nextToken'])
+        response = client.describe_repositories(nextToken=response['nextToken'])
     repos += response['repositories']
 
     for r in repos:
