@@ -72,7 +72,7 @@ def process_key(client, key_arn, target_account, region):
     key['account_id']        = target_account.account_id
     key['account_name']      = target_account.account_name
     key['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-    save_resource_to_s3(RESOURCE_PATH, resource_name, repo)
+    save_resource_to_s3(RESOURCE_PATH, resource_name, key)
 
 def get_key_grants(client, key_arn):
     '''Returns a list of Grants for Key
