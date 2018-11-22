@@ -59,6 +59,7 @@ def process_key(client, key_arn, target_account, region):
 
     # Enhance Key Information to include CMK Policy, Aliases, Tags
     key = client.describe_key(KeyId=key_arn)['KeyMetadata']
+    key['Aliases'] = get_key_aliases(client, key_arn)
     key['ResourcePolicy'] = get_key_policy(client, key_arn)
     key['Tags'] = get_key_tags(client, key_arn)
 
@@ -71,6 +72,26 @@ def process_key(client, key_arn, target_account, region):
     key['account_name']      = target_account.account_name
     key['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
     save_resource_to_s3(RESOURCE_PATH, resource_name, repo)
+
+def get_key_aliases(client, key_arn):
+    '''Return List of Aliases for Key
+    
+    Args:
+        client: Boto3 Client, connected to account and region
+        key_arn (string): ARN of Key
+
+    Returns:
+        list(str): List of Alias Names for Key
+
+    '''
+
+    aliases = []
+    response = client.list_aliases(KeyId=key_arn)
+    while response['Truncated']:
+        aliases += response['Aliases']
+        response = client.list_aliases(KeyId=key_arn, Marker=response['NextMarker'])
+    aliases += response['Aliases']
+    return map(lambda x: x['AliasName'], aliases)
 
 def get_key_policy(client, key_arn):
     '''Return ResourcePolicy of Key
