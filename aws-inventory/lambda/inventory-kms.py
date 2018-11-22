@@ -60,6 +60,7 @@ def process_key(client, key_arn, target_account, region):
     # Enhance Key Information to include CMK Policy, Aliases, Tags
     key = client.describe_key(KeyId=key_arn)['KeyMetadata']
     key['ResourcePolicy'] = get_key_policy(client, key_arn)
+    key['Tags'] = get_key_tags(client, key_arn)
 
     # Remove redundant key
     key.pop('AWSAccountId')
@@ -112,3 +113,45 @@ def get_policy_list(client, key_arn):
         response = client.list_key_policies(KeyId=key_arn, Marker=response['NextMarker'])
     policies += response['PolicyNames']
     return policies
+
+def get_key_tags(client, key_arn):
+    '''Return list of tags for key
+
+    Args:
+        client: Boto3 Client, connected to account and region
+        key_arn (string): ARN of Key
+
+    Returns:
+        list(str): List of tags for key
+
+    '''
+
+    unparsed_tags = []
+    response = client.list_resource_tags(KeyId=key_arn)
+    while response['Truncated']:
+        unparsed_tags += response('Tags')
+        response = client.list_resource_tags(KeyId=key_arn, Marker=resource['NextMarker'])
+    unparsed_tags += response('Tags')
+    
+    tags = []
+    for tag in unparsed_tags:
+        tags += kms_parse_tags(tag)
+    return tags
+
+def kms_parse_tags(tagset):
+    '''Format list of tag to something easily consumable in Splunk
+
+    This function would not be necessary if AWS SDK were consistent
+
+    Args:
+        tagset (dict): Single tag in following format: {'TagKey': 'Foo', 'TagValue': 'Bar'}
+
+    Returns:
+        dict: Tag in following format: {'Tag': 'Value'}
+
+    '''
+
+    output = {}
+    for tag in tagset:
+        output[tag['TagKey']] = tag['TagValue']
+    return(output)
