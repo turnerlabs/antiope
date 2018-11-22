@@ -59,6 +59,7 @@ def process_key(client, key_arn, target_account, region):
 
     # Enhance Key Information to include CMK Policy, Aliases, Tags
     key = client.describe_key(KeyId=key_arn)['KeyMetadata']
+    key['ResourcePolicy'] = get_key_policy(client, key_arn)
 
     # Remove redundant key
     key.pop('AWSAccountId')
@@ -69,3 +70,45 @@ def process_key(client, key_arn, target_account, region):
     key['account_name']      = target_account.account_name
     key['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
     save_resource_to_s3(RESOURCE_PATH, resource_name, repo)
+
+def get_key_policy(client, key_arn):
+    '''Return ResourcePolicy of Key
+
+    Args:
+        client: Boto3 Client, connected to account and region
+        key_arn (string): ARN of Key
+    
+    Returns: 
+        dict: Resource Policy of Key
+    
+    '''
+
+    policies = get_policy_list(client, key_arn)
+    
+    if len(policies) == 1 and policies[0] == 'default':
+        return json.loads(client.get_key_policy(KeyId=key_arn, PolicyName=policies[0])['Policy'])
+    else:
+        policy = {}
+        for p in policies:
+            policy[p] = json.loads(client.get_key_policy(KeyId=key_arn, PolicyName=p)['Policy'])
+        return policy
+
+def get_policy_list(client, key_arn):
+    '''Return list of policies affecting key. Right now, should only be default.
+
+    Args:
+        client: Boto3 Client, connected to account and region
+        key_arn (string): ARN of Key
+
+    Returns:
+        dict: Resource Policy of Key
+    
+    '''
+
+    policies = []
+    response = client.list_key_policies(KeyId=key_arn)
+    while response['Truncated']:
+        policies += response['PolicyNames']
+        response = client.list_key_policies(KeyId=key_arn, Marker=response['NextMarker'])
+    policies += response['PolicyNames']
+    return policies
