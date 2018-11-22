@@ -43,11 +43,11 @@ def discover_lambdas(target_account, region):
     '''Iterate across all regions to discover Lambdas'''
 
     lambdas = []
-    client = target_account.get_client('lambdas', region=region)
+    client = target_account.get_client('lambda', region=region)
     response = client.list_functions()
-    while 'NextToken' in response:  # Gotta Catch 'em all!
+    while 'NextMarker' in response:  # Gotta Catch 'em all!
         lambdas += response['Functions']
-        response = client.list_functions(NextToken=response['NextToken'])
+        response = client.list_functions(Marker=response['NextMarker'])
     lambdas += response['Functions']
 
     for l in lambdas:
@@ -55,9 +55,9 @@ def discover_lambdas(target_account, region):
 
 def process_lambdas(client, lambdas, target_account, region):
 
-    resource_name = "{}-{}-{}".format(target_account.account_id, region, lambdas['Name'].replace("/", "-"))
+    resource_name = "{}-{}-{}".format(target_account.account_id, region, lambdas['FunctionName'].replace("/", "-"))
 
-    response = client.get_policy(FunctionName=lambdas['ARN'])
+    response = client.get_policy(FunctionName=lambdas['FunctionArn'])
     if 'Policy' in response:
         lambdas['Policy']    = json.loads(response['Policy'])
 
