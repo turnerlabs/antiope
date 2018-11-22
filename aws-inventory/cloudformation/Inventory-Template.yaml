@@ -640,6 +640,28 @@ Resources:
       # Tags inherited from Stack
 
 
+  LambdasInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-lambdas-inventory"
+      Description: Inventory Lambdas Functions
+      Handler: inventory-lambdas.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
 
 
   #
@@ -974,6 +996,21 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
+  LambdasInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt LambdasInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  LambdasInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [LambdasInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
 
 
   #
@@ -1075,6 +1112,7 @@ Resources:
                   [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
                   [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
                   [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
+                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
@@ -1107,6 +1145,7 @@ Resources:
                   [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
                   [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
                   [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
+                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
@@ -1273,4 +1312,3 @@ Outputs:
     Value: !Ref NewActiveAccountTopic
   ForeignAccountNotificationTopic:
     Value: !Ref NewForeignAccountTopic
-
