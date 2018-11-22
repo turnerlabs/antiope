@@ -62,6 +62,7 @@ def process_key(client, key_arn, target_account, region):
     key['Aliases'] = get_key_aliases(client, key_arn)
     key['ResourcePolicy'] = get_key_policy(client, key_arn)
     key['Tags'] = get_key_tags(client, key_arn)
+    key['Grants'] = get_key_grants(client, key_arn)
 
     # Remove redundant key
     key.pop('AWSAccountId')
@@ -73,6 +74,26 @@ def process_key(client, key_arn, target_account, region):
     key['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
     save_resource_to_s3(RESOURCE_PATH, resource_name, repo)
 
+def get_key_grants(client, key_arn):
+    '''Returns a list of Grants for Key
+
+    Args:
+        client: Boto3 Client, connected to account and region
+        key_arn (string): ARN of key
+
+    Returns:
+        list(dict): List of Grants for Key
+
+    '''
+
+    grants = []
+    response = client.list_grants(KeyId=key_arn)
+    while response['Truncated']:
+        grants += response['Grants']
+        response = client.list_grants(KeyId=key_arn, Marker=response['NextMarker'])
+    grants += response['Grants']
+    return grants
+    
 def get_key_aliases(client, key_arn):
     '''Return List of Aliases for Key
     
