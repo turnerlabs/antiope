@@ -51,19 +51,19 @@ def discover_lambdas(target_account, region):
     lambdas += response['Functions']
 
     for l in lambdas:
-        process_lambdas(client, l, target_account, region)
+        process_lambda(client, l, target_account, region)
 
-def process_lambdas(client, lambdas, target_account, region):
+def process_lambda(client, mylambda, target_account, region):
 
-    resource_name = "{}-{}-{}".format(target_account.account_id, region, lambdas['FunctionName'].replace("/", "-"))
+    resource_name = "{}-{}-{}".format(target_account.account_id, region, mylambda['FunctionName'].replace("/", "-"))
 
-    response = client.get_policy(FunctionName=lambdas['FunctionArn'])
+    response = client.get_policy(FunctionName=mylambda['FunctionArn'])
     if 'Policy' in response:
-        lambdas['Policy']    = json.loads(response['Policy'])
+        mylambda['Policy']    = json.loads(response['Policy'])
 
-    lambdas['resource_type']     = "lambdas"
-    lambdas['region']            = region
-    lambdas['account_id']        = target_account.account_id
-    lambdas['account_name']      = target_account.account_name
-    lambdas['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-    save_resource_to_s3(RESOURCE_PATH, resource_name, lambdas)
+    mylambda['resource_type']     = "lambda"
+    mylambda['region']            = region
+    mylambda['account_id']        = target_account.account_id
+    mylambda['account_name']      = target_account.account_name
+    mylambda['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+    save_resource_to_s3(RESOURCE_PATH, resource_name, mylambda)
