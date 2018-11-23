@@ -52,6 +52,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-cloudtrail-inventory \
 			$(FULL_STACK_NAME)-secrets-inventory \
 			$(FULL_STACK_NAME)-health-inventory \
+			$(FULL_STACK_NAME)-ecr-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
