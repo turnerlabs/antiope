@@ -6,7 +6,7 @@ PIP=pip3
 
 FILES=ingest_s3.py
 
-DEPENDENCIES=requests lib requests_aws4auth requests_aws4auth certifi chardet idna urllib3
+DEPENDENCIES=requests lib requests_aws4auth requests_aws4auth certifi chardet idna urllib3 elasticsearch elasticsearch5
 
 package: test clean zipfile
 
