@@ -37,10 +37,8 @@ def lambda_handler(event, context):
     s3 = boto3.client('s3')
 
     for record in event['Records']:
-
-        # logger.info("Record: {}".format(json.dumps(record, sort_keys=True)))
         message = json.loads(record['body'])
-        logger.info("message: {}".format(json.dumps(message, sort_keys=True)))
+        logger.debug("message: {}".format(json.dumps(message, sort_keys=True)))
         if 'Records' not in message:
             continue
 
@@ -71,3 +69,5 @@ def lambda_handler(event, context):
             except Exception as e:
                 logger.error("General Exception Indexing s3://{}/{}: {}".format(bucket, obj_key, e))
                 raise
+
+
