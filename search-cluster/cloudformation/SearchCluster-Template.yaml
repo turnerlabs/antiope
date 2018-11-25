@@ -45,22 +45,6 @@ Resources:
   SearchClusterDomain:
     Type: AWS::Elasticsearch::Domain
     Properties:
-      # AccessPolicies:
-      #   Version: "2012-10-17"
-      #   Statement:
-      #     - Effect: "Allow"
-      #       Principal:
-      #         AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
-      #       Action: "es:*"
-      #       Resource: "*"
-      #     - Effect: "Allow"
-      #       Principal: "*"
-      #       Action: "es:*"
-      #       Resource: "*"
-      #       Condition:
-      #         IpAddress:
-      #           aws:SourceIp:
-      #           - 99.161.92.198
       AccessPolicies:
         Version: 2012-10-17
         Statement:
