@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy the Auth Component of Antiope
+
+Parameters:
+  pBucketName:
+    Description: Name of the bucket to hold the images
+    Type: String
+
+  pLambdaZipFile:
+    Description: File Name for the lambdas
+    Type: String
+    Default: inventory.zip
+
+  pUserPoolId:
+    Description: Userpool id for cognito auth
+    Type: String
+
+  pAuthBucketDomainName:
+    Description: Bucket to wrap auth around
+    Type: String
+
+  pSmallLambdaSize:
+    Description: Memory footprint for smaller Lambda
+    Type: Number
+    Default: 128
+
+Resources:
+  AuthAtEdgeVersion: 
+    Type: AWS::Lambda::Version
+    Properties: 
+      FunctionName: 
+        Ref: AuthAtEdgeLambdaFunction
+      Description: "Published version of AAE function"
+
+  AuthAtEdgeLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-edge-lambda"
+      Description: Auth at edge!
+      Handler: auth-at-edge.handler
+      Runtime: nodejs8.10
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt EdgeAuthExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+
+  CFDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: 'true'
+        Comment : Auth at Edge for Antiope
+        DefaultRootObject: index.html
+        Origins:
+          -
+            Id: S3OriginPrivate
+            DomainName: !Sub ${pAuthBucketDomainName}.s3.amazonaws.com
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
+          -
+            Id: S3OriginPublic
+            DomainName: !Sub ${pAuthBucketDomainName}.s3.amazonaws.com
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
+            OriginPath: /public/index.html
+        DefaultCacheBehavior:
+          TargetOriginId: S3OriginPrivate
+          ForwardedValues:
+            QueryString: 'false'
+            Headers:
+              - Origin
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: redirect-to-https
+        CacheBehaviors:
+          - PathPattern: 'public/*'
+            TargetOriginId: S3OriginPublic
+            ForwardedValues:
+              QueryString: 'false'
+              Headers:
+                - Origin
+              Cookies:
+                Forward: none
+            ViewerProtocolPolicy: redirect-to-https
+          - PathPattern: '*'
+            LambdaFunctionAssociations:
+              - EventType: origin-request
+                LambdaFunctionARN: !Ref AuthAtEdgeVersion
+            TargetOriginId: S3OriginPrivate
+            ForwardedValues:
+              QueryString: 'false'
+              Headers:
+                - Origin
+              Cookies:
+                Forward: whitelist
+                WhitelistedNames:
+                  - antiope-auth-at-edge
+            ViewerProtocolPolicy: redirect-to-https
+
+  CFOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: CFOAI for Auth in Antiope
+
+  CognitoUserPoolId:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Name: UserPoolId
+      Description: UserPoolId from cognito
+      Type: String
+      Value: !Sub ${pUserPoolId}
+
+  CognitoRegion:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Name: Region
+      Description: Region to access cognito
+      Type: String
+      Value: !Sub ${AWS::Region}
+
+  CognitoCallbackUrl:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: CallbackUrl
+      Description: Callback url (cloudfront domain)
+      Value: !GetAtt CFDistribution.DomainName
+
+  CognitoUserPoolClientId:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: UserPoolClientId
+      Description: User pool client id
+      Value: !Ref CognitoUserPoolClient
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+        ClientName: antiope-auth-client-id
+        #RefreshTokenValidity: Integer
+        UserPoolId: !Sub ${pUserPoolId}
+
+  EdgeAuthExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+        - Effect: Allow
+          Principal:
+            Service:
+            - edgelambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
