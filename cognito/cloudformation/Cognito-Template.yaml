@@ -40,20 +40,6 @@ Resources:
         Value: !Ref pEmailAddress
       UserPoolId: !Ref CognitoUserPool
 
-  ESEnableCognitoRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: es.amazonaws.com
-            Action:
-              - "sts:AssumeRole"
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonESCognitoAccess
-
   CognitoKibanaAuthRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -139,9 +125,9 @@ Resources:
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
-  ESCognitoRole:
-    Description: "Use this role to enable Cognito authentication in Elasticsearch"
-    Value: !Ref ESEnableCognitoRole
-  CognitoKibanaAuthRoleARN:
+  CognitoKibanaAuthRole:
     Description: "Role for cognito Kibana auth"
     Value: !GetAtt CognitoKibanaAuthRole.Arn
+  CognitoUserPoolId:
+    Description: "ID for user pool used for auth"
+    Value: !Ref CognitoUserPool

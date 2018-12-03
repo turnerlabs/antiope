@@ -28,7 +28,7 @@ Parameters:
     Description: Cluster Instance Count
     Default: 1
 
-  pCognitoKibanaAuthRoleArn:
+  pCognitoKibanaAuthRole:
     Type: String
     Description: ARN for the Kibana Cognito Auth role
 
@@ -58,7 +58,7 @@ Resources:
         Statement:
           - Effect: "Allow"
             Principal:
-              AWS: !Sub ${pCognitoKibanaAuthRoleArn}
+              AWS: !Sub ${pCognitoKibanaAuthRole}
             Action: "es:*"
             Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${pDomainName}/*"
       DomainName: !Ref pDomainName
@@ -236,6 +236,20 @@ Resources:
       EventSourceArn: !GetAtt SearchIngestEventQueue.Arn
       FunctionName: !GetAtt SearchIngestS3Function.Arn
 
+  ESEnableCognitoRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonESCognitoAccess
+
   #
   # Dashboard
   #
@@ -346,9 +360,12 @@ Outputs:
   StackName:
     Value: !Ref AWS::StackName
   InventoryStackVersion:
-    Value: !Ref pLambdaZipFile
+    Value: !Ref pLambdaZipFil
   ClusterEndpoint:
     Value: !GetAtt SearchClusterDomain.DomainEndpoint
+  ESCognitoRole:
+    Description: "Use this role to enable Cognito authentication in Elasticsearch"
+    Value: !Ref ESEnableCognitoRole
   KibanaURL:
     Description: "The URL to access Kibana."
     Value: !Sub "https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/"
