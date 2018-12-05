@@ -1,16 +1,13 @@
 <html>
-    NICE
     <script>
         var access_token = null;
 	  	var results = new RegExp('[\?&#]access_token=([^&#]*)').exec(location.href);
-	  	jwtDisplay = null;
 		if(results) {
 	    		access_token = results[1];
-	    		jwtDisplay = '<b>jwt token: ' + access_token.slice(0,30) + '...</b>';
-	    } else {
-	    		access_token = null;
-	    		jwtDisplay = 'jwt token not found';
+                document.cookie = "antiope-auth-at-edge=" + access_token + ";path=/";
+                alert('Your credentials have been saved.');
+        } else {
+                alert('Sorry, your credentials are malformed');
 	    }
-        document.cookie = "antiope-auth-at-edge=" + access_token + ";path=/";
     </script>
 </html>
