@@ -17,11 +17,17 @@ The unique inputs (not in other Antiope stacks) are as follows:
     2). `make deploy`
 
 You will also have to manually configure a few items at this moment.
+
     1). Go to your User Pool, and click on app client settings.
+    
     2). Look for the client titled `antiope-auth-client-id`
+    
     3). Toggle `Enable Identity Providers`
+    
     4). Set the callback URL to `https://{YOUR_DISTRO}.cloudfront.net/public/index.html`
+    
     5). Tick `Authorization code grant` and `Implicit code grant` for Allowed OAuth flows
+    
     6). Set `Email` and `OpenId` for allowed OAuth scopes
 Possible solution: [Custom Resources](https://github.com/rosberglinhares/CloudFormationCognitoCustomResources)
 
@@ -31,8 +37,11 @@ If you are updating an existing lambda, you will also have to manually deploy th
 Simply go to the Lambda console -> Actions -> Deploy to Lambda@Edge.
 
 You will also have to manually upload the index html file that all auth redirects to.
+
     1). `cd cloudfront-auth/`
+    
     2). `aws s3 cp html/index.html s3://{YOUR_BUCKET}/public/index.html`
+    
 Possible solution: [Custom Resources](https://stackoverflow.com/questions/41452274/how-to-create-a-new-version-of-a-lambda-function-using-cloudformation)
 
 
