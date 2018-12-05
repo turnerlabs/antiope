@@ -63,13 +63,18 @@ Resources:
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
         DefaultCacheBehavior:
+          LambdaFunctionAssociations:
+            - EventType: origin-request
+              LambdaFunctionARN: !Ref AuthAtEdgeVersion
           TargetOriginId: S3OriginPrivate
           ForwardedValues:
             QueryString: 'false'
             Headers:
               - Origin
             Cookies:
-              Forward: none
+              Forward: whitelist
+              WhitelistedNames:
+                - antiope-auth-at-edge
           ViewerProtocolPolicy: redirect-to-https
         CacheBehaviors:
           - PathPattern: 'public/index.html'
@@ -80,20 +85,6 @@ Resources:
                 - Origin
               Cookies:
                 Forward: none
-            ViewerProtocolPolicy: redirect-to-https
-          - PathPattern: '*'
-            LambdaFunctionAssociations:
-              - EventType: origin-request
-                LambdaFunctionARN: !Ref AuthAtEdgeVersion
-            TargetOriginId: S3OriginPrivate
-            ForwardedValues:
-              QueryString: 'false'
-              Headers:
-                - Origin
-              Cookies:
-                Forward: whitelist
-                WhitelistedNames:
-                  - antiope-auth-at-edge
             ViewerProtocolPolicy: redirect-to-https
 
   CFOriginAccessIdentity:

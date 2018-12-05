@@ -8,6 +8,9 @@ const request = require('request');
 var ssm = new AWS.SSM();
 
 var params_done = false;
+var params_errored = false;
+var err_message;
+
 var store_params = {};
 
 var params = {
@@ -24,48 +27,64 @@ var iss;
 var domain;
 var base_url;
 var req_args;
-
-
 var pems;
 
 
-ssm.getParameters(params, function(err, data) {
-  if (err) console.log(err, err.stack); // an error occurred
-  else {
-    data.Parameters.forEach((element) => {
-       store_params[element.Name] = element.Value
-    });
+try {
+  ssm.getParameters(params, function(err, data) {
+    if (err) {
+      params_errored = true; // an error occurred
+      err_message = err;
+    } else {
+      data.Parameters.forEach((element) => {
+         store_params[element.Name] = element.Value
+      });
 
-    iss = 'https://cognito-idp.' + store_params['CognitoRegion'] + '.amazonaws.com/' + store_params['CognitoUserPoolId'];
-    base_url = store_params['CognitoCallbackUrl'] + '/public/index.html';
-    req_args = "?response_type=token&client_id=" + store_params['CognitoUserPoolClientId'];
-    domain = "https://" + store_params['CognitoPoolDomainName'] + ".auth." + store_params['CognitoRegion'] + ".amazoncognito.com/login";
+      iss = 'https://cognito-idp.' + store_params['CognitoRegion'] + '.amazonaws.com/' + store_params['CognitoUserPoolId'];
+      base_url = "https://" + store_params['CognitoCallbackUrl'] + '/public/index.html';
+      req_args = "?response_type=token&client_id=" + store_params['CognitoUserPoolClientId'];
+      domain = "https://" + store_params['CognitoPoolDomainName'] + ".auth." + store_params['CognitoRegion'] + ".amazoncognito.com/login";
 
-    var jwks_url = iss + "/.well-known/jwks.json";
-    request(jwks_url, { json: true }, (err, res, body) => {
-      if (err) { return console.log(err); }
-      pems = {};
-      var keys = body.keys;
-      for(var i = 0; i < keys.length; i++) {
-          //Convert each key to PEM
-          var key_id = keys[i].kid;
-          var modulus = keys[i].n;
-          var exponent = keys[i].e;
-          var key_type = keys[i].kty;
-          var jwk = { kty: key_type, n: modulus, e: exponent};
-          var pem = jwkToPem(jwk);
-          pems[key_id] = pem;
-      }
-      params_done = true;
-    });
-  }
-});
+      var jwks_url = iss + "/.well-known/jwks.json";
+      request(jwks_url, { json: true }, (err, res, body) => {
+        if (err) { 
+          params_errored = true
+          err_message = err;
+          return      
+        }
+        pems = {};
+        var keys = body.keys;
+        for(var i = 0; i < keys.length; i++) {
+            //Convert each key to PEM
+            var key_id = keys[i].kid;
+            var modulus = keys[i].n;
+            var exponent = keys[i].e;
+            var key_type = keys[i].kty;
+            var jwk = { kty: key_type, n: modulus, e: exponent};
+            var pem = jwkToPem(jwk);
+            pems[key_id] = pem;
+        }
+        params_done = true;
+      });
+    }
+  });
+} catch(err) {
+  params_errored = true;
+  err_message = err.message;
+}
 
 const response503 = {
     status: '503',
     statusDescription: 'Not Accepted'
 };
 
+
+const responseCustom = (message) => {
+    return {
+      status: '503',
+      statusDescription: message
+    };
+}
 
 const format_redir = (requested_resource) => {
     return {
@@ -81,10 +100,13 @@ const format_redir = (requested_resource) => {
 }
 
 exports.handler = (event, context, callback) => {
-    console.log(pems);
     const cfrequest = event.Records[0].cf.request;
     const resource = cfrequest.uri
     const headers = cfrequest.headers;
+
+    if (params_errored) {
+      callback(null, responseCustom(err_message));
+    }
 
     if (!params_done) {
       callback(null, response503);
