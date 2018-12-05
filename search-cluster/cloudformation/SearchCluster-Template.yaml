@@ -360,7 +360,7 @@ Outputs:
   StackName:
     Value: !Ref AWS::StackName
   InventoryStackVersion:
-    Value: !Ref pLambdaZipFil
+    Value: !Ref pLambdaZipFile
   ClusterEndpoint:
     Value: !GetAtt SearchClusterDomain.DomainEndpoint
   ESCognitoRole:

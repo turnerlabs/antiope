@@ -8,6 +8,7 @@ Notes.md
 *dist-info
 
 # required python packages for the lambda that should not be committed
+cloudfront-auth/lambda/node_modules
 
 search-cluster/lambda/*dist-info
 search-cluster/lambda/*.zip
