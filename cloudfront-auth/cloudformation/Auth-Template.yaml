@@ -19,19 +19,16 @@ Parameters:
     Description: Bucket to wrap auth around
     Type: String
 
+  pCognitoPoolDomainName:
+    Description: Domain name of the Cognito User Pool
+    Type: String
+
   pSmallLambdaSize:
     Description: Memory footprint for smaller Lambda
     Type: Number
     Default: 128
 
 Resources:
-  AuthAtEdgeVersion: 
-    Type: AWS::Lambda::Version
-    Properties: 
-      FunctionName: 
-        Ref: AuthAtEdgeLambdaFunction
-      Description: "Published version of AAE function"
-
   AuthAtEdgeLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -44,6 +41,13 @@ Resources:
       Code:
         S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
+
+  AuthAtEdgeVersion: 
+    Type: AWS::Lambda::Version
+    Properties: 
+      FunctionName: 
+        Ref: AuthAtEdgeLambdaFunction
+      Description: "Published version of AAE function"
 
   CFDistribution:
     Type: AWS::CloudFront::Distribution
@@ -58,12 +62,6 @@ Resources:
             DomainName: !Sub ${pAuthBucketDomainName}.s3.amazonaws.com
             S3OriginConfig:
               OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
-          -
-            Id: S3OriginPublic
-            DomainName: !Sub ${pAuthBucketDomainName}.s3.amazonaws.com
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CFOriginAccessIdentity}
-            OriginPath: /public/index.html
         DefaultCacheBehavior:
           TargetOriginId: S3OriginPrivate
           ForwardedValues:
@@ -74,8 +72,8 @@ Resources:
               Forward: none
           ViewerProtocolPolicy: redirect-to-https
         CacheBehaviors:
-          - PathPattern: 'public/*'
-            TargetOriginId: S3OriginPublic
+          - PathPattern: 'public/index.html'
+            TargetOriginId: S3OriginPrivate
             ForwardedValues:
               QueryString: 'false'
               Headers:
@@ -107,7 +105,7 @@ Resources:
   CognitoUserPoolId:
     Type: "AWS::SSM::Parameter"
     Properties: 
-      Name: UserPoolId
+      Name: CognitoUserPoolId
       Description: UserPoolId from cognito
       Type: String
       Value: !Sub ${pUserPoolId}
@@ -115,7 +113,7 @@ Resources:
   CognitoRegion:
     Type: "AWS::SSM::Parameter"
     Properties: 
-      Name: Region
+      Name: CognitoRegion
       Description: Region to access cognito
       Type: String
       Value: !Sub ${AWS::Region}
@@ -123,23 +121,32 @@ Resources:
   CognitoCallbackUrl:
     Type: "AWS::SSM::Parameter"
     Properties:
-      Name: CallbackUrl
+      Name: CognitoCallbackUrl
       Description: Callback url (cloudfront domain)
+      Type: String
       Value: !GetAtt CFDistribution.DomainName
+
+  CognitoPoolDomainName:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: CognitoPoolDomainName
+      Description: Domain name for CUP
+      Type: String
+      Value: !Sub ${pCognitoPoolDomainName}
 
   CognitoUserPoolClientId:
     Type: "AWS::SSM::Parameter"
     Properties:
-      Name: UserPoolClientId
+      Name: CognitoUserPoolClientId
       Description: User pool client id
+      Type: String
       Value: !Ref CognitoUserPoolClient
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
-        ClientName: antiope-auth-client-id
-        #RefreshTokenValidity: Integer
-        UserPoolId: !Sub ${pUserPoolId}
+      ClientName: antiope-auth-client-id
+      UserPoolId: !Sub ${pUserPoolId}
 
   EdgeAuthExecutionRole:
     Type: AWS::IAM::Role
@@ -171,3 +178,8 @@ Resources:
             - logs:CreateLogStream
             - logs:PutLogEvents
             Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - ssm:GetParameters
+            Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/Cognito*"
+

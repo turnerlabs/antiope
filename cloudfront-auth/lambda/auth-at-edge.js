@@ -1,39 +1,69 @@
 'use strict';
 var jwt = require('jsonwebtoken');  
 var jwkToPem = require('jwk-to-pem');
+var AWS = require('aws-sdk')
+const request = require('request');
 
-/*
-verify values above
-*/
-var JWKS = '#s'
-var USERPOOLID = "#"
 
-var region = 'us-east-1';
-var iss = 'https://cognito-idp.' + region + '.amazonaws.com/' + USERPOOLID;
-const domain = "#
-const base_url = "#"
-const client_id = "#"
-const req_args = "?response_type=token&client_id=" + client_id
+var ssm = new AWS.SSM();
+
+var params_done = false;
+var store_params = {};
+
+var params = {
+  Names: [ 
+    'CognitoUserPoolId',
+    'CognitoRegion',
+    'CognitoCallbackUrl',
+    'CognitoUserPoolClientId',
+    'CognitoPoolDomainName'
+  ],
+};
+
+var iss;
+var domain;
+var base_url;
+var req_args;
 
 
 var pems;
 
-pems = {};
-var keys = JSON.parse(JWKS).keys;
-for(var i = 0; i < keys.length; i++) {
-    //Convert each key to PEM
-    var key_id = keys[i].kid;
-    var modulus = keys[i].n;
-    var exponent = keys[i].e;
-    var key_type = keys[i].kty;
-    var jwk = { kty: key_type, n: modulus, e: exponent};
-    var pem = jwkToPem(jwk);
-    pems[key_id] = pem;
-}
 
-const response401 = {
-    status: '401',
-    statusDescription: 'Unauthorized'
+ssm.getParameters(params, function(err, data) {
+  if (err) console.log(err, err.stack); // an error occurred
+  else {
+    data.Parameters.forEach((element) => {
+       store_params[element.Name] = element.Value
+    });
+
+    iss = 'https://cognito-idp.' + store_params['CognitoRegion'] + '.amazonaws.com/' + store_params['CognitoUserPoolId'];
+    base_url = store_params['CognitoCallbackUrl'] + '/public/index.html';
+    req_args = "?response_type=token&client_id=" + store_params['CognitoUserPoolClientId'];
+    domain = "https://" + store_params['CognitoPoolDomainName'] + ".auth." + store_params['CognitoRegion'] + ".amazoncognito.com/login";
+
+    var jwks_url = iss + "/.well-known/jwks.json";
+    request(jwks_url, { json: true }, (err, res, body) => {
+      if (err) { return console.log(err); }
+      pems = {};
+      var keys = body.keys;
+      for(var i = 0; i < keys.length; i++) {
+          //Convert each key to PEM
+          var key_id = keys[i].kid;
+          var modulus = keys[i].n;
+          var exponent = keys[i].e;
+          var key_type = keys[i].kty;
+          var jwk = { kty: key_type, n: modulus, e: exponent};
+          var pem = jwkToPem(jwk);
+          pems[key_id] = pem;
+      }
+      params_done = true;
+    });
+  }
+});
+
+const response503 = {
+    status: '503',
+    statusDescription: 'Not Accepted'
 };
 
 
@@ -49,14 +79,18 @@ const format_redir = (requested_resource) => {
         },
     };
 }
+
 exports.handler = (event, context, callback) => {
+    console.log(pems);
     const cfrequest = event.Records[0].cf.request;
     const resource = cfrequest.uri
     const headers = cfrequest.headers;
-    console.log('getting started');
-    console.log('USERPOOLID=' + USERPOOLID);
-    console.log('region=' + region);
-    console.log('pems=' + pems);
+
+    if (!params_done) {
+      callback(null, response503);
+      return false;    
+    }
+
     try {
         //Fail if no authorization header found
         if(!headers.cookie) {
