@@ -49,7 +49,7 @@ test: cfn-validate
 	cd lambda && $(MAKE) test
 
 # Do everything
-deploy: package upload cfn-deploy
+deploy: package upload cfn-deploy html-deploy
 
 clean:
 	cd lambda && $(MAKE) clean
@@ -74,6 +74,11 @@ package:
 
 upload: package
 	aws s3 cp lambda/$(LAMBDA_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
+
+
+html-deploy:
+	html/deploy-html.sh
+
 
 # # Update the Lambda Code without modifying the CF Stack
 update: package $(FUNCTIONS)
