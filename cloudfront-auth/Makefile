@@ -39,17 +39,14 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
-FUNCTIONS = $(FULL_STACK_NAME)-auth-edge-lambda
-
-
-.PHONY: $(FUNCTIONS)
+export EDGE_NAME=$(FULL_STACK_NAME)-edge-lambda
 
 # Run all tests
 test: cfn-validate
 	cd lambda && $(MAKE) test
 
 # Do everything
-deploy: package upload cfn-deploy html-deploy
+deploy: package upload cfn-deploy html-deploy edge-deploy
 
 clean:
 	cd lambda && $(MAKE) clean
@@ -77,12 +74,7 @@ upload: package
 
 
 html-deploy:
-	html/deploy-html.sh
+	bin/deploy-html.sh
 
-
-# # Update the Lambda Code without modifying the CF Stack
-update: package $(FUNCTIONS)
-	for f in $(FUNCTIONS) ; do \
-	  aws lambda update-function-code --function-name $$f --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
-	done
-
+edge-deploy:
+	bin/deploy-edge.sh

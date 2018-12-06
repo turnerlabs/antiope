@@ -82,7 +82,13 @@ const response503 = {
 const responseCustom = (message) => {
     return {
       status: '503',
-      statusDescription: message
+      statusDescription: message,
+      headers: {
+        'cache-control': [{
+            key: 'Cache-Control',
+            value: 'must-revalidate'
+        }],
+      }
     };
 }
 
