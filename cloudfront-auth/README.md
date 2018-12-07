@@ -5,6 +5,13 @@
 
 The CF auth stack is a AWS stack that uses Cognito auth to secure an S3 bucket by restricting access of the bucket to a specific user pool.
 
+### How it works?
+The desired S3 bucket to protect is placed in front of a CloudFront distribution. The S3 bucket is then made private with only the special CloudFront access identity able to access content. This Cloudfront distribution has two behaviors, one for `public/index.html` and one for `*`.
+
+![Alt Image](https://user-images.githubusercontent.com/14262055/49660211-0aa9f300-fa14-11e8-91fd-8c86e9ae746b.png)
+![Alt Image](https://user-images.githubusercontent.com/14262055/49660212-0aa9f300-fa14-11e8-9d59-901eced101dc.png)
+
+
 ### Inputs
 The unique inputs (not in other Antiope stacks) are as follows:
 
@@ -31,19 +38,7 @@ You will also have to manually configure a few items at this moment.
     6). Set `Email` and `OpenId` for allowed OAuth scopes
 Possible solution: [Custom Resources](https://github.com/rosberglinhares/CloudFormationCognitoCustomResources)
 
-
-
-If you are updating an existing lambda, you will also have to manually deploy the Lambda to the distro.
-Simply go to the Lambda console -> Actions -> Deploy to Lambda@Edge.
-
-You will also have to manually upload the index html file that all auth redirects to.
-
-    1). `cd cloudfront-auth/`
-    
-    2). `aws s3 cp html/index.html s3://{YOUR_BUCKET}/public/index.html`
-    
-Possible solution: [Custom Resources](https://stackoverflow.com/questions/41452274/how-to-create-a-new-version-of-a-lambda-function-using-cloudformation)
-
-
 Another note, you may get a 503, if so this means that the server is still setting up its parameters. Because CF is caching this, any subsequent requests for a while will 503. If you 503, just invalidate the cache or wait a while.
 Possible solution: If 503 -> no-cache header?
+
+On top of deploying the CloudFormation template, the deploy task will also run two scripts. `bin/deploy-html.sh` and `bin/deploy-edge.sh`. These run after the CFM has finished. The former simply gets the S3 bucket associated with the cloudfront distribution, and copies the `html/index.html` file to the path `s3://{YOUR_BUCKET}/public/index.html`.
