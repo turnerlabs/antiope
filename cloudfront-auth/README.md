@@ -8,9 +8,21 @@ The CF auth stack is a AWS stack that uses Cognito auth to secure an S3 bucket b
 ### How it works?
 The desired S3 bucket to protect is placed in front of a CloudFront distribution. The S3 bucket is then made private with only the special CloudFront access identity able to access content. This Cloudfront distribution has two behaviors, one for `public/index.html` and one for `*`.
 
+The wildcard behavior is shown below:
+
+
 ![Alt Image](https://user-images.githubusercontent.com/14262055/49660211-0aa9f300-fa14-11e8-91fd-8c86e9ae746b.png)
+
+
+As you can see, it essentially uses Lambda@Edge to check if the appropriate auth cookie has been set, and if not redirects the user to the Cognito login portal. On sucessful login, the user will be redirected to `public/index.html`.
+
+The behavior for this is shown below:
+
 ![Alt Image](https://user-images.githubusercontent.com/14262055/49660212-0aa9f300-fa14-11e8-9d59-901eced101dc.png)
 
+As you can see the page is *publicly available*, please keep this in mind. However, all it servers to do is to set the auth cookie if it is available after redirect from cognito.
+
+Unfortunately, as of now, it does not redirect you back to the requested content, so you will have to revisit the content on sucessful login.
 
 ### Inputs
 The unique inputs (not in other Antiope stacks) are as follows:
