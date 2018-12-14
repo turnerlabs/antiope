@@ -1,4 +1,5 @@
 
+Config/
 ATTIC/
 Resources/
 Notes.md
@@ -23,6 +24,7 @@ search-cluster/lambda/*.rst
 search-cluster/lambda/LICENSE
 search-cluster/lambda/NOTICE
 
+cloudfront-auth/lambda/package-lock.json
 
 
 aws-inventory/lambda/et_xmlfile
