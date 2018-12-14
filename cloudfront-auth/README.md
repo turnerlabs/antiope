@@ -32,21 +32,24 @@ The unique inputs (not in other Antiope stacks) are as follows:
 - pCognitoPoolDomainName: This is the domain name that you have set your User Pool, as far as I know you have to manually find this
 
 ### Deploying
+
+**Make sure to set Stacktime out to 60m**
+
     1. `cd cloudfront-auth/`
     2). `make deploy`
 
 You will also have to manually configure a few items at this moment.
 
     1). Go to your User Pool, and click on app client settings.
-    
+
     2). Look for the client titled `antiope-auth-client-id`
-    
+
     3). Toggle `Enable Identity Providers`
-    
+
     4). Set the callback URL to `https://{YOUR_DISTRO}.cloudfront.net/public/index.html`
-    
+
     5). Tick `Authorization code grant` and `Implicit code grant` for Allowed OAuth flows
-    
+
     6). Set `Email` and `OpenId` for allowed OAuth scopes
 Possible solution: [Custom Resources](https://github.com/rosberglinhares/CloudFormationCognitoCustomResources)
 
