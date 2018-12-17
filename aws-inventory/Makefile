@@ -1,10 +1,14 @@
 
+ifndef env
+# $(error env is not set)
+	env ?= dev
+endif
 
 ifdef CONFIG
 	include ../$(CONFIG)
 	export
 else
-	include ../config.env
+	include ../config.$(env)
 	export
 endif
 
@@ -17,10 +21,6 @@ ifndef BUCKET
 	$(error BUCKET is not set)
 endif
 
-ifndef env
-# $(error env is not set)
-	env ?= dev
-endif
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)

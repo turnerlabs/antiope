@@ -1,9 +1,14 @@
 
+ifndef env
+# $(error env is not set)
+	env ?= dev
+endif
+
 ifdef CONFIG
 	include $(CONFIG)
 	export
 else
-	include config.env
+	include config.$(env)
 	export
 endif
 
