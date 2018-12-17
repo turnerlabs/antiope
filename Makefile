@@ -1,6 +1,11 @@
 
-include config.env
-export
+ifdef CONFIG
+	include $(CONFIG)
+	export
+else
+	include config.env
+	export
+endif
 
 ifndef STACK_PREFIX
 $(error STACK_PREFIX is not set)

@@ -1,7 +1,12 @@
 
 
-include ../config.env
-export
+ifdef CONFIG
+	include ../$(CONFIG)
+	export
+else
+	include ../config.env
+	export
+endif
 
 # STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
 ifndef STACK_PREFIX
