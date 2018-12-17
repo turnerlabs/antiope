@@ -1,6 +1,6 @@
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 
 import json
 import os
@@ -42,16 +42,20 @@ def lambda_handler(event, context):
 def discover_secrets(target_account, region):
     '''Iterate across all regions to discover Cloudsecrets'''
 
-    secrets = []
-    client = target_account.get_client('secretsmanager', region=region)
-    response = client.list_secrets()
-    while 'NextToken' in response:  # Gotta Catch 'em all!
+    try:
+        secrets = []
+        client = target_account.get_client('secretsmanager', region=region)
+        response = client.list_secrets()
+        while 'NextToken' in response:  # Gotta Catch 'em all!
+            secrets += response['SecretList']
+            response = client.list_secrets(NextToken=response['NextToken'])
         secrets += response['SecretList']
-        response = client.list_secrets(NextToken=response['NextToken'])
-    secrets += response['SecretList']
 
-    for s in secrets:
-        process_secret(client, s, target_account, region)
+        for s in secrets:
+            process_secret(client, s, target_account, region)
+
+    except EndpointConnectionError as e:
+        logger.info("Region {} not supported".format(region))
 
 def process_secret(client, secret, target_account, region):
 

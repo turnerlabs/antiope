@@ -109,7 +109,7 @@ def discover_buckets(account):
         try:
             response = s3_client.get_bucket_tagging(Bucket=bucket_name)
             if 'TagSet' in response:
-                resource_item['tags'] = parse_tags(response[TagSet])
+                resource_item['tags'] = parse_tags(response['TagSet'])
         except ClientError as e:
             if e.response['Error']['Code'] != 'NoSuchTagSet':
                 resource_item['errors']['TagSet'] = e

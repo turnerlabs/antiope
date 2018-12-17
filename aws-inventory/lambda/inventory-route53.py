@@ -48,7 +48,7 @@ def discover_domains(account):
 
     # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
     # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
-    route53_client = account.get_client('route53domains')
+    route53_client = account.get_client('route53domains', region="us-east-1") # Route53 Domains is only available in us-east-1
     response = route53_client.list_domains()
     while 'NextPageMarker' in response:  # Gotta Catch 'em all!
         domains += response['Domains']

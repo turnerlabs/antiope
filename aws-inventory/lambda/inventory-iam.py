@@ -65,7 +65,8 @@ def discover_roles(account):
     for role in roles:
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
         resource_item['configuration']                  = role
-        resource_item['tags']                           = parse_tags(role['Tags'])
+        if 'Tags' in role:
+            resource_item['tags']                           = parse_tags(role['Tags'])
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = role['RoleId']
         resource_item['resourceName']                   = role['RoleName']
@@ -146,7 +147,8 @@ def discover_users(account):
     for user in users:
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
         resource_item['configuration']                  = user
-        resource_item['tags']                           = parse_tags(user['Tags'])
+        if 'Tags' in user:
+            resource_item['tags']                           = parse_tags(user['Tags'])
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = user['UserId']
         resource_item['resourceName']                   = user['UserName']

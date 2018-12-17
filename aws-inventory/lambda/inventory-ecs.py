@@ -47,7 +47,8 @@ def lambda_handler(event, context):
                 cluster_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
                 cluster_item['awsRegion']                      = r
                 cluster_item['configuration']                  = cluster
-                cluster_item['tags']                           = parse_tags(cluster['tags'])
+                if 'tags' in cluster:
+                    cluster_item['tags']                       = parse_tags(cluster['tags'])
                 cluster_item['supplementaryConfiguration']     = {}
                 cluster_item['resourceId']                     = "{}-{}".format(cluster['clusterName'], target_account.account_id)
                 cluster_item['resourceName']                   = cluster['clusterName']
@@ -65,7 +66,8 @@ def lambda_handler(event, context):
                     task_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
                     task_item['awsRegion']                      = r
                     task_item['configuration']                  = task
-                    task_item['tags']                           = parse_tags(task['tags'])
+                    if 'tags' in task:
+                        task_item['tags']                       = parse_tags(task['tags'])
                     task_item['supplementaryConfiguration']     = {}
                     task_item['resourceId']                     = "{}-{}".format(task['taskDefinitionArn'].split('/')[-1], target_account.account_id)
                     task_item['resourceName']                   = task['taskDefinitionArn'].split('/')[-1]

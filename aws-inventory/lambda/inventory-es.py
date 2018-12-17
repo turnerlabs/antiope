@@ -28,8 +28,6 @@ def lambda_handler(event, context):
 
         target_account = AWSAccount(message['account_id'])
 
-
-
         regions = target_account.get_regions()
         if 'region' in message:
             regions = [ message['region'] ]
@@ -42,7 +40,7 @@ def lambda_handler(event, context):
             resource_item['awsAccountId']                   = target_account.account_id
             resource_item['awsAccountName']                 = target_account.account_name
             resource_item['resourceType']                   = RESOURCE_TYPE
-            resource_item['awsRegion']                      = region
+            resource_item['awsRegion']                      = r
             resource_item['source']                         = "Antiope"
 
             for domain_name in list_domains(es_client, target_account, r):

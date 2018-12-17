@@ -70,10 +70,10 @@ def process_key(client, key_arn, target_account, region):
     resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
     resource_item['awsRegion']                      = region
     resource_item['configuration']                  = key
-    resource_item['tags']                           = list_resource_tags(KeyId=key['KeyId'])
+    resource_item['tags']                           = client.list_resource_tags(KeyId=key['KeyId'])
     resource_item['supplementaryConfiguration']     = {}
     resource_item['resourceId']                     = key['KeyId']
-    resource_item['ARN']                            = key['KeyArn']
+    resource_item['ARN']                            = key['Arn']
     resource_item['errors']                         = {}
 
 
