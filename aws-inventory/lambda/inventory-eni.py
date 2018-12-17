@@ -49,6 +49,13 @@ def discover_enis(account, region):
     '''
     s3client = boto3.client('s3')
 
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::EC2::NetworkInterface"
+    resource_item['source']                         = "Antiope"
+    resource_item['awsRegion']                      = region
+
     interfaces = []
 
     # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
@@ -61,15 +68,15 @@ def discover_enis(account, region):
     interfaces += response['NetworkInterfaces']
 
     for eni in interfaces:
-        # print(eni)
-        eni['region']           = region
-        eni['account_id']       = account.account_id
-        eni['account_name']     = account.account_name
-        eni['resource_type']    = "ec2-eni"
-        eni['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 
-        # Save all interfaces!
-        save_resource_to_s3(RESOURCE_PATH, eni['NetworkInterfaceId'], eni)
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configuration']                  = eni
+        resource_item['tags']                           = eni['TagSet']
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = eni['NetworkInterfaceId']
+        resource_item['resourceName']                   = eni['NetworkInterfaceId']
+        resource_item['errors']                         = {}
+        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
         # Now build up the Public IP Objects
         if 'Association' in eni and 'PublicIp' in eni['Association']:

@@ -56,12 +56,23 @@ def discover_roles(account):
         response = iam_client.list_roles(Marker=response['Marker']) # I love how the AWS API is so inconsistent with how they do pagination.
     roles += response['Roles']
 
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::IAM::Role"
+    resource_item['source']                         = "Antiope"
+
     for role in roles:
-        # The Arn tells me the account_id, but I'll do this for consistency across the rest of the resources I collect
-        role['account_id']       = account.account_id
-        role['account_name']     = account.account_name
-        role['resource_type']    = "iam-role"
-        role['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configuration']                  = role
+        resource_item['tags']                           = parse_tags(role['Tags'])
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = role['RoleId']
+        resource_item['resourceName']                   = role['RoleName']
+        resource_item['ARN']                            = role['Arn']
+        resource_item['resourceCreationTime']           = role['CreateDate']
+        resource_item['errors']                         = {}
+        save_resource_to_s3(ROLE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
         # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
         for s in role['AssumeRolePolicyDocument']['Statement']:
@@ -74,10 +85,6 @@ def discover_roles(account):
                         process_trusted_account(p, role['Arn'])
                 else:
                     process_trusted_account(s['Principal']['AWS'], role['Arn'])
-
-        # Need to make sure the resource name is unique and service identifiable.
-        resource_name = "{}-{}".format(role['RoleName'], account.account_id)
-        save_resource_to_s3(ROLE_RESOURCE_PATH, resource_name, role)
 
 def process_trusted_account(principal, role_arn):
     '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
@@ -130,20 +137,28 @@ def discover_users(account):
         response = iam_client.list_users(Marker=response['Marker'])
     users += response['Users']
 
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::IAM::User"
+    resource_item['source']                         = "Antiope"
+
     for user in users:
-        user['account_id']       = account.account_id
-        user['account_name']     = account.account_name
-        user['resource_type']    = "iam-user"
-        user['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configuration']                  = user
+        resource_item['tags']                           = parse_tags(user['Tags'])
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = user['UserId']
+        resource_item['resourceName']                   = user['UserName']
+        resource_item['ARN']                            = user['Arn']
+        resource_item['resourceCreationTime']           = user['CreateDate']
+        resource_item['errors']                         = {}
 
         response = iam_client.list_mfa_devices(UserName=user['UserName'])
         if 'MFADevices' in response and len(response['MFADevices']) > 0:
-            user['MFADevice'] = response['MFADevices'][0]
+            resource_item['supplementaryConfiguration']['MFADevice'] = response['MFADevices'][0]
 
-        # Need to make sure the resource name is unique and service identifiable.
-        resource_name = "{}-{}".format(user['UserName'], account.account_id)
-        save_resource_to_s3(USER_RESOURCE_PATH, resource_name, user)
-
+        save_resource_to_s3(USER_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
 def json_serial(obj):

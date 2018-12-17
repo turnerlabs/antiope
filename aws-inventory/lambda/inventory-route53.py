@@ -57,27 +57,34 @@ def discover_domains(account):
 
     for d in domains:
 
+        resource_item = {}
+        resource_item['awsAccountId']                   = account.account_id
+        resource_item['awsAccountName']                 = account.account_name
+        resource_item['resourceType']                   = "AWS::Route53::Domain"
+        resource_item['source']                         = "Antiope"
+
         # Get the real juicy details
         domain = route53_client.get_domain_detail(DomainName=d['DomainName'])
-
         del domain['ResponseMetadata'] # Remove response metadata. Not needed
 
-        # Now decorate with the info needed to find it
-        domain['account_id']       = account.account_id
-        domain['account_name']     = account.account_name
-        domain['resource_type']    = "route53-domain"
-        domain['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-        # And the one bit of info that only list domains had.
-        domain['TransferLock']     = d['TransferLock']
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configuration']                  = domain
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = domain['DomainName']
+        resource_item['resourceName']                   = domain['DomainName']
+        resource_item['resourceCreationTime']           = domain['CreationDate']
+        resource_item['errors']                         = {}
 
+        # And the one bit of info that only list domains had.
+        resource_item['supplementaryConfiguration']['TransferLock']     = d['TransferLock']
 
         # Not sure why Route53 product team makes me do a special call for tags.
         response = route53_client.list_tags_for_domain(DomainName=d['DomainName'])
         if 'TagList' in response:
-            domain['Tags'] = response['TagList']
+            resource_item['Tags'] = response['TagList']
 
         # Need to make sure the resource name is unique and service identifiable.
-        save_resource_to_s3(DOMAIN_RESOURCE_PATH, domain['DomainName'], domain)
+        save_resource_to_s3(DOMAIN_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 def discover_zones(account):
     '''
@@ -95,10 +102,22 @@ def discover_zones(account):
     zones += response['HostedZones']
 
     for zone in zones:
-        zone['account_id']       = account.account_id
-        zone['account_name']     = account.account_name
-        zone['resource_type']    = "route53-zone"
-        zone['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+
+        resource_item = {}
+        resource_item['awsAccountId']                   = account.account_id
+        resource_item['awsAccountName']                 = account.account_name
+        resource_item['resourceType']                   = "AWS::Route53::HostedZone"
+        resource_item['source']                         = "Antiope"
+
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configuration']                  = zone
+        # resource_item['tags']                           = FIXME
+        resource_item['supplementaryConfiguration']     = {}
+        # Need to make sure the resource name is unique and service identifiable.
+        # Zone Ids look like "/hostedzone/Z2UFNORDFDSFTZ"
+        resource_item['resourceId']                     = zone['Id'].split("/")[2]
+        resource_item['resourceName']                   = zone['Name']
+        resource_item['errors']                         = {}
 
         # # Not sure why Route53 product team makes me do a special call for tags.
         # response = route53_client.list_tags_for_resource(
@@ -111,11 +130,9 @@ def discover_zones(account):
         # This also looks interesting from a data-leakage perspective
         response = route53_client.list_vpc_association_authorizations(HostedZoneId=zone['Id'])
         if 'VPCs' in response:
-            zone['AuthorizedVPCs'] = response['VPCs']
+            resource_item['supplementaryConfiguration']['AuthorizedVPCs'] = response['VPCs']
 
-        # Need to make sure the resource name is unique and service identifiable.
-        # Zone Ids look like "/hostedzone/Z2UFNORDFDSFTZ"
-        save_resource_to_s3(ZONE_RESOURCE_PATH, zone['Id'].split("/")[2], zone)
+        save_resource_to_s3(ZONE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
 

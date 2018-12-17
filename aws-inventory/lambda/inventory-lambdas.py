@@ -55,15 +55,26 @@ def discover_lambdas(target_account, region):
 
 def process_lambda(client, mylambda, target_account, region):
 
-    resource_name = "{}-{}-{}".format(target_account.account_id, region, mylambda['FunctionName'].replace("/", "-"))
+    resource_item = {}
+    resource_item['awsAccountId']                   = target_account.account_id
+    resource_item['awsAccountName']                 = target_account.account_name
+    resource_item['resourceType']                   = "AWS::Lambda::Function"
+    resource_item['source']                         = "Antiope"
+
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+    resource_item['awsRegion']                      = region
+    resource_item['configuration']                  = mylambda
+    # resource_item['tags']                           = FIXME
+    resource_item['supplementaryConfiguration']     = {}
+    resource_item['resourceId']                     = "{}-{}-{}".format(target_account.account_id, region, mylambda['FunctionName'].replace("/", "-"))
+    resource_item['resourceName']                   = mylambda['FunctionName']
+    resource_item['ARN']                            = mylambda['FunctionArn']
+    resource_item['errors']                         = {}
 
     response = client.get_policy(FunctionName=mylambda['FunctionArn'])
     if 'Policy' in response:
-        mylambda['Policy']    = json.loads(response['Policy'])
+        resource_item['supplementaryConfiguration']['Policy']    = json.loads(response['Policy'])
 
-    mylambda['resource_type']     = "lambda"
-    mylambda['region']            = region
-    mylambda['account_id']        = target_account.account_id
-    mylambda['account_name']      = target_account.account_name
-    mylambda['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-    save_resource_to_s3(RESOURCE_PATH, resource_name, mylambda)
+
+
+    save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)

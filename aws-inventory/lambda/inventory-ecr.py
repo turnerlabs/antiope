@@ -18,6 +18,7 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
 RESOURCE_PATH = "ecr/repositories"
+RESOURCE_TYPE = "AWS::ECR::Repository"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -55,26 +56,31 @@ def discover_repos(target_account, region):
 
 def process_repo(client, repo, target_account, region):
 
-    resource_name = "{}-{}-{}".format(target_account.account_id, region, repo['repositoryName'].replace("/", "-"))
+    resource_item = {}
+    resource_item['awsAccountId']                   = target_account.account_id
+    resource_item['awsAccountName']                 = target_account.account_name
+    resource_item['resourceType']                   = RESOURCE_TYPE
+    resource_item['awsRegion']                      = region
+    resource_item['source']                         = "Antiope"
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+    resource_item['configuration']                  = repo
+    resource_item['supplementaryConfiguration']     = {}
+    resource_item['resourceId']                     = "{}-{}-{}".format(target_account.account_id, region, repo['repositoryName'].replace("/", "-"))
+    resource_item['resourceName']                   = repo['repositoryName']
+    resource_item['ARN']                            = repo['repositoryArn']
+    resource_item['resourceCreationTime']           = repo['createdAt']
+    resource_item['errors']                         = {}
 
     try:
         response = client.get_repository_policy(repositoryName=repo['repositoryName'])
         if 'policyText' in response:
-            repo['ResourcePolicy']    = json.loads(response['policyText'])
+            resource_item['supplementaryConfiguration']['ResourcePolicy']    = json.loads(response['policyText'])
     except ClientError as e:
         if e.response['Error']['Code'] == 'RepositoryPolicyNotFoundException':
             pass
         else:
             raise
 
-    # if 'Tags' in repo:
-    #     repo['Tags']              = parse_tags(repo['Tags'])
-
-    repo['resource_type']     = "ecr-repositories"
-    repo['region']            = region
-    repo['account_id']        = target_account.account_id
-    repo['account_name']      = target_account.account_name
-    repo['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-    save_resource_to_s3(RESOURCE_PATH, resource_name, repo)
+    save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
