@@ -835,20 +835,21 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
-  HealthInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt HealthInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
+  # Disabled this till we have a better story around how to inventory & leverage this data
+  # HealthInventoryLambdaFunctionPermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     FunctionName: !GetAtt HealthInventoryLambdaFunction.Arn
+  #     Principal: sns.amazonaws.com
+  #     SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+  #     Action: lambda:invokeFunction
 
-  HealthInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [HealthInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+  # HealthInventoryTopicToLambdaSubscription:
+  #   Type: AWS::SNS::Subscription
+  #   Properties:
+  #     Endpoint: !GetAtt [HealthInventoryLambdaFunction, Arn]
+  #     Protocol: lambda
+  #     TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
   # StackInventoryLambdaFunctionPermission:
   #   Type: AWS::Lambda::Permission
