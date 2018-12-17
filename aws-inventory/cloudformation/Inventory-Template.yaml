@@ -1277,7 +1277,7 @@ Resources:
               "width": 6,
               "height": 3,
               "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#rules:name=${TriggerStateMachine})"
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})"
               }
             },
             {
@@ -1311,7 +1311,7 @@ Resources:
                 "view": "timeSeries",
                 "stacked": false,
                 "metrics": [[ "AWS/S3", "BucketSizeBytes", "StorageType", "StandardStorage", "BucketName", "${pBucketName}", { "period": 86400 } ] ],
-                "region": "us-east-1",
+                "region": "${AWS::Region}",
                 "yAxis": {"left": {"min": 0 } },
                 "title": "Inventory Storage Used"
                 }
@@ -1326,7 +1326,7 @@ Resources:
                 "view": "timeSeries",
                 "stacked": false,
                 "metrics": [[ "AWS/S3", "NumberOfObjects", "StorageType", "AllStorageTypes", "BucketName", "${pBucketName}", { "period": 86400 } ] ],
-                "region": "us-east-1",
+                "region": "${AWS::Region}",
                 "yAxis": {"left": {"min": 0 } },
                 "title": "Inventory Object Count"
               }
