@@ -1,14 +1,19 @@
 
+# Generic places I've shoved things from a scratch/perspective
+Config/
 ATTIC/
 Resources/
 Notes.md
 
+# Build-time crud
 *.zip
 *-test-event.json
 *dist-info
 
-# required python packages for the lambda that should not be committed
+# Deploy specific env vars passed to makefile. Not to be shared.
+config.*
 
+# Build-time crud for the search cluster lambda
 search-cluster/lambda/*dist-info
 search-cluster/lambda/*.zip
 search-cluster/lambda/urllib3*
@@ -24,9 +29,7 @@ search-cluster/lambda/NOTICE
 search-cluster/lambda/elasticsearch5/
 search-cluster/lambda/elasticsearch/
 
-
-
-
+# Build-time crud for the inventory lambda
 aws-inventory/lambda/et_xmlfile
 aws-inventory/lambda/openpyxl
 aws-inventory/lambda/yaml
@@ -34,9 +37,14 @@ aws-inventory/lambda/jdcal.py
 aws-inventory/lambda/semver.py
 aws-inventory/lambda/lib/
 
+# Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml
-config.env
+
+# Test events also contain sensitive datad
 *test-events/*
+
+
+
 
 # Created by https://www.gitignore.io/api/osx,python
 
