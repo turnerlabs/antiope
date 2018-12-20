@@ -106,7 +106,7 @@ def process_key(client, key_arn, target_account, region):
     try:
         tags = get_key_tags(client, key_arn)
         if tags:
-            resource_item['tags'] = list_resource_tags(tags)
+            resource_item['tags'] = tags
     except ClientError as e:
         if e.response['Error']['Code'] == 'NotFoundException':
             pass
@@ -259,7 +259,11 @@ def kms_parse_tags(tagset):
 
     '''
 
-    output = {}
-    for tag in tagset:
-        output[tag['TagKey']] = tag['TagValue']
-    return(output)
+    try:
+        output = {}
+        for tag in tagset:
+            output[tag['TagKey']] = tag['TagValue']
+        return(output)
+    except Exception as e:
+        logger.error("Unable to parse tagset {}: {}".format(tagset, e))
+        raise

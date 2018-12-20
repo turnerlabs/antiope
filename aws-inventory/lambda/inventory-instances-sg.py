@@ -55,7 +55,7 @@ def lambda_handler(event, context):
 def process_instances(target_account, ec2_client, region):
 
     instance_reservations = get_all_instances(ec2_client)
-    logger.info("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, r))
+    logger.info("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
 
     # dump info about instances to S3 as json
     for reservation in instance_reservations:
@@ -69,7 +69,8 @@ def process_instances(target_account, ec2_client, region):
             resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
             resource_item['awsRegion']                      = region
             resource_item['configuration']                  = instance
-            resource_item['tags']                           = parse_tags(instance['Tags'])
+            if 'Tags' in instance:
+                resource_item['tags']                       = parse_tags(instance['Tags'])
             resource_item['supplementaryConfiguration']     = {}
             resource_item['resourceId']                     = instance['InstanceId']
             resource_item['resourceCreationTime']           = instance['LaunchTime']
@@ -80,7 +81,7 @@ def process_instances(target_account, ec2_client, region):
 def process_securitygroups(target_account, ec2_client, region):
 
     sec_groups = get_all_securitygroups(ec2_client)
-    logger.info("Found {} security groups for {} in {}".format(len(sec_groups), target_account.account_id, r))
+    logger.info("Found {} security groups for {} in {}".format(len(sec_groups), target_account.account_id, region))
 
     # dump info about instances to S3 as json
     for sec_group in sec_groups:
