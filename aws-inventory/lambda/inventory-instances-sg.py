@@ -89,7 +89,7 @@ def process_securitygroups(target_account, ec2_client, region):
         resource_item = {}
         resource_item['awsAccountId']                   = target_account.account_id
         resource_item['awsAccountName']                 = target_account.account_name
-        resource_item['resourceType']                   = "AWS::EC2::Instance"
+        resource_item['resourceType']                   = "AWS::EC2::SecurityGroup"
         resource_item['source']                         = "Antiope"
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
         resource_item['awsRegion']                      = region
