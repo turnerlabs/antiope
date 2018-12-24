@@ -48,7 +48,9 @@ def discover_vpcs(target_account, region):
     response = ec2_client.describe_vpcs()
 
     # Only ask for the VIFs once, and store them in a dict by vgw_id
-    dx_vifs = discover_all_dx_vifs(ec2_client, region, target_account)
+    dx_vifs, dx_gw_assoc = discover_all_dx_vifs(ec2_client, region, target_account)
+    logger.debug(dx_vifs)
+
 
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
@@ -97,6 +99,9 @@ def discover_vpcs(target_account, region):
             if vgw_id in dx_vifs:
                 resource_item['supplementaryConfiguration']['DXVirtualInterfaces'] = dx_vifs[vgw_id]
 
+            if vgw_id in dx_gw_assoc:
+                resource_item['supplementaryConfiguration']['directConnectGatewayAssociations'] = dx_gw_assoc[vgw_id]
+
         # VPC Peering connections are not dependent on a VGW
         peer_list = discover_vpc_peering(ec2_client, v['VpcId'])
         if peer_list is not None:
@@ -144,11 +149,11 @@ def discover_vpn(ec2_client, vgw_id):
         return(vpn_response['VpnConnections'])
 
 
-
 def discover_all_dx_vifs(ec2_client, region, target_account):
     '''returns any dx VIFs (virtual interfaces), indexed by the vgw_id'''
 
     output = {}
+    assoc_output = {}
 
     try: # Not all regions support DX
         dx_client = target_account.get_client('directconnect', region=region)
@@ -161,16 +166,51 @@ def discover_all_dx_vifs(ec2_client, region, target_account):
                 # You must be in an account that is hosting VIFs. We deal with that in a different modules
                 continue
 
-            # There can be multiple VIFs per VGW, so this needs to be a list
-            if vif['virtualGatewayId'] not in output:
-                output[vif['virtualGatewayId']] = []
+            if vif['directConnectGatewayId']:
+                associations = get_all_dx_gw_associations(dx_client, vif['directConnectGatewayId'])
+                for vgw_id, assoc in associations.items():
+                    if vgw_id not in output:
+                        output[vgw_id] = []
+                    output[vgw_id].append(vif)
 
-            output[vif['virtualGatewayId']].append(vif)
+                    if vgw_id not in assoc_output:
+                        assoc_output[vgw_id] = []
+                    assoc_output[vgw_id].append(assoc)
 
-        return(output)
+
+            else: # This VIF is directly attached to the VGW.
+
+                # There can be multiple VIFs per VGW, so this needs to be a list
+                if vif['virtualGatewayId'] not in output:
+                    output[vif['virtualGatewayId']] = []
+                output[vif['virtualGatewayId']].append(vif)
+
+        return(output, assoc_output)
     except Exception as e:
         logger.error("Got an exception trying to dx_client.describe_virtual_interfaces() : {}".format(e))
         raise # raise the roof till we know how to handle.
+
+
+def get_all_dx_gw_associations(dx_client, dxgw_id):
+    '''Return all the VGW Associations for a specific DirectConnect Gateway.'''
+
+    associations = []
+
+    dx_gw_response = dx_client.describe_direct_connect_gateway_associations(directConnectGatewayId=dxgw_id)
+    while 'nextToken' in dx_gw_response:
+        associations += dx_gw_response['directConnectGatewayAssociations']
+        dx_gw_response = dx_client.describe_direct_connect_gateway_associations(directConnectGatewayId=dxgw_id, nextToken=dx_gw_response['nextToken'])
+
+    associations += dx_gw_response['directConnectGatewayAssociations']
+
+    print(associations)
+
+    # all I need are the VGWs
+    output = {}
+    for a in associations:
+        output[a['virtualGatewayId']] = a
+    return(output)
+
 
 
 def discover_vpc_peering(ec2_client, vpc_id):
