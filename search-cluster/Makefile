@@ -33,7 +33,7 @@ export STACK_NAME=search-cluster
 export STACK_TEMPLATE=cloudformation/SearchCluster-Template.yaml
 
 # Name of the Zip file with all the function code and dependencies
-export LAMBDA_PACKAGE=$(STACK_NAME)-lambda-$(version).zip
+export LAMBDA_PACKAGE ?= $(STACK_NAME)-lambda-$(version).zip
 
 # The full name of the stack in Cloudformation. This must match the manifest file
 export FULL_STACK_NAME=$(STACK_PREFIX)-$(env)-$(STACK_NAME)
@@ -58,6 +58,7 @@ deploy: package upload cfn-deploy
 
 clean:
 	cd lambda && $(MAKE) clean
+	rm -f notification_template-$(FULL_STACK_NAME).json
 
 #
 # Cloudformation Targets
@@ -89,4 +90,20 @@ update: package $(FUNCTIONS)
 # Update one specific function. Called as "make fupdate function=<fillinstackprefix>-aws-inventory-ecs-inventory"
 fupdate: package
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
+
+
+enable-s3-events:
+	$(eval QUEUEARN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchIngestEventQueueArn`].OutputValue' --output text))
+	cat notification_template.json | jq '.QueueConfigurations[0].QueueArn = "$(QUEUEARN)"' > notification_template-$(FULL_STACK_NAME).json
+	aws s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(FULL_STACK_NAME).json
+
+configure-identity-pool:
+	$(eval ID := "FIXME")
+	aws cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
+
+enable-kibana-auth:
+	$(eval DOMAIN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ClusterName`].OutputValue' --output text))
+	$(eval ROLE := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ESCognitoRoleArn`].OutputValue' --output text))
+	aws es update-elasticsearch-domain-config --domain-name $(DOMAIN) --cognito-options Enabled=true,UserPoolId=FIXME,IdentityPoolId=FIXME,RoleArn=$(ROLE)
+
 
