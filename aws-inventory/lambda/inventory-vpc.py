@@ -49,8 +49,9 @@ def discover_vpcs(target_account, region):
 
     # Only ask for the VIFs once, and store them in a dict by vgw_id
     dx_vifs, dx_gw_assoc = discover_all_dx_vifs(ec2_client, region, target_account)
-    logger.debug(dx_vifs)
 
+    # Same with the VPC peers.
+    vpc_peers = discover_vpc_peering(ec2_client)
 
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
@@ -103,9 +104,8 @@ def discover_vpcs(target_account, region):
                 resource_item['supplementaryConfiguration']['directConnectGatewayAssociations'] = dx_gw_assoc[vgw_id]
 
         # VPC Peering connections are not dependent on a VGW
-        peer_list = discover_vpc_peering(ec2_client, v['VpcId'])
-        if peer_list is not None:
-            resource_item['supplementaryConfiguration']['VpcPeeringConnections'] = peer_list
+        if v['VpcId'] in vpc_peers:
+            resource_item['supplementaryConfiguration']['VpcPeeringConnections'] = vpc_peers[v['VpcId']]
 
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
@@ -212,23 +212,22 @@ def get_all_dx_gw_associations(dx_client, dxgw_id):
     return(output)
 
 
+def discover_vpc_peering(ec2_client):
+    '''return a list of all the VPC peers, as a dict of arrays, indexed by vpc_id'''
 
-def discover_vpc_peering(ec2_client, vpc_id):
-    response = ec2_client.describe_vpc_peering_connections(
-        Filters=[
-            {
-                'Name': 'accepter-vpc-info.vpc-id',
-                'Values': [vpc_id]
-            },
-            {
-                'Name': 'requester-vpc-info.vpc-id',
-                'Values': [vpc_id]
-            },
-        ])
-    if 'VpcPeeringConnections' in response:
-        return(response['VpcPeeringConnections'])
-    else:
-        return(None)
+    output = {}
+    response = ec2_client.describe_vpc_peering_connections()
+
+    for px in response['VpcPeeringConnections']:
+        if px['AccepterVpcInfo']['VpcId'] not in output:
+            output[px['AccepterVpcInfo']['VpcId']] = []
+        output[px['AccepterVpcInfo']['VpcId']].append(px)
+
+        if px['RequesterVpcInfo']['VpcId'] not in output:
+            output[px['RequesterVpcInfo']['VpcId']] = []
+        output[px['RequesterVpcInfo']['VpcId']].append(px)
+
+    return(output)
 
 
 
