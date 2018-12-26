@@ -47,7 +47,7 @@ def lambda_handler(event, context):
                 response = es_client.describe_elasticsearch_domain(DomainName=domain_name)
                 domain = response['DomainStatus']
 
-                resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+                resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
                 resource_item['configuration']                  = domain
                 resource_item['supplementaryConfiguration']     = {}
                 resource_item['resourceId']                     = domain['DomainId']

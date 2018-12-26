@@ -62,7 +62,7 @@ def process_repo(client, repo, target_account, region):
     resource_item['resourceType']                   = RESOURCE_TYPE
     resource_item['awsRegion']                      = region
     resource_item['source']                         = "Antiope"
-    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
     resource_item['configuration']                  = repo
     resource_item['supplementaryConfiguration']     = {}
     resource_item['resourceId']                     = "{}-{}-{}".format(target_account.account_id, region, repo['repositoryName'].replace("/", "-"))

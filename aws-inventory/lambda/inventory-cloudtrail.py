@@ -60,7 +60,7 @@ def discover_trails(target_account, region):
             # Move along if the region of the trail is not the region we're making the call to
             continue
 
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = trail
         # resource_item['tags']                           = ct_client.list_tags(ResourceIdList=[ trail['TrailARN'] ] )
         resource_item['supplementaryConfiguration']     = {}

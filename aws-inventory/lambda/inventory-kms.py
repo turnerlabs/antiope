@@ -67,7 +67,7 @@ def process_key(client, key_arn, target_account, region):
     resource_item['resourceType']                   = "AWS::KMS::Key"
     resource_item['source']                         = "Antiope"
 
-    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
     resource_item['awsRegion']                      = region
     resource_item['configuration']                  = key
     resource_item['tags']                           = client.list_resource_tags(KeyId=key['KeyId'])

@@ -70,7 +70,7 @@ def discover_connections(target_account, region):
     resource_item['awsRegion']                      = region
 
     for c in response['connections']:
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = c
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = c['connectionId']
@@ -94,7 +94,7 @@ def discover_vifs(target_account, region, dx_gws):
 
     for vif in response['virtualInterfaces']:
         print("Found VIF {}".format(vif['virtualInterfaceId']))
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = vif
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = vif['virtualInterfaceId']
@@ -131,7 +131,7 @@ def discover_gateways(target_account):
     resource_item['source']                         = "Antiope"
 
     for c in response['directConnectGateways']:
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = c
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = c['directConnectGatewayId']

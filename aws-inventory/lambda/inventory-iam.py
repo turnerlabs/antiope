@@ -63,7 +63,7 @@ def discover_roles(account):
     resource_item['source']                         = "Antiope"
 
     for role in roles:
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = role
         if 'Tags' in role:
             resource_item['tags']                           = parse_tags(role['Tags'])
@@ -145,7 +145,7 @@ def discover_users(account):
     resource_item['source']                         = "Antiope"
 
     for user in users:
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = user
         if 'Tags' in user:
             resource_item['tags']                           = parse_tags(user['Tags'])

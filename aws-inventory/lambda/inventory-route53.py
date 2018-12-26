@@ -67,7 +67,7 @@ def discover_domains(account):
         domain = route53_client.get_domain_detail(DomainName=d['DomainName'])
         del domain['ResponseMetadata'] # Remove response metadata. Not needed
 
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = domain
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = domain['DomainName']
@@ -109,7 +109,7 @@ def discover_zones(account):
         resource_item['resourceType']                   = "AWS::Route53::HostedZone"
         resource_item['source']                         = "Antiope"
 
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = zone
         # resource_item['tags']                           = FIXME
         resource_item['supplementaryConfiguration']     = {}

@@ -62,7 +62,7 @@ def discover_vpcs(target_account, region):
 
     for v in response['Vpcs']:
 
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = v
 
         resource_item['supplementaryConfiguration']     = {}
@@ -76,7 +76,7 @@ def discover_vpcs(target_account, region):
                     'region':               region,
                     'cidr_block':           v['CidrBlock'],
                     'default':              v['IsDefault'],
-                    'last_seen':            str(datetime.datetime.now(tz.gettz('US/Eastern')))
+                    'last_seen':            str(datetime.datetime.now())
                 }
 
         if 'Tags' in v:

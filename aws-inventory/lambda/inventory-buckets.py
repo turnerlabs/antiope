@@ -61,7 +61,7 @@ def discover_buckets(account):
 
         bucket_name = b['Name']
 
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = b
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = b['Name']

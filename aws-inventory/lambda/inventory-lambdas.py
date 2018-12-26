@@ -61,7 +61,7 @@ def process_lambda(client, mylambda, target_account, region):
     resource_item['resourceType']                   = "AWS::Lambda::Function"
     resource_item['source']                         = "Antiope"
 
-    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
     resource_item['awsRegion']                      = region
     resource_item['configuration']                  = mylambda
     # resource_item['tags']                           = FIXME

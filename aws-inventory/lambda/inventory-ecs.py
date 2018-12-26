@@ -44,7 +44,7 @@ def lambda_handler(event, context):
                 cluster_item['awsAccountName']                 = target_account.account_name
                 cluster_item['resourceType']                   = "AWS::ECS::Cluster"
                 cluster_item['source']                         = "Antiope"
-                cluster_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+                cluster_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
                 cluster_item['awsRegion']                      = r
                 cluster_item['configuration']                  = cluster
                 if 'tags' in cluster:
@@ -63,7 +63,7 @@ def lambda_handler(event, context):
                     task_item['awsAccountName']                 = target_account.account_name
                     task_item['resourceType']                   = "AWS::ECS::Task"
                     task_item['source']                         = "Antiope"
-                    task_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+                    task_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
                     task_item['awsRegion']                      = r
                     task_item['configuration']                  = task
                     if 'tags' in task:

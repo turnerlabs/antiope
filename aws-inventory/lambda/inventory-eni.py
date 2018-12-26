@@ -69,7 +69,7 @@ def discover_enis(account, region):
 
     for eni in interfaces:
 
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = eni
         resource_item['tags']                           = eni['TagSet']
         resource_item['supplementaryConfiguration']     = {}
