@@ -476,3 +476,6 @@ Outputs:
   SearchIngestEventQueueArn:
     Description: Arn of the SQS Queue S3 should send new events notifications to
     Value: !GetAtt SearchIngestEventQueue.Arn
+  SearchIngestEventQueueUrl:
+    Description: Arn of the SQS Queue S3 should send new events notifications to
+    Value: !Ref SearchIngestEventQueue
