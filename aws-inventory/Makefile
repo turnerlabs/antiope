@@ -60,6 +60,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-ecr-inventory \
 			$(FULL_STACK_NAME)-lambdas-inventory \
 			$(FULL_STACK_NAME)-kms-inventory \
+			$(FULL_STACK_NAME)-dx-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
