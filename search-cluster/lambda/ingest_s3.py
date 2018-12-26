@@ -42,6 +42,7 @@ def lambda_handler(event, context):
         if 'Records' not in message:
             continue
 
+        logger.info(f"Processing {len(message['Records'])} objects for ingestion ")
         for s3_record in message['Records']:
             bucket=s3_record['s3']['bucket']['name']
             obj_key=s3_record['s3']['object']['key']
