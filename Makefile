@@ -38,3 +38,6 @@ clean:
 	cd search-cluster && $(MAKE) clean
 
 
+sync-resources:
+	aws s3 sync s3://$(BUCKET)/Resources/$(type) Scratch/Resources/$(env)/$(type)
+	open Scratch/Resources/$(env)/$(type)
