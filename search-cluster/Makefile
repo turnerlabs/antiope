@@ -58,6 +58,7 @@ deploy: package upload cfn-deploy
 
 clean:
 	cd lambda && $(MAKE) clean
+	cd scripts && $(MAKE) clean
 	rm -f notification_template-$(FULL_STACK_NAME).json
 
 #
@@ -106,4 +107,16 @@ enable-kibana-auth:
 	$(eval ROLE := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ESCognitoRoleArn`].OutputValue' --output text))
 	aws es update-elasticsearch-domain-config --domain-name $(DOMAIN) --cognito-options Enabled=true,UserPoolId=FIXME,IdentityPoolId=FIXME,RoleArn=$(ROLE)
 
+script-deps:
+	cd scripts && $(MAKE) deps
 
+
+INDICES=resources_cloudtrail resources_dx_connections resources_dx_gw resources_dx_vif resources_ec2_eni resources_ec2_instance resources_ec2_vpc resources_ecr_repositories resources_ecs_cluster resources_es_domain resources_iam_role resources_iam_user resources_kms_key resources_lambda resources_route53_domains resources_route53_hostedzone resources_s3_bucket resources_secretsmanager
+
+indices:
+	for i in $(INDICES) ; do \
+	  ./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $$i --mapping_dir mappings --delete ; \
+	done
+
+index:
+	./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $(index) --mapping_dir mappings --delete
