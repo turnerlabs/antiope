@@ -38,7 +38,7 @@ def lambda_handler(event, context):
             process_instances(target_account, ec2_client, r)
 
             # describe ec2 security groups
-
+            process_securitygroups(target_account, ec2_client, r)
 
 
     except AssumeRoleError as e:
