@@ -27,21 +27,21 @@ resource_item['awsAccountId']                   = target_account.account_id
 resource_item['awsAccountName']                 = target_account.account_name
 resource_item['resourceType']                   =
 resource_item['source']                         = "Antiope"
+resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+resource_item['configuration']                  =
+resource_item['resourceId']                     =
+resource_item['supplementaryConfiguration']     = {}
+resource_item['errors']                         = {}
 ```
 
 ### Optional
 
 ```python
-resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now(tz.gettz('US/Eastern')))
 resource_item['awsRegion']                      =
-resource_item['configuration']                  =
 resource_item['tags']                           =
-resource_item['supplementaryConfiguration']     = {}
-resource_item['resourceId']                     =
 resource_item['resourceName']                   =
 resource_item['ARN']                            =
 resource_item['resourceCreationTime']           =
-resource_item['errors']                         = {}
 ```
 
 
