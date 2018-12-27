@@ -1,0 +1,102 @@
+import boto3
+from botocore.exceptions import ClientError
+
+import json
+import os
+import time
+import datetime
+from dateutil import tz
+
+from lib.account import *
+from lib.common import *
+
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logging.getLogger('botocore').setLevel(logging.WARNING)
+logging.getLogger('boto3').setLevel(logging.WARNING)
+
+RESOURCE_PATH = "ec2/ami"
+RESOURCE_TYPE = "AWS::EC2::AMI"
+
+def lambda_handler(event, context):
+    logger.debug("Received event: " + json.dumps(event, sort_keys=True))
+    message = json.loads(event['Records'][0]['Sns']['Message'])
+    logger.info("Received message: " + json.dumps(message, sort_keys=True))
+
+    try:
+
+        target_account = AWSAccount(message['account_id'])
+
+        regions = target_account.get_regions()
+        if 'region' in message:
+            regions = [ message['region'] ]
+
+        # describe ec2 instances
+        for r in regions:
+            ec2_client = target_account.get_client('ec2', region=r)
+            process_instances(target_account, ec2_client, r)
+
+    except AssumeRoleError as e:
+        logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
+        return()
+    except ClientError as e:
+        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        return()
+    except Exception as e:
+        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        raise
+
+
+def process_instances(target_account, ec2_client, region):
+
+    instance_reservations = get_all_instances(ec2_client)
+    logger.info("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
+
+    seen_images = []
+
+    # dump info about instances to S3 as json
+    for reservation in instance_reservations:
+        for instance in reservation['Instances']:
+            if instance['ImageId'] not in seen_images:
+                image_id = instance['ImageId']
+                process_image(target_account, ec2_client, region, image_id)
+                seen_images.append(image_id)
+
+
+
+
+
+def process_image(target_account, ec2_client, region, image_id):
+
+    response = ec2_client.describe_images(ImageIds=[image_id ] )
+
+    # dump info about instances to S3 as json
+    for image in response['Images']:
+
+        resource_item = {}
+        resource_item['awsAccountId']                   = target_account.account_id
+        resource_item['awsAccountName']                 = target_account.account_name
+        resource_item['resourceType']                   = RESOURCE_TYPE
+        resource_item['source']                         = "Antiope"
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+        resource_item['awsRegion']                      = region
+        resource_item['configuration']                  = image
+        resource_item['tags']                           = parse_tags(sec_group['Tags'])
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = image['ImageId']
+        resource_item['errors']                         = {}
+        resource_item['resourceName']                   = image['Name']
+        resource_item['resourceCreationTime']           = image['CreationDate']
+        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
+
+
+def get_all_instances(ec2_client):
+    output = []
+    response = ec2_client.describe_instances()
+    while 'NextToken' in response:
+        output += response['Reservations']
+        response = ec2_client.describe_instances(NextToken=response['NextToken'])
+    output += response['Reservations']
+    return(output)
+
