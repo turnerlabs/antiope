@@ -60,15 +60,33 @@ def process_key(client, key_arn, target_account, region):
     # Enhance Key Information to include CMK Policy, Aliases, Tags
     key = client.describe_key(KeyId=key_arn)['KeyMetadata']
 
+
+    resource_item = {}
+    resource_item['awsAccountId']                   = target_account.account_id
+    resource_item['awsAccountName']                 = target_account.account_name
+    resource_item['resourceType']                   = "AWS::KMS::Key"
+    resource_item['source']                         = "Antiope"
+
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+    resource_item['awsRegion']                      = region
+    resource_item['configuration']                  = key
+    resource_item['tags']                           = client.list_resource_tags(KeyId=key['KeyId'])
+    resource_item['supplementaryConfiguration']     = {}
+    resource_item['resourceId']                     = key['KeyId']
+    resource_item['ARN']                            = key['Arn']
+    resource_item['errors']                         = {}
+
+
+
     try:
         aliases = get_key_aliases(client, key_arn)
         if aliases:
-            key['Aliases'] = aliases
+            resource_item['supplementaryConfiguration']['Aliases'] = aliases
     except ClientError as e:
         if e.response['Error']['Code'] == 'NotFoundException':
             pass
         elif e.response['Error']['Code'] == 'AccessDeniedException':
-            key['Aliases-Error'] = e.response['Error']['Message']
+            resource_item['errors']['Aliases-Error'] = e.response['Error']['Message']
         else:
             raise
 
@@ -76,46 +94,40 @@ def process_key(client, key_arn, target_account, region):
         policies = get_policy_list(client, key_arn)
         policy = get_key_policy(client, key_arn, policies)
         if policy:
-            key['ResourcePolicy'] = policy
+            resource_item['supplementaryConfiguration']['ResourcePolicy'] = policy
     except ClientError as e:
         if e.response['Error']['Code'] == 'NotFoundException':
             pass
         elif e.response['Error']['Code'] == 'AccessDeniedException':
-            key['ResourcePolicy-Error'] = e.response['Error']['Message']
+            resource_item['errors']['ResourcePolicy-Error'] = e.response['Error']['Message']
         else:
             raise
 
     try:
         tags = get_key_tags(client, key_arn)
         if tags:
-            key['Tags'] = tags
+            resource_item['tags'] = tags
     except ClientError as e:
         if e.response['Error']['Code'] == 'NotFoundException':
             pass
         elif e.response['Error']['Code'] == 'AccessDeniedException':
-            key['Tags-Error'] = e.response['Error']['Message']
+            resource_item['errors']['Tags-Error'] = e.response['Error']['Message']
         else:
             raise
 
     try:
         grants = get_key_grants(client, key_arn)
         if grants:
-            key['Grants'] = grants
+            resource_item['supplementaryConfiguration']['Grants'] = grants
     except ClientError as e:
         if e.response['Error']['Code'] == 'NotFoundException':
             pass
         elif e.response['Error']['Code'] == 'AccessDeniedException':
-            key['Grants-Error'] = e.response['Error']['Message']
+            resource_item['errors']['Grants-Error'] = e.response['Error']['Message']
         else:
             raise
 
-    resource_name = "{}-{}-{}".format(target_account.account_id, region, key['KeyId'].replace('/', '-'))
-    key['resource_type']     = "kms-key"
-    key['region']            = region
-    key['account_id']        = target_account.account_id
-    key['account_name']      = target_account.account_name
-    key['last_seen']         = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-    save_resource_to_s3(RESOURCE_PATH, resource_name, key)
+    save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 def get_key_grants(client, key_arn):
     '''Returns a list of Grants for Key
@@ -247,7 +259,11 @@ def kms_parse_tags(tagset):
 
     '''
 
-    output = {}
-    for tag in tagset:
-        output[tag['TagKey']] = tag['TagValue']
-    return(output)
+    try:
+        output = {}
+        for tag in tagset:
+            output[tag['TagKey']] = tag['TagValue']
+        return(output)
+    except Exception as e:
+        logger.error("Unable to parse tagset {}: {}".format(tagset, e))
+        raise

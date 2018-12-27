@@ -8,6 +8,8 @@ import time
 import datetime
 from dateutil import tz
 import re
+from xml.dom.minidom import parseString
+
 
 from lib.account import *
 from lib.common import *
@@ -20,6 +22,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 USER_RESOURCE_PATH = "iam/user"
 ROLE_RESOURCE_PATH = "iam/role"
+SAML_RESOURCE_PATH = "iam/saml"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -30,6 +33,7 @@ def lambda_handler(event, context):
         target_account = AWSAccount(message['account_id'])
         discover_roles(target_account)
         discover_users(target_account)
+        discover_saml_provider(target_account)
 
     except AssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -43,12 +47,10 @@ def lambda_handler(event, context):
 
 def discover_roles(account):
     '''
-        Gathers all the Route53Domains registered domains
+        Discovers all IAM Roles. If there is a trust relationship to an external account it will note that.
     '''
     roles = []
 
-    # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
-    # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
     iam_client = account.get_client('iam')
     response = iam_client.list_roles()
     while 'IsTruncated' in response and response['IsTruncated'] is True:  # Gotta Catch 'em all!
@@ -56,12 +58,24 @@ def discover_roles(account):
         response = iam_client.list_roles(Marker=response['Marker']) # I love how the AWS API is so inconsistent with how they do pagination.
     roles += response['Roles']
 
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::IAM::Role"
+    resource_item['source']                         = "Antiope"
+
     for role in roles:
-        # The Arn tells me the account_id, but I'll do this for consistency across the rest of the resources I collect
-        role['account_id']       = account.account_id
-        role['account_name']     = account.account_name
-        role['resource_type']    = "iam-role"
-        role['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+        resource_item['configuration']                  = role
+        if 'Tags' in role:
+            resource_item['tags']                           = parse_tags(role['Tags'])
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = role['RoleId']
+        resource_item['resourceName']                   = role['RoleName']
+        resource_item['ARN']                            = role['Arn']
+        resource_item['resourceCreationTime']           = role['CreateDate']
+        resource_item['errors']                         = {}
+        save_resource_to_s3(ROLE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
         # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
         for s in role['AssumeRolePolicyDocument']['Statement']:
@@ -74,10 +88,6 @@ def discover_roles(account):
                         process_trusted_account(p, role['Arn'])
                 else:
                     process_trusted_account(s['Principal']['AWS'], role['Arn'])
-
-        # Need to make sure the resource name is unique and service identifiable.
-        resource_name = "{}-{}".format(role['RoleName'], account.account_id)
-        save_resource_to_s3(ROLE_RESOURCE_PATH, resource_name, role)
 
 def process_trusted_account(principal, role_arn):
     '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
@@ -117,12 +127,10 @@ def process_trusted_account(principal, role_arn):
 
 def discover_users(account):
     '''
-        Queries AWS to determine what Route53 Zones are hosted in an AWS Account
+        Queries AWS to determine IAM Users exist in an AWS Account
     '''
     users = []
 
-    # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
-    # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
     iam_client = account.get_client('iam')
     response = iam_client.list_users()
     while 'IsTruncated' in response and response['IsTruncated'] is True:  # Gotta Catch 'em all!
@@ -130,25 +138,61 @@ def discover_users(account):
         response = iam_client.list_users(Marker=response['Marker'])
     users += response['Users']
 
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::IAM::User"
+    resource_item['source']                         = "Antiope"
+
     for user in users:
-        user['account_id']       = account.account_id
-        user['account_name']     = account.account_name
-        user['resource_type']    = "iam-user"
-        user['last_updated']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+        resource_item['configuration']                  = user
+        if 'Tags' in user:
+            resource_item['tags']                           = parse_tags(user['Tags'])
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = user['UserId']
+        resource_item['resourceName']                   = user['UserName']
+        resource_item['ARN']                            = user['Arn']
+        resource_item['resourceCreationTime']           = user['CreateDate']
+        resource_item['errors']                         = {}
 
         response = iam_client.list_mfa_devices(UserName=user['UserName'])
         if 'MFADevices' in response and len(response['MFADevices']) > 0:
-            user['MFADevice'] = response['MFADevices'][0]
+            resource_item['supplementaryConfiguration']['MFADevice'] = response['MFADevices'][0]
 
-        # Need to make sure the resource name is unique and service identifiable.
-        resource_name = "{}-{}".format(user['UserName'], account.account_id)
-        save_resource_to_s3(USER_RESOURCE_PATH, resource_name, user)
+        save_resource_to_s3(USER_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
+def discover_saml_provider(account):
+    '''
+        Queries AWS to determine SAML Providers exist (and who you're trusting)
+    '''
+    iam_client = account.get_client('iam')
+    response = iam_client.list_saml_providers()
 
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::IAM::SAML"
+    resource_item['source']                         = "Antiope"
 
-def json_serial(obj):
-    """JSON serializer for objects not serializable by default json code"""
+    for idp in response['SAMLProviderList']:
 
-    if isinstance(obj, (datetime, date)):
-        return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))
+        # The Metadata doc (with the useful deets) are in an XML doc that requires another call
+        saml = iam_client.get_saml_provider(SAMLProviderArn=idp['Arn'])
+        metadata_xml = parseString(saml['SAMLMetadataDocument'])
+        idp['SAMLMetadataDocument'] = metadata_xml.toprettyxml()
+
+        # We get the name from the end of the arn
+        name = idp['Arn'].split("/")[-1]
+
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+        resource_item['configuration']                  = idp
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = f"{name}-{account.account_id}"
+        resource_item['resourceName']                   = name
+        resource_item['ARN']                            = idp['Arn']
+        resource_item['resourceCreationTime']           = idp['CreateDate']
+        resource_item['errors']                         = {}
+
+        save_resource_to_s3(SAML_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+

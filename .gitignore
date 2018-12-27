@@ -1,32 +1,33 @@
 
-ATTIC/
-Resources/
+# Generic places I've shoved things from a scratch/perspective
+Scratch/
 Notes.md
 
+# Build-time crud
 *.zip
 *-test-event.json
 *dist-info
 
-# required python packages for the lambda that should not be committed
+# Deploy specific env vars passed to makefile. Not to be shared.
+config.*
 
-search-cluster/lambda/*dist-info
-search-cluster/lambda/*.zip
-search-cluster/lambda/urllib3*
-search-cluster/lambda/requests*
-search-cluster/lambda/lib/
-search-cluster/lambda/chardet/
-search-cluster/lambda/certifi/
-search-cluster/lambda/idna/
-search-cluster/lambda/bin/
-search-cluster/lambda/*.rst
-search-cluster/lambda/LICENSE
-search-cluster/lambda/NOTICE
-search-cluster/lambda/elasticsearch5/
-search-cluster/lambda/elasticsearch/
+# Build-time crud for the search cluster lambda
+search-cluster/*/*dist-info
+search-cluster/*/*.zip
+search-cluster/*/urllib3*
+search-cluster/*/requests*
+search-cluster/*/lib/
+search-cluster/*/chardet/
+search-cluster/*/certifi/
+search-cluster/*/idna/
+search-cluster/*/bin/
+search-cluster/*/*.rst
+search-cluster/*/LICENSE
+search-cluster/*/NOTICE
+search-cluster/*/elasticsearch5/
+search-cluster/*/elasticsearch/
 
-
-
-
+# Build-time crud for the inventory lambda
 aws-inventory/lambda/et_xmlfile
 aws-inventory/lambda/openpyxl
 aws-inventory/lambda/yaml
@@ -34,9 +35,14 @@ aws-inventory/lambda/jdcal.py
 aws-inventory/lambda/semver.py
 aws-inventory/lambda/lib/
 
+# Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml
-config.env
+
+# Test events also contain sensitive datad
 *test-events/*
+
+
+
 
 # Created by https://www.gitignore.io/api/osx,python
 
@@ -169,5 +175,4 @@ ENV/
 
 
 # End of https://www.gitignore.io/api/osx,python
-
 

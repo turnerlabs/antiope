@@ -1,7 +1,16 @@
 
+ifndef env
+# $(error env is not set)
+	env ?= dev
+endif
 
-include ../config.env
-export
+ifdef CONFIG
+	include ../$(CONFIG)
+	export
+else
+	include ../config.$(env)
+	export
+endif
 
 # STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
 ifndef STACK_PREFIX
@@ -12,10 +21,6 @@ ifndef BUCKET
 	$(error BUCKET is not set)
 endif
 
-ifndef env
-# $(error env is not set)
-	env ?= dev
-endif
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
@@ -55,6 +60,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-ecr-inventory \
 			$(FULL_STACK_NAME)-lambdas-inventory \
 			$(FULL_STACK_NAME)-kms-inventory \
+			$(FULL_STACK_NAME)-dx-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
@@ -103,7 +109,7 @@ fupdate: package
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
 # This will prompt for confirmation
-purge:
+purge-tables:
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-accounts --key_attribute account_id --force
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-billing-data --key_attribute account_id --force
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-vpc-inventory --key_attribute vpc_id --force
@@ -114,3 +120,13 @@ trigger:
 
 templates:
 	aws s3 cp html_templates/* s3://$(BUCKET)/Templates/
+
+purge-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs delete-log-group --log-group-name /aws/lambda/$$f ; \
+	done
+
+expire-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
+	done

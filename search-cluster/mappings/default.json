@@ -1,0 +1,93 @@
+{
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "ARN": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "awsAccountId": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 13,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "awsAccountName": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "awsRegion": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 20,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "configuration": {
+          "type": "object"
+        },
+        "configurationItemCaptureTime": {
+          "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
+          "type": "date"
+        },
+        "errors": {
+          "type": "object"
+        },
+        "resourceId": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "resourceName": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "text"
+        },
+        "resourceType": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "source": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "supplementaryConfiguration": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

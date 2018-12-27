@@ -373,7 +373,7 @@ Resources:
                             [ ".", "Duration", ".", ".", { "stat": "Average", "period": 604800 } ]
                         ],
                         "view": "singleValue",
-                        "region": "us-east-1",
+                        "region": "${AWS::Region}",
                         "title": "Ingest Function Stats"
                     }
                 },
@@ -401,7 +401,7 @@ Resources:
                         ],
                         "view": "timeSeries",
                         "stacked": false,
-                        "region": "us-east-1",
+                        "region": "${AWS::Region}",
                         "title": "Search Requests",
                         "period": 300
                     }
@@ -423,7 +423,7 @@ Resources:
                         ],
                         "view": "timeSeries",
                         "stacked": false,
-                        "region": "us-east-1",
+                        "region": "${AWS::Region}",
                         "title": "Node Stats",
                         "period": 300
                     }
@@ -443,7 +443,7 @@ Resources:
                         ],
                         "view": "timeSeries",
                         "stacked": false,
-                        "region": "us-east-1",
+                        "region": "${AWS::Region}",
                         "period": 300,
                         "yAxis": {
                           "left": {"min": 0 },
@@ -462,9 +462,20 @@ Outputs:
     Value: !Ref pLambdaZipFile
   ClusterEndpoint:
     Value: !GetAtt SearchClusterDomain.DomainEndpoint
+  ClusterName:
+    Value: !Ref SearchClusterDomain
   ESCognitoRole:
     Description: "Use this role to enable Cognito authentication in Elasticsearch"
     Value: !Ref ESEnableCognitoRole
+  ESCognitoRoleArn:
+    Description: "Use this role to enable Cognito authentication in Elasticsearch"
+    Value: !GetAtt ESEnableCognitoRole.Arn
   KibanaURL:
     Description: "The URL to access Kibana."
     Value: !Sub "https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/"
+  SearchIngestEventQueueArn:
+    Description: Arn of the SQS Queue S3 should send new events notifications to
+    Value: !GetAtt SearchIngestEventQueue.Arn
+  SearchIngestEventQueueUrl:
+    Description: Arn of the SQS Queue S3 should send new events notifications to
+    Value: !Ref SearchIngestEventQueue

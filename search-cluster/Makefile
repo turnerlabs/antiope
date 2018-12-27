@@ -1,7 +1,17 @@
 
 
-include ../config.env
-export
+ifndef env
+# $(error env is not set)
+	env ?= dev
+endif
+
+ifdef CONFIG
+	include ../$(CONFIG)
+	export
+else
+	include ../config.$(env)
+	export
+endif
 
 # STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
 ifndef STACK_PREFIX
@@ -12,10 +22,6 @@ ifndef BUCKET
 	$(error BUCKET is not set)
 endif
 
-ifndef env
-# $(error env is not set)
-	env ?= dev
-endif
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
@@ -27,7 +33,7 @@ export STACK_NAME=search-cluster
 export STACK_TEMPLATE=cloudformation/SearchCluster-Template.yaml
 
 # Name of the Zip file with all the function code and dependencies
-export LAMBDA_PACKAGE=$(STACK_NAME)-lambda-$(version).zip
+export LAMBDA_PACKAGE ?= $(STACK_NAME)-lambda-$(version).zip
 
 # The full name of the stack in Cloudformation. This must match the manifest file
 export FULL_STACK_NAME=$(STACK_PREFIX)-$(env)-$(STACK_NAME)
@@ -52,6 +58,8 @@ deploy: package upload cfn-deploy
 
 clean:
 	cd lambda && $(MAKE) clean
+	cd scripts && $(MAKE) clean
+	rm -f notification_template-$(FULL_STACK_NAME).json
 
 #
 # Cloudformation Targets
@@ -84,3 +92,31 @@ update: package $(FUNCTIONS)
 fupdate: package
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
+
+enable-s3-events:
+	$(eval QUEUEARN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchIngestEventQueueArn`].OutputValue' --output text))
+	cat notification_template.json | jq '.QueueConfigurations[0].QueueArn = "$(QUEUEARN)"' > notification_template-$(FULL_STACK_NAME).json
+	aws s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(FULL_STACK_NAME).json
+
+configure-identity-pool:
+	$(eval ID := "FIXME")
+	aws cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
+
+enable-kibana-auth:
+	$(eval DOMAIN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ClusterName`].OutputValue' --output text))
+	$(eval ROLE := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ESCognitoRoleArn`].OutputValue' --output text))
+	aws es update-elasticsearch-domain-config --domain-name $(DOMAIN) --cognito-options Enabled=true,UserPoolId=FIXME,IdentityPoolId=FIXME,RoleArn=$(ROLE)
+
+script-deps:
+	cd scripts && $(MAKE) deps
+
+
+INDICES=resources_cloudtrail resources_dx_connections resources_dx_gw resources_dx_vif resources_ec2_eni resources_ec2_instance resources_ec2_vpc resources_ecr_repositories resources_ecs_cluster resources_es_domain resources_iam_role resources_iam_user resources_kms_key resources_lambda resources_route53_domains resources_route53_hostedzone resources_s3_bucket resources_secretsmanager
+
+indices:
+	for i in $(INDICES) ; do \
+	  ./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $$i --mapping_dir mappings --delete ; \
+	done
+
+index:
+	./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $(index) --mapping_dir mappings --delete

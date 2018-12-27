@@ -18,6 +18,7 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
 RESOURCE_PATH = "s3/bucket"
+RESOURCE_TYPE = "AWS::S3::Bucket"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -50,98 +51,107 @@ def discover_buckets(account):
     response = s3_client.list_buckets() # This API call doesn't paganate. Go fig...
     bucket_list += response['Buckets']
 
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = RESOURCE_TYPE
+    resource_item['source']                         = "Antiope"
+
     for b in bucket_list:
 
         bucket_name = b['Name']
 
-        # Decorate with the account info
-        b['account_id']       = account.account_id
-        b['account_name']     = account.account_name
-        b['resource_type']    = "s3-bucket"
-        b['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-        b['errors'] = {}
-
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+        resource_item['configuration']                  = b
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = b['Name']
+        resource_item['resourceName']                   = b['Name']
+        resource_item['ARN']                            = "arn:aws:s3:::{}".format(b['Name'])
+        resource_item['resourceCreationTime']           = b['CreationDate']
+        resource_item['errors']                         = {}
 
         # Go through a bunch of API calls to get details on this bucket
         try:
             response = s3_client.get_bucket_encryption(Bucket=bucket_name)
             if 'ServerSideEncryptionConfiguration' in response:
-                b['ServerSideEncryptionConfiguration'] = response['ServerSideEncryptionConfiguration']
+                resource_item['supplementaryConfiguration']['ServerSideEncryptionConfiguration'] = response['ServerSideEncryptionConfiguration']
         except ClientError as e:
             if e.response['Error']['Code'] != 'ServerSideEncryptionConfigurationNotFoundError':
-                b['errors']['ServerSideEncryptionConfiguration'] = e
+                resource_item['errors']['ServerSideEncryptionConfiguration'] = e
 
         try:
             response = s3_client.get_bucket_acl(Bucket=bucket_name)
             if 'Grants' in response:
-                b['Grants'] = response['Grants']
+                resource_item['supplementaryConfiguration']['Grants'] = response['Grants']
         except ClientError as e:
-            b['errors']['Grants'] = e
+            resource_item['errors']['Grants'] = e
 
         try:
             response = s3_client.get_bucket_location(Bucket=bucket_name)
             if 'LocationConstraint' in response:
                 if response['LocationConstraint'] is None:
-                    b['Location'] = "us-east-1"
+                    resource_item['supplementaryConfiguration']['Location'] = "us-east-1"
+                    resource_item['awsRegion'] = "us-east-1"
                 else:
-                    b['Location'] = response['LocationConstraint']
+                    resource_item['supplementaryConfiguration']['Location'] = response['LocationConstraint']
+                    resource_item['awsRegion'] = response['LocationConstraint']
         except ClientError as e:
-            b['errors']['Location'] = e
+            resource_item['errors']['Location'] = e
 
         try:
             response = s3_client.get_bucket_policy(Bucket=bucket_name)
             if 'Policy' in response:
-                b['BucketPolicy'] = json.loads(response['Policy'])
+                resource_item['supplementaryConfiguration']['BucketPolicy'] = json.loads(response['Policy'])
         except ClientError as e:
             if e.response['Error']['Code'] != 'NoSuchBucketPolicy':
-                b['errors']['BucketPolicy'] = e
+                resource_item['errors']['BucketPolicy'] = e
 
         try:
             response = s3_client.get_bucket_tagging(Bucket=bucket_name)
             if 'TagSet' in response:
-                b['TagSet'] = response['TagSet']
+                resource_item['tags'] = parse_tags(response['TagSet'])
         except ClientError as e:
             if e.response['Error']['Code'] != 'NoSuchTagSet':
-                b['errors']['TagSet'] = e
+                resource_item['errors']['TagSet'] = e
 
         try:
             response = s3_client.get_bucket_versioning(Bucket=bucket_name)
             del response['ResponseMetadata']
-            b['Versioning'] = response
+            resource_item['supplementaryConfiguration']['Versioning'] = response
         except ClientError as e:
-            b['errors']['Versioning'] = e
+            resource_item['errors']['Versioning'] = e
 
         try:
             response = s3_client.get_bucket_request_payment(Bucket=bucket_name)
             del response['ResponseMetadata']
-            b['RequestPayer'] = response
+            resource_item['supplementaryConfiguration']['RequestPayer'] = response
         except ClientError as e:
-            b['errors']['RequestPayer'] = e
+            resource_item['errors']['RequestPayer'] = e
 
         try:
             response = s3_client.get_bucket_website(Bucket=bucket_name)
             del response['ResponseMetadata']
-            b['Website'] = response
+            resource_item['supplementaryConfiguration']['Website'] = response
         except ClientError as e:
             if e.response['Error']['Code'] != 'NoSuchWebsiteConfiguration':
-                b['errors']['Website'] = e
+                resource_item['errors']['Website'] = e
 
         try:
             response = s3_client.get_bucket_logging(Bucket=bucket_name)
             if 'LoggingEnabled' in response:
-                b['Logging'] = response['LoggingEnabled']
+                resource_item['supplementaryConfiguration']['Logging'] = response['LoggingEnabled']
         except ClientError as e:
-            b['errors']['Logging'] = e
+            resource_item['errors']['Logging'] = e
 
         try:
             response = s3_client.get_bucket_cors(Bucket=bucket_name)
             if 'CORSRules' in response:
-                b['CORSRules'] = response['CORSRules']
+                resource_item['supplementaryConfiguration']['CORSRules'] = response['CORSRules']
         except ClientError as e:
             if e.response['Error']['Code'] != 'NoSuchCORSConfiguration':
-                b['errors']['CORSRules'] = e
+                resource_item['errors']['CORSRules'] = e
 
-        save_resource_to_s3(RESOURCE_PATH, bucket_name, b)
+        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
 

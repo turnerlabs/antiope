@@ -38,21 +38,42 @@ def lambda_handler(event, context):
 
             for cluster_arn in list_clusters(ecs_client):
                 cluster = ecs_client.describe_clusters(clusters=[cluster_arn], include=['STATISTICS'] )['clusters'][0]
-                cluster['account_id'] = message['account_id']
-                cluster['region'] = r
-                cluster['resource_type'] = "ecs-cluster"
-                cluster['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-                cluster_name = "{}-{}".format(cluster['clusterName'], target_account.account_id)
-                save_resource_to_s3(CLUSTER_RESOURCE_PATH, cluster_name, cluster)
+
+                cluster_item = {}
+                cluster_item['awsAccountId']                   = target_account.account_id
+                cluster_item['awsAccountName']                 = target_account.account_name
+                cluster_item['resourceType']                   = "AWS::ECS::Cluster"
+                cluster_item['source']                         = "Antiope"
+                cluster_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+                cluster_item['awsRegion']                      = r
+                cluster_item['configuration']                  = cluster
+                if 'tags' in cluster:
+                    cluster_item['tags']                       = parse_tags(cluster['tags'])
+                cluster_item['supplementaryConfiguration']     = {}
+                cluster_item['resourceId']                     = "{}-{}".format(cluster['clusterName'], target_account.account_id)
+                cluster_item['resourceName']                   = cluster['clusterName']
+                cluster_item['ARN']                            = cluster['clusterArn']
+                cluster_item['errors']                         = {}
+                save_resource_to_s3(CLUSTER_RESOURCE_PATH, cluster_item['resourceId'], cluster_item)
 
                 for task_arn in list_tasks(ecs_client, cluster_arn):
                     task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn])['tasks'][0]
-                    task['account_id'] = message['account_id']
-                    task['region'] = r
-                    task['resource_type'] = "ecs-task"
-                    task['last_seen']     = str(datetime.datetime.now(tz.gettz('US/Eastern')))
-                    task_name = "{}-{}".format(task['taskDefinitionArn'].split('/')[-1], target_account.account_id)
-                    save_resource_to_s3(TASK_RESOURCE_PATH, task_name, task)
+                    task_item = {}
+                    task_item['awsAccountId']                   = target_account.account_id
+                    task_item['awsAccountName']                 = target_account.account_name
+                    task_item['resourceType']                   = "AWS::ECS::Task"
+                    task_item['source']                         = "Antiope"
+                    task_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+                    task_item['awsRegion']                      = r
+                    task_item['configuration']                  = task
+                    if 'tags' in task:
+                        task_item['tags']                       = parse_tags(task['tags'])
+                    task_item['supplementaryConfiguration']     = {}
+                    task_item['resourceId']                     = "{}-{}".format(task['taskDefinitionArn'].split('/')[-1], target_account.account_id)
+                    task_item['resourceName']                   = task['taskDefinitionArn'].split('/')[-1]
+                    task_item['ARN']                            = task['taskArn']
+                    task_item['errors']                         = {}
+                    save_resource_to_s3(TASK_RESOURCE_PATH, task_item['resourceId'], task_item)
 
 
     except AssumeRoleError as e:
