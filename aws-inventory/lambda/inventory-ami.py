@@ -82,7 +82,8 @@ def process_image(target_account, ec2_client, region, image_id):
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['awsRegion']                      = region
         resource_item['configuration']                  = image
-        resource_item['tags']                           = parse_tags(sec_group['Tags'])
+        if 'Tags' in image:
+            resource_item['tags']                       = parse_tags(image['Tags'])
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = image['ImageId']
         resource_item['errors']                         = {}
