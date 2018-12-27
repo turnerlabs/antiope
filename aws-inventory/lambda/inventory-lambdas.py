@@ -71,10 +71,11 @@ def process_lambda(client, mylambda, target_account, region):
     resource_item['ARN']                            = mylambda['FunctionArn']
     resource_item['errors']                         = {}
 
-    response = client.get_policy(FunctionName=mylambda['FunctionArn'])
-    if 'Policy' in response:
-        resource_item['supplementaryConfiguration']['Policy']    = json.loads(response['Policy'])
-
-
+    try:
+        response = client.get_policy(FunctionName=mylambda['FunctionArn'])
+        if 'Policy' in response:
+            resource_item['supplementaryConfiguration']['Policy']    = json.loads(response['Policy'])
+    except ClientError as e:
+        logger.warning(f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}")
 
     save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
