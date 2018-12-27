@@ -8,6 +8,8 @@ import time
 import datetime
 from dateutil import tz
 import re
+from xml.dom.minidom import parseString
+
 
 from lib.account import *
 from lib.common import *
@@ -20,6 +22,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 USER_RESOURCE_PATH = "iam/user"
 ROLE_RESOURCE_PATH = "iam/role"
+SAML_RESOURCE_PATH = "iam/saml"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -30,6 +33,7 @@ def lambda_handler(event, context):
         target_account = AWSAccount(message['account_id'])
         discover_roles(target_account)
         discover_users(target_account)
+        discover_saml_provider(target_account)
 
     except AssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -43,12 +47,10 @@ def lambda_handler(event, context):
 
 def discover_roles(account):
     '''
-        Gathers all the Route53Domains registered domains
+        Discovers all IAM Roles. If there is a trust relationship to an external account it will note that.
     '''
     roles = []
 
-    # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
-    # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
     iam_client = account.get_client('iam')
     response = iam_client.list_roles()
     while 'IsTruncated' in response and response['IsTruncated'] is True:  # Gotta Catch 'em all!
@@ -125,12 +127,10 @@ def process_trusted_account(principal, role_arn):
 
 def discover_users(account):
     '''
-        Queries AWS to determine what Route53 Zones are hosted in an AWS Account
+        Queries AWS to determine IAM Users exist in an AWS Account
     '''
     users = []
 
-    # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
-    # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
     iam_client = account.get_client('iam')
     response = iam_client.list_users()
     while 'IsTruncated' in response and response['IsTruncated'] is True:  # Gotta Catch 'em all!
@@ -162,10 +162,37 @@ def discover_users(account):
 
         save_resource_to_s3(USER_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
+def discover_saml_provider(account):
+    '''
+        Queries AWS to determine SAML Providers exist (and who you're trusting)
+    '''
+    iam_client = account.get_client('iam')
+    response = iam_client.list_saml_providers()
 
-def json_serial(obj):
-    """JSON serializer for objects not serializable by default json code"""
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::IAM::SAML"
+    resource_item['source']                         = "Antiope"
 
-    if isinstance(obj, (datetime, date)):
-        return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))
+    for idp in response['SAMLProviderList']:
+
+        # The Metadata doc (with the useful deets) are in an XML doc that requires another call
+        saml = iam_client.get_saml_provider(SAMLProviderArn=idp['Arn'])
+        metadata_xml = parseString(saml['SAMLMetadataDocument'])
+        idp['SAMLMetadataDocument'] = metadata_xml.toprettyxml()
+
+        # We get the name from the end of the arn
+        name = idp['Arn'].split("/")[-1]
+
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+        resource_item['configuration']                  = idp
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = f"{name}-{account.account_id}"
+        resource_item['resourceName']                   = name
+        resource_item['ARN']                            = idp['Arn']
+        resource_item['resourceCreationTime']           = idp['CreateDate']
+        resource_item['errors']                         = {}
+
+        save_resource_to_s3(SAML_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+
