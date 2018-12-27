@@ -109,7 +109,7 @@ fupdate: package
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
 # This will prompt for confirmation
-purge:
+purge-tables:
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-accounts --key_attribute account_id --force
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-billing-data --key_attribute account_id --force
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-vpc-inventory --key_attribute vpc_id --force
@@ -120,3 +120,13 @@ trigger:
 
 templates:
 	aws s3 cp html_templates/* s3://$(BUCKET)/Templates/
+
+purge-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs delete-log-group --log-group-name /aws/lambda/$$f ; \
+	done
+
+expire-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
+	done
