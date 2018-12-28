@@ -44,7 +44,7 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
 
 # For uploading CFT to S3
-export TEMPLATE_KEY ?= deploy-packages/ScoreCard-Template-$(version).yaml
+export TEMPLATE_KEY ?= deploy-packages/$(STACK_NAME)-Template-$(version).yaml
 export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
