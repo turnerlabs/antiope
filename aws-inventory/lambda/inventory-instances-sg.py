@@ -94,7 +94,8 @@ def process_securitygroups(target_account, ec2_client, region):
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['awsRegion']                      = region
         resource_item['configuration']                  = sec_group
-        resource_item['tags']                           = parse_tags(sec_group['Tags'])
+        if 'Tags' in sec_group:
+            resource_item['tags']                       = parse_tags(sec_group['Tags'])
         resource_item['supplementaryConfiguration']     = {}
         resource_item['resourceId']                     = sec_group['GroupId']
         resource_item['errors']                         = {}
