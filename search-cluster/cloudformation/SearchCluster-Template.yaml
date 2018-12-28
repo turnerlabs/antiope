@@ -177,7 +177,7 @@ Resources:
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
-      Timeout: 60
+      Timeout: 180
       # MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
