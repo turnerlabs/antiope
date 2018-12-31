@@ -1,4 +1,6 @@
 import boto3
+from botocore.exceptions import ClientError
+
 import re
 import requests
 from requests_aws4auth import AWS4Auth
@@ -9,13 +11,9 @@ import time
 import datetime
 from dateutil import tz
 
-from lib.account import *
-from lib.common import *
-
-
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
@@ -42,7 +40,7 @@ def lambda_handler(event, context):
         if 'Records' not in message:
             continue
 
-        logger.info(f"Processing {len(message['Records'])} objects for ingestion ")
+        logger.debug(f"Processing {len(message['Records'])} objects for ingestion ")
         for s3_record in message['Records']:
             bucket=s3_record['s3']['bucket']['name']
             obj_key=s3_record['s3']['object']['key']
@@ -66,7 +64,12 @@ def lambda_handler(event, context):
                 url = "{}/{}/{}/{}".format(host, index, es_type, es_id)
                 r = requests.post(url, auth=awsauth, json=resource_to_index, headers=headers)
                 if not r.ok:
-                    logger.error("Unable to Index s3://{}/{}. ES returned non-ok error: {}: {}".format(bucket, obj_key, r.reason, r.text))
+                    e = r.json()
+                    if 'error' in e:
+                        logger.critical(f"Object: {obj_key} Error: {e['error']['type']} Message: {e['error']['reason']}")
+                    else:
+                        logger.error("Unable to Index s3://{}/{}. ES returned non-ok error: {}: {}".format(bucket, obj_key, r.reason, r.text))
+
             except Exception as e:
                 logger.error("General Exception Indexing s3://{}/{}: {}".format(bucket, obj_key, e))
                 raise
