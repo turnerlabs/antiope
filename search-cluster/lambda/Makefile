@@ -6,7 +6,7 @@ PIP=pip3
 
 FILES=ingest_s3.py
 
-DEPENDENCIES=requests lib requests_aws4auth requests_aws4auth certifi chardet idna urllib3 elasticsearch elasticsearch5
+DEPENDENCIES=requests requests_aws4auth requests_aws4auth certifi chardet idna urllib3
 
 package: test clean zipfile
 
@@ -27,4 +27,4 @@ test: $(FILES)
 
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
-	cp -a ../../lib .
+	# cp -a ../../lib .
