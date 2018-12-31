@@ -4,7 +4,7 @@ import boto3
 import re
 import requests
 from requests_aws4auth import AWS4Auth
-from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException, RequestError
+from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException, RequestError, NotFoundError
 
 import json
 import os
@@ -21,7 +21,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 # Lambda execution starts here
 def main(args, logger):
-    print("Creating index {} in {}".format(args.index, args.domain))
+    print("Recreating index {} in {}".format(args.index, args.domain))
 
     host = get_endpoint(args.domain)
     if host is None:
@@ -66,6 +66,9 @@ def main(args, logger):
         try:
             print(f"Deleting Index {args.index}")
             es.indices.delete(index=args.index)
+        except NotFoundError as e:
+            # if e.error == ""
+            print(f"Index {args.index} doesn't exist to delete. Skipping...")
         except RequestError as e:
             # if e.error == ""
             print(f"Unable to delete index {args.index}: {e}")
@@ -75,6 +78,7 @@ def main(args, logger):
             exit(1)
 
     try:
+        print(f"Creating Index {args.index}")
         response = es.indices.create(index=args.index, body=json.loads(mapping_text))
     except ElasticsearchException as e:
         print(f"Failed to create index {args.index}: {e}")
