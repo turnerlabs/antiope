@@ -1278,27 +1278,27 @@ Resources:
               "properties": {
                 "view": "singleValue",
                 "metrics": [
-                  [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
-                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
-                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
-                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
-                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
-                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
-                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
-                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
-                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
-                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
-                  [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
-                  [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
-                  [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
+                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
+                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
+                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
+                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
+                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 900, "label": "bucket-inventory" } ],
+                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 900, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
+                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 900, "label": "ecr-inventory" } ],
+                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 900, "label": "lambdas-inventory" } ],
+                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
+                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
+                  [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
+                  [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
                 "view": "timeSeries",
@@ -1310,7 +1310,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 18,
+              "y": 24,
               "width": 12,
               "height": 3,
               "properties": {
@@ -1328,7 +1328,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 24,
+              "y": 30,
               "width": 24,
               "height": 3,
               "properties": {
@@ -1346,7 +1346,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 21,
+              "y": 27,
               "width": 12,
               "height": 3,
               "properties": {
@@ -1368,7 +1368,7 @@ Resources:
               "title": "DynamoDB Activity",
               "type": "metric",
               "x": 0,
-              "y": 27,
+              "y": 33,
               "width": 24,
               "height": 9,
               "properties": {
@@ -1390,7 +1390,7 @@ Resources:
             {
               "type": "text",
               "x": 12,
-              "y": 21,
+              "y": 27,
               "width": 6,
               "height": 3,
               "properties": {
@@ -1400,7 +1400,7 @@ Resources:
             {
               "type": "text",
               "x": 18,
-              "y": 21,
+              "y": 27,
               "width": 6,
               "height": 3,
               "properties": {
@@ -1410,7 +1410,7 @@ Resources:
             {
               "type": "text",
               "x": 12,
-              "y": 18,
+              "y": 24,
               "width": 12,
               "height": 3,
               "styles": "undefined",
@@ -1421,7 +1421,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 36,
+              "y": 42,
               "width": 12,
               "height": 3,
               "properties": {
@@ -1436,7 +1436,7 @@ Resources:
             {
               "type": "metric",
               "x": 12,
-              "y": 36,
+              "y": 42,
               "width": 12,
               "height": 3,
               "properties": {
