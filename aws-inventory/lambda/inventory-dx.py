@@ -53,7 +53,7 @@ def lambda_handler(event, context):
         logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
         return()
     except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
 def discover_connections(target_account, region):
@@ -103,6 +103,9 @@ def discover_vifs(target_account, region, dx_gws):
         # The same VIF ID will be discovered in the account with the DX Connection, and the account the DX is shared with.
         save_resource_to_s3(VIF_PATH, "{}-{}".format(resource_item['resourceId'], target_account.account_id) , resource_item)
 
+        if vif['ownerAccount'] != target_account.account_id:
+            continue # Don't marry DXGWs for the account that's sharing out the VIF.
+
         # We should decorate the dxgws with this regions discovered VIFs
         if 'directConnectGatewayId' in vif and vif['directConnectGatewayId'] != "":
             if vif['directConnectGatewayId'] in dx_gws:
@@ -110,7 +113,7 @@ def discover_vifs(target_account, region, dx_gws):
                 dx_gws[vif['directConnectGatewayId']]['supplementaryConfiguration']['VirtualInterfaces'].append(vif)
             else:
                 error_mesg = "Found VIF {} in {} with a directConnectGatewayId of {}, but no DXGW with that id exists".format(vif['virtualInterfaceId'], region, vif['directConnectGatewayId'])
-                logger.error(error_mesg)
+                logger.critical(error_mesg)
                 raise Exception(error_mesg)
 
     return(dx_gws)
