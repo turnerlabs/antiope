@@ -8,7 +8,7 @@ FILES=ingest_s3.py
 
 DEPENDENCIES=requests requests_aws4auth requests_aws4auth certifi chardet idna urllib3
 
-package: test clean zipfile
+package: test clean deps zipfile
 
 #
 # Lambda function management
@@ -19,7 +19,7 @@ clean:
 
 
 # # Create the package Zip. Assumes all tests were done
-zipfile: deps $(FILES) $(DEPENDENCIES)
+zipfile: $(FILES) $(DEPENDENCIES)
 	zip -r $(LAMBDA_PACKAGE) $^
 
 test: $(FILES)
