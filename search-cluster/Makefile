@@ -87,7 +87,8 @@ upload: package
 	aws s3 cp lambda/$(LAMBDA_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
 
 # # Update the Lambda Code without modifying the CF Stack
-update: package $(FUNCTIONS)
+update: $(FUNCTIONS)
+	cd lambda && $(MAKE) zipfile
 	for f in $(FUNCTIONS) ; do \
 	  aws lambda update-function-code --function-name $$f --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 	done
@@ -114,7 +115,15 @@ enable-kibana-auth:
 script-deps:
 	cd scripts && $(MAKE) deps
 
+purge-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs delete-log-group --log-group-name /aws/lambda/$$f ; \
+	done
 
+expire-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
+	done
 
 indices:
 	for i in $(INDICES) ; do \
