@@ -23,6 +23,7 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+# This number will bang into the Lambda Timeout, so adjust with care.
 BATCH_SIZE = 50
 
 # Lambda execution starts here
