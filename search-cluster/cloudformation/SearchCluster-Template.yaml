@@ -464,7 +464,7 @@ Resources:
                     "width": 15,
                     "height": 6,
                     "properties": {
-                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| filter @message like \"objects for ingestion\"\n| parse @message \"Processing * objects for ingestion\" as ingest_count\n| stats avg(ingest_count), min(ingest_count), max(ingest_count), median(ingest_count) by bin(5m)",
+                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Processing * objects for ingestion\" as ingest_count\n| parse @message \"Skipping process of *\" as skip_count\n| parse @message \"Re-queuing * Objects\" as requeue_count\n| stats avg(ingest_count), max(ingest_count), median(ingest_count), max(skip_count), avg(skip_count), avg(requeue_count) by bin(5m)",
                         "region": "${AWS::Region}",
                         "title": "Log group: /aws/lambda/${AWS::StackName}-ingest-s3"
                     }
