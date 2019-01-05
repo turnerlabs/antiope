@@ -47,12 +47,12 @@ deploy: cfn-deploy configure-identity-pool
 
 # Validate the template
 cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region  $(AWS_DEFAULT_REGION) --template-body file://$(STACK_TEMPLATE)
+	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-body file://$(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
 	deploy_stack.rb -m $(manifest) --force
 
 configure-identity-pool:
-	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text))
-	aws --region $(AWS_DEFAULT_REGION) cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
+	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	-aws --region $(AWS_DEFAULT_REGION) cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
