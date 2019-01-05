@@ -131,3 +131,6 @@ Outputs:
   CognitoUserPoolId:
     Description: "ID for user pool used for auth"
     Value: !Ref CognitoUserPool
+  CognitoIdentityPoolId:
+    Description: "ID for identity pool used for auth"
+    Value: !Ref CognitoIDPool
