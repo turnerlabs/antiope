@@ -71,7 +71,7 @@ clean:
 
 # Validate the template
 cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region us-east-1 --template-body file://$(STACK_TEMPLATE)
+	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-body file://$(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
@@ -99,30 +99,30 @@ fupdate: package
 
 
 enable-s3-events:
-	$(eval QUEUEARN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchIngestEventQueueArn`].OutputValue' --output text))
+	$(eval QUEUEARN := $(shell aws --region $(AWS_DEFAULT_REGION) cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchIngestEventQueueArn`].OutputValue' --output text))
 	cat notification_template.json | jq '.QueueConfigurations[0].QueueArn = "$(QUEUEARN)"' > notification_template-$(FULL_STACK_NAME).json
-	aws s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(FULL_STACK_NAME).json
+	aws --region $(AWS_DEFAULT_REGION) s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(FULL_STACK_NAME).json
 
 configure-identity-pool:
 	$(eval ID := "FIXME")
-	aws cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
+	aws --region $(AWS_DEFAULT_REGION) cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
 
 enable-kibana-auth:
 	$(eval DOMAIN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ClusterName`].OutputValue' --output text))
 	$(eval ROLE := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ESCognitoRoleArn`].OutputValue' --output text))
-	aws es update-elasticsearch-domain-config --domain-name $(DOMAIN) --cognito-options Enabled=true,UserPoolId=FIXME,IdentityPoolId=FIXME,RoleArn=$(ROLE)
+	aws --region $(AWS_DEFAULT_REGION) es update-elasticsearch-domain-config --domain-name $(DOMAIN) --cognito-options Enabled=true,UserPoolId=FIXME,IdentityPoolId=FIXME,RoleArn=$(ROLE)
 
 script-deps:
 	cd scripts && $(MAKE) deps
 
 purge-logs:
 	for f in $(FUNCTIONS) ; do \
-	  aws logs delete-log-group --log-group-name /aws/lambda/$$f ; \
+	  aws --region $(AWS_DEFAULT_REGION) logs delete-log-group --log-group-name /aws/lambda/$$f ; \
 	done
 
 expire-logs:
 	for f in $(FUNCTIONS) ; do \
-	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
+	  aws --region $(AWS_DEFAULT_REGION) logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
 	done
 
 indices:
@@ -132,3 +132,5 @@ indices:
 
 index:
 	./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $(index) --mapping_dir mappings --delete
+
+deploy-all: deploy enable-s3-events indices expire-logs

@@ -28,7 +28,7 @@ inventory-update:
 	cd aws-inventory && $(MAKE) update
 
 search-deploy:
-	cd search-cluster && $(MAKE) deploy
+	cd search-cluster && $(MAKE) deploy-all
 
 search-update:
 	cd search-clustery && $(MAKE) update
