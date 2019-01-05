@@ -20,6 +20,10 @@ ifndef BUCKET
 $(error BUCKET is not set)
 endif
 
+everything: cognito-deploy inventory-deploy search-deploy
+
+cognito-deploy:
+	cd cognito && $(MAKE) deploy
 
 inventory-deploy:
 	cd aws-inventory && $(MAKE) deploy
@@ -28,14 +32,15 @@ inventory-update:
 	cd aws-inventory && $(MAKE) update
 
 search-deploy:
-	cd search-cluster && $(MAKE) deploy
+	cd search-cluster && $(MAKE) deploy-all
 
 search-update:
-	cd search-clustery && $(MAKE) update
+	cd search-cluster && $(MAKE) update
 
 clean:
 	cd aws-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
+	cd cognito && $(MAKE) clean
 
 trigger-inventory:
 	./bin/trigger_inventory.sh $(STACK_PREFIX)-$(env)-aws-inventory

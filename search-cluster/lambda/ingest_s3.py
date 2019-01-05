@@ -42,6 +42,12 @@ def lambda_handler(event, context):
         if 'Records' not in message:
             continue
 
+        # If the requeue gets out of hand, this can spiral into hundreds of messages.
+        if len(message['Records']) > 50:
+            logger.critical(f"Skipping process of {len(message['Records'])}")
+            # These get dropped on the floor
+            continue
+
         logger.info(f"Processing {len(message['Records'])} objects for ingestion ")
         for s3_record in message['Records']:
             bucket=s3_record['s3']['bucket']['name']

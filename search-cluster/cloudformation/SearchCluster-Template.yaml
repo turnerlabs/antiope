@@ -17,17 +17,6 @@ Parameters:
     Type: String
     Default: inventory.zip
 
-  pEmailAddress:
-    Type: String
-    Description: Default Username for Cognito
-
-  pIdentityPoolName:
-    Type: String
-    Description: Name of the Identity Pool. Cannot contain non-alphanumeric char
-    Default: AntiopeIDPool
-    ConstraintDescription: pIdentityPoolName must only contain uppercase and lowercase letters and numbers
-    AllowedPattern: "[A-Za-z0-9]+"
-
   pClusterInstanceType:
     Type: String
     Description: Size of the ES Cluster
@@ -38,6 +27,21 @@ Parameters:
     Type: Number
     Description: Cluster Instance Count
     Default: 1
+
+  pClusterEncryption:
+    Type: String
+    Description: Enable Encryption for the Elasticsearch Cluster
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pCognitoKibanaAuthRole:
+    Type: String
+    Description: ARN for the Kibana Cognito Auth role (Created by the Cognito Stack)
+
+Conditions:
+  EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
 
 
 Resources:
@@ -50,7 +54,7 @@ Resources:
         Statement:
           - Effect: "Allow"
             Principal:
-              AWS: !GetAtt CognitoKibanaAuthRole.Arn
+              AWS: !Ref pCognitoKibanaAuthRole
             Action: "es:*"
             Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${pDomainName}/*"
       DomainName: !Ref pDomainName
@@ -67,14 +71,19 @@ Resources:
         InstanceType: !Ref pClusterInstanceType
       ElasticsearchVersion: 6.3
       # Encryption at rest is not supported with t2.small.elasticsearch
-      # EncryptionAtRestOptions:
-      #   Enabled: True
-      #   KmsKeyId: !Ref SearchClusterKMSKey
+      EncryptionAtRestOptions:
+        Enabled: !Ref pClusterEncryption
+        KmsKeyId:
+          Fn::If:
+          - EncryptionEnabled
+          - Ref: SearchClusterKMSKey
+          - Ref: AWS::NoValue
       SnapshotOptions:
         AutomatedSnapshotStartHour: "0"
 
   SearchClusterKMSKey:
     Type: AWS::KMS::Key
+    Condition: EncryptionEnabled
     Properties:
       Description: !Ref AWS::StackName
       Enabled: True
@@ -101,6 +110,7 @@ Resources:
 
   SearchClusterKMSKeyAlias:
     Type: AWS::KMS::Alias
+    Condition: EncryptionEnabled
     Properties:
       AliasName: !Sub "alias/${AWS::StackName}"
       TargetKeyId: !Ref SearchClusterKMSKey
@@ -229,30 +239,27 @@ Resources:
       EventSourceArn: !GetAtt SearchIngestEventQueue.Arn
       FunctionName: !GetAtt SearchIngestS3Function.Arn
 
-  #
-  # Cognito Auth to ES/Kibana
-  #
-  # Implementation stolen from:
-  # https://aws.amazon.com/blogs/security/visualizing-amazon-guardduty-findings/
-  CognitoUserPool:
-    Type: "AWS::Cognito::UserPool"
+  SearchIngestEventQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
     Properties:
-      UserPoolName: !Sub "${AWS::StackName}-UserPool"
-
-  CognitoUserPoolClient:
-    Type: "AWS::Cognito::UserPoolClient"
-    Properties:
-      GenerateSecret: false  #not sure what the default is - if false, then we don't need this property
-      UserPoolId: !Ref CognitoUserPool
-
-  KibanaUser:
-    Type: "AWS::Cognito::UserPoolUser"
-    Properties:
-      Username: !Ref pEmailAddress
-      UserAttributes:
-      - Name: "email"
-        Value: !Ref pEmailAddress
-      UserPoolId: !Ref CognitoUserPool
+      ActionsEnabled: True
+      # AlarmActions:
+      #   - String
+      AlarmDescription: "Alert when Queue doesn't properly drain"
+      AlarmName: !Sub "${AWS::StackName}-SearchQueueFull"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt SearchIngestEventQueue.QueueName
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      # OKActions:
+      #   - String
+      Period: 300
+      Statistic: Average
+      Threshold: 80000
+      TreatMissingData: missing
 
   ESEnableCognitoRole:
     Type: "AWS::IAM::Role"
@@ -268,88 +275,6 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonESCognitoAccess
 
-  CognitoKibanaAuthRole:
-    Type: "AWS::IAM::Role"
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Federated: cognito-identity.amazonaws.com
-            Action:
-              - "sts:AssumeRoleWithWebIdentity"
-            Condition:
-              StringEquals:
-                "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
-              "ForAnyValue:StringLike":
-                "cognito-identity.amazonaws.com:amr": authenticated
-
-  CognitoKibanaAuthPolicy:
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      PolicyName: Cognito_Kibana_Auth_Policy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - "mobileanalytics:PutEvents"
-              - "cognito-sync:*"
-              - "cognito-identity:*"
-            Resource: "*"
-      Roles:
-        - !Ref CognitoKibanaAuthRole
-
-  CognitoKibanaUnauthRole:
-    Type: 'AWS::IAM::Role'
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: "Allow"
-            Principal:
-              Federated: "cognito-identity.amazonaws.com"
-            Action:
-              - "sts:AssumeRoleWithWebIdentity"
-            Condition:
-              StringEquals:
-                "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
-              "ForAnyValue:StringLike":
-                "cognito-identity.amazonaws.com:amr": unauthenticated
-
-  CognitoKibanaUnauthPolicy:
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      PolicyName: Cognito_Kibana_Auth_Policy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: "Allow"
-            Action:
-              - "mobileanalytics:PutEvents"
-              - "cognito-sync:*"
-            Resource: "*"
-      Roles:
-        - !Ref CognitoKibanaUnauthRole
-
-  CognitoIDPool:
-    Type: 'AWS::Cognito::IdentityPool'
-    Properties:
-      IdentityPoolName: !Ref pIdentityPoolName
-      AllowUnauthenticatedIdentities: false
-      CognitoIdentityProviders:
-        - ClientId: !Ref CognitoUserPoolClient
-          ProviderName: !GetAtt CognitoUserPool.ProviderName
-
-  IdentityPoolRoleMapping:
-    Type: "AWS::Cognito::IdentityPoolRoleAttachment"
-    Properties:
-      IdentityPoolId: !Ref CognitoIDPool
-      Roles:
-        authenticated: !GetAtt CognitoKibanaAuthRole.Arn
-        unauthenticated: !GetAtt CognitoKibanaUnauthRole.Arn
-
   #
   # Dashboard
   #
@@ -364,7 +289,7 @@ Resources:
                     "type": "metric",
                     "x": 0,
                     "y": 0,
-                    "width": 15,
+                    "width": 12,
                     "height": 3,
                     "properties": {
                         "metrics": [
@@ -380,12 +305,28 @@ Resources:
                 },
                 {
                     "type": "text",
-                    "x": 15,
+                    "x": 12,
                     "y": 0,
-                    "width": 9,
+                    "width": 3,
                     "height": 3,
                     "properties": {
-                        "markdown": "# Links and Info\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)"
+                        "markdown": "# QuickLinks\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* [Lambda](https://console.aws.amazon.com/lambda/home?region=${AWS::Region}#/functions/${AWS::StackName}-ingest-s3?tab=monitoring)\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 15,
+                    "y": 0,
+                    "width": 3,
+                    "height": 3,
+                    "properties": {
+                        "title": "QueueSizeAlarm",
+                        "annotations": {
+                            "alarms": [
+                                "${SearchIngestEventQueueAlarm.Arn}"
+                            ]
+                        },
+                        "view": "singleValue"
                     }
                 },
                 {
@@ -407,10 +348,63 @@ Resources:
                         "period": 300
                     }
                 },
+
                 {
                     "type": "metric",
                     "x": 0,
                     "y": 9,
+                    "width": 24,
+                    "height": 6,
+                    "properties": {
+                        "metrics": [
+                            [ "AWS/SQS", "NumberOfMessagesSent", "QueueName", "${SearchIngestEventQueue.QueueName}", { "stat": "Sum" } ],
+                            [ ".", "ApproximateAgeOfOldestMessage", ".", ".", { "stat": "Sum", "visible": false } ],
+                            [ ".", "NumberOfMessagesDeleted", ".", ".", { "stat": "Sum" } ],
+                            [ ".", "ApproximateNumberOfMessagesNotVisible", ".", ".", { "stat": "Sum" } ],
+                            [ ".", "ApproximateNumberOfMessagesDelayed", ".", ".", { "stat": "Sum" } ],
+                            [ ".", "NumberOfEmptyReceives", ".", ".", { "stat": "Sum" } ],
+                            [ ".", "NumberOfMessagesReceived", ".", ".", { "stat": "Sum" } ],
+                            [ ".", "ApproximateNumberOfMessagesVisible", ".", ".", { "stat": "Sum" } ],
+                            [ ".", "SentMessageSize", ".", ".", { "stat": "Sum", "yAxis": "right" } ]
+                        ],
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "region": "${AWS::Region}",
+                        "yAxis": {
+                            "left": {
+                                "min": 0
+                            },
+                            "right": {
+                                "min": 0
+                            }
+                        },
+                        "title": "SQS Statistics"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 15,
+                    "width": 24,
+                    "height": 6,
+                    "properties": {
+                        "metrics": [
+                            [ "AWS/Lambda", "Throttles", "FunctionName", "${AWS::StackName}-ingest-s3", { "stat": "Sum" } ],
+                            [ ".", "Duration", ".", ".", { "stat": "Maximum", "yAxis": "right", "label": "Duration Max" } ],
+                            [ ".", "Duration", ".", ".", { "stat": "Average", "yAxis": "right", "label": "Duration Avg" } ],
+                            [ ".", "Invocations", ".", ".", { "stat": "Sum" } ],
+                            [ ".", "Errors", ".", ".", { "stat": "Sum" } ]
+                        ],
+                        "view": "timeSeries",
+                        "stacked": false,
+                        "region": "${AWS::Region}",
+                        "title": "Ingest Lambda Statistics"
+                    }
+                },
+                {
+                    "type": "metric",
+                    "x": 0,
+                    "y": 21,
                     "width": 24,
                     "height": 6,
                     "properties": {
@@ -432,7 +426,7 @@ Resources:
                 {
                     "type": "metric",
                     "x": 0,
-                    "y": 15,
+                    "y": 27,
                     "width": 24,
                     "height": 6,
                     "properties": {
@@ -451,6 +445,28 @@ Resources:
                           "right": {"min": 0 }
                         },
                         "title": "Cluster Disk Space and Documents"
+                    }
+                },
+                {
+                    "type": "text",
+                    "x": 0,
+                    "y": 30,
+                    "width": 9,
+                    "height": 3,
+                    "properties": {
+                        "markdown": "# Links and Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n"
+                    }
+                },
+                {
+                    "type": "log",
+                    "x": 9,
+                    "y": 30,
+                    "width": 15,
+                    "height": 6,
+                    "properties": {
+                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Processing * objects for ingestion\" as ingest_count\n| parse @message \"Skipping process of *\" as skip_count\n| parse @message \"Re-queuing * Objects\" as requeue_count\n| stats avg(ingest_count), max(ingest_count), median(ingest_count), max(skip_count), avg(skip_count), avg(requeue_count) by bin(5m)",
+                        "region": "${AWS::Region}",
+                        "title": "Log group: /aws/lambda/${AWS::StackName}-ingest-s3"
                     }
                 }
             ]
