@@ -20,6 +20,8 @@ ifndef BUCKET
 $(error BUCKET is not set)
 endif
 
+everything: cognito-deploy inventory-deploy search-deploy
+
 cognito-deploy:
 	cd cognito && $(MAKE) deploy
 
