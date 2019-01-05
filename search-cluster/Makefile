@@ -133,4 +133,4 @@ indices:
 index:
 	./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $(index) --mapping_dir mappings --delete
 
-deploy-all: deploy enable-s3-events indices expire-logs
+deploy-all: deploy script-deps enable-s3-events indices expire-logs enable-kibana-auth
