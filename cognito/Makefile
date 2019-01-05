@@ -1,6 +1,16 @@
 
-include ../config.env
-export
+ifndef env
+# $(error env is not set)
+	env ?= dev
+endif
+
+ifdef CONFIG
+	include ../$(CONFIG)
+	export
+else
+	include ../config.$(env)
+	export
+endif
 
 # STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
 ifndef STACK_PREFIX
@@ -9,11 +19,6 @@ endif
 
 ifndef BUCKET
 	$(error BUCKET is not set)
-endif
-
-ifndef env
-# $(error env is not set)
-	env ?= dev
 endif
 
 ifndef version
@@ -31,20 +36,10 @@ export FULL_STACK_NAME=$(STACK_PREFIX)-$(env)-$(STACK_NAME)
 # Name of the manifest file.
 export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 
-# location in the Antiope bucket where we drop lambda-packages
-export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
-
-# List of all the functions deployed by this stack. Required for "make update" to work.
-FUNCTIONS = $(FULL_STACK_NAME)-cognito-auth-at-edge
-
-
 .PHONY: $(FUNCTIONS)
 
 # Do everything
-deploy: cfn-deploy
-
-clean:
-	cd lambda && $(MAKE) clean
+deploy: cfn-deploy configure-identity-pool
 
 #
 # Cloudformation Targets
@@ -52,8 +47,12 @@ clean:
 
 # Validate the template
 cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region us-east-1 --template-body file://$(STACK_TEMPLATE)
+	aws cloudformation validate-template --region  $(AWS_DEFAULT_REGION) --template-body file://$(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) pEnvironment=$(env) pVersion=$(version) --force
+	deploy_stack.rb -m $(manifest) --force
+
+configure-identity-pool:
+	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text))
+	aws --region $(AWS_DEFAULT_REGION) cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
