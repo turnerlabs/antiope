@@ -74,6 +74,7 @@ def discover_trails(target_account, region):
 
         status_response = ct_client.get_trail_status(Name=trail['Name'])
         resource_item['supplementaryConfiguration']['Status'] = status_response
+        del(resource_item['supplementaryConfiguration']['Status']['ResponseMetadata'])
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 

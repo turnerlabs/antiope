@@ -16,8 +16,8 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-INSTANCE_RESOURCE_PATH = "ec2/instance"
-SG_RESOURCE_PATH = "ec2/securitygroup"
+RESOURCE_PATH = "ec2/ami"
+RESOURCE_TYPE = "AWS::EC2::AMI"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -37,10 +37,6 @@ def lambda_handler(event, context):
             ec2_client = target_account.get_client('ec2', region=r)
             process_instances(target_account, ec2_client, r)
 
-            # describe ec2 security groups
-            process_securitygroups(target_account, ec2_client, r)
-
-
     except AssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
@@ -57,49 +53,43 @@ def process_instances(target_account, ec2_client, region):
     instance_reservations = get_all_instances(ec2_client)
     logger.info("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
 
+    seen_images = []
+
     # dump info about instances to S3 as json
     for reservation in instance_reservations:
         for instance in reservation['Instances']:
-
-            resource_item = {}
-            resource_item['awsAccountId']                   = target_account.account_id
-            resource_item['awsAccountName']                 = target_account.account_name
-            resource_item['resourceType']                   = "AWS::EC2::Instance"
-            resource_item['source']                         = "Antiope"
-            resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
-            resource_item['awsRegion']                      = region
-            resource_item['configuration']                  = instance
-            if 'Tags' in instance:
-                resource_item['tags']                       = parse_tags(instance['Tags'])
-            resource_item['supplementaryConfiguration']     = {}
-            resource_item['resourceId']                     = instance['InstanceId']
-            resource_item['resourceCreationTime']           = instance['LaunchTime']
-            resource_item['errors']                         = {}
-            save_resource_to_s3(INSTANCE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+            if instance['ImageId'] not in seen_images:
+                image_id = instance['ImageId']
+                process_image(target_account, ec2_client, region, image_id)
+                seen_images.append(image_id)
 
 
-def process_securitygroups(target_account, ec2_client, region):
 
-    sec_groups = get_all_securitygroups(ec2_client)
-    logger.info("Found {} security groups for {} in {}".format(len(sec_groups), target_account.account_id, region))
+
+
+def process_image(target_account, ec2_client, region, image_id):
+
+    response = ec2_client.describe_images(ImageIds=[image_id ] )
 
     # dump info about instances to S3 as json
-    for sec_group in sec_groups:
+    for image in response['Images']:
 
         resource_item = {}
         resource_item['awsAccountId']                   = target_account.account_id
         resource_item['awsAccountName']                 = target_account.account_name
-        resource_item['resourceType']                   = "AWS::EC2::SecurityGroup"
+        resource_item['resourceType']                   = RESOURCE_TYPE
         resource_item['source']                         = "Antiope"
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['awsRegion']                      = region
-        resource_item['configuration']                  = sec_group
-        if 'Tags' in sec_group:
-            resource_item['tags']                       = parse_tags(sec_group['Tags'])
+        resource_item['configuration']                  = image
+        if 'Tags' in image:
+            resource_item['tags']                       = parse_tags(image['Tags'])
         resource_item['supplementaryConfiguration']     = {}
-        resource_item['resourceId']                     = sec_group['GroupId']
+        resource_item['resourceId']                     = image['ImageId']
         resource_item['errors']                         = {}
-        save_resource_to_s3(SG_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+        resource_item['resourceName']                   = image['Name']
+        resource_item['resourceCreationTime']           = image['CreationDate']
+        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
 def get_all_instances(ec2_client):
@@ -110,14 +100,4 @@ def get_all_instances(ec2_client):
         response = ec2_client.describe_instances(NextToken=response['NextToken'])
     output += response['Reservations']
     return(output)
-
-def get_all_securitygroups(ec2_client):
-    output = []
-    response = ec2_client.describe_security_groups()
-    while 'NextToken' in response:
-        output += response['SecurityGroups']
-        response = ec2_client.describe_security_groups(NextToken=response['NextToken'])
-    output += response['SecurityGroups']
-    return(output)
-
 

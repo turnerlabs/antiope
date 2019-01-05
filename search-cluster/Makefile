@@ -22,6 +22,10 @@ ifndef BUCKET
 	$(error BUCKET is not set)
 endif
 
+INDICES=resources_cloudtrail resources_dx_connections resources_dx_gw resources_dx_vif resources_ec2_eni resources_ec2_instance \
+		resources_ec2_vpc resources_ecr_repositories resources_ecs_cluster resources_es_domain resources_iam_role \
+		resources_iam_user resources_kms_key resources_lambda resources_route53_domains resources_route53_hostedzone \
+		resources_s3_bucket resources_secretsmanager resources_ec2_ami
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
@@ -83,7 +87,8 @@ upload: package
 	aws s3 cp lambda/$(LAMBDA_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
 
 # # Update the Lambda Code without modifying the CF Stack
-update: package $(FUNCTIONS)
+update: $(FUNCTIONS)
+	cd lambda && $(MAKE) zipfile
 	for f in $(FUNCTIONS) ; do \
 	  aws lambda update-function-code --function-name $$f --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 	done
@@ -110,8 +115,15 @@ enable-kibana-auth:
 script-deps:
 	cd scripts && $(MAKE) deps
 
+purge-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs delete-log-group --log-group-name /aws/lambda/$$f ; \
+	done
 
-INDICES=resources_cloudtrail resources_dx_connections resources_dx_gw resources_dx_vif resources_ec2_eni resources_ec2_instance resources_ec2_vpc resources_ecr_repositories resources_ecs_cluster resources_es_domain resources_iam_role resources_iam_user resources_kms_key resources_lambda resources_route53_domains resources_route53_hostedzone resources_s3_bucket resources_secretsmanager
+expire-logs:
+	for f in $(FUNCTIONS) ; do \
+	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
+	done
 
 indices:
 	for i in $(INDICES) ; do \

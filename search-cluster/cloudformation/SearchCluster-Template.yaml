@@ -177,7 +177,7 @@ Resources:
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
-      Timeout: 60
+      Timeout: 180
       # MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
@@ -188,6 +188,7 @@ Resources:
           ROLE_SESSION_NAME: !Ref AWS::StackName
           INVENTORY_BUCKET: !Ref pBucketName
           ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
+          SQS_QUEUE_URL: !Ref SearchIngestEventQueue
       # Tags inherited from Stack
 
   SearchIngestEventQueue:
@@ -223,7 +224,7 @@ Resources:
   SearchIngestS3FunctionMapping:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
-      BatchSize: 10 # Max
+      BatchSize: 5 # Max
       Enabled: True
       EventSourceArn: !GetAtt SearchIngestEventQueue.Arn
       FunctionName: !GetAtt SearchIngestS3Function.Arn

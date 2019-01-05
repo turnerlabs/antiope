@@ -23,6 +23,7 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+# This number will bang into the Lambda Timeout, so adjust with care.
 BATCH_SIZE = 50
 
 # Lambda execution starts here
@@ -35,6 +36,9 @@ def main(args, logger):
     sqs_client = boto3.client('sqs')
     s3_client = boto3.client('s3')
 
+    counter = 0
+    file_count = 0
+
 
     # Start iterating the objects
     response = s3_client.list_objects_v2(Bucket=bucket, MaxKeys=BATCH_SIZE, Prefix=args.prefix)
@@ -43,7 +47,8 @@ def main(args, logger):
         files = []
         for o in response['Contents']:
             files.append(o['Key'])
-        send_message(sqs_client, queue_url, bucket, files)
+        file_count += send_message(sqs_client, queue_url, bucket, files)
+        counter += 1
 
         response = s3_client.list_objects_v2(Bucket=bucket, MaxKeys=BATCH_SIZE, Prefix=args.prefix, ContinuationToken=response['NextContinuationToken'])
 
@@ -51,7 +56,10 @@ def main(args, logger):
     files = []
     for o in response['Contents']:
         files.append(o['Key'])
-    send_message(sqs_client, queue_url, bucket, files)
+    file_count += send_message(sqs_client, queue_url, bucket, files)
+    counter += 1
+
+    print(f"Sent {counter} messages to index {file_count} objects")
 
 def send_message(sqs_client, queue_url, bucket, files):
 
@@ -67,6 +75,7 @@ def send_message(sqs_client, queue_url, bucket, files):
     # print(response)
     # print(queue_url)
     # print(json.dumps(body))
+    return(len(files))
 
 
 def get_bucket_name(stack_info):

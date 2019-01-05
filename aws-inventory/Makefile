@@ -43,6 +43,10 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 # location in the Antiope bucket where we drop lambda-packages
 export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
 
+# For uploading CFT to S3
+export TEMPLATE_KEY ?= deploy-packages/$(STACK_NAME)-Template-$(version).yaml
+export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
+
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-get-billing-data \
@@ -61,6 +65,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-lambdas-inventory \
 			$(FULL_STACK_NAME)-kms-inventory \
 			$(FULL_STACK_NAME)-dx-inventory \
+			$(FULL_STACK_NAME)-ami-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
@@ -81,13 +86,17 @@ clean:
 # Cloudformation Targets
 #
 
+# Upload template to S3
+cfn-upload: $(STACK_TEMPLATE)
+	aws s3 cp $(STACK_TEMPLATE) s3://$(BUCKET)/$(TEMPLATE_KEY)
+
 # Validate the template
-cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region us-east-1 --template-body file://$(STACK_TEMPLATE)
+cfn-validate: cfn-upload $(STACK_TEMPLATE)
+	aws cloudformation validate-template --template-url $(TEMPLATE_URL)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pEnvironment=$(env)  --force
+	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pEnvironment=$(env)  --force
 
 #
 # Lambda Targets
