@@ -48,6 +48,8 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 # location in the Antiope bucket where we drop lambda-packages
 export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
 
+export COGNITO_STACK_NAME=$(STACK_PREFIX)-$(env)-cognito
+
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(FULL_STACK_NAME)-ingest-s3
 
@@ -71,7 +73,7 @@ clean:
 
 # Validate the template
 cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region us-east-1 --template-body file://$(STACK_TEMPLATE)
+	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-body file://$(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
@@ -99,30 +101,28 @@ fupdate: package
 
 
 enable-s3-events:
-	$(eval QUEUEARN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchIngestEventQueueArn`].OutputValue' --output text))
+	$(eval QUEUEARN := $(shell aws --region $(AWS_DEFAULT_REGION) cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchIngestEventQueueArn`].OutputValue' --output text))
 	cat notification_template.json | jq '.QueueConfigurations[0].QueueArn = "$(QUEUEARN)"' > notification_template-$(FULL_STACK_NAME).json
-	aws s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(FULL_STACK_NAME).json
-
-configure-identity-pool:
-	$(eval ID := "FIXME")
-	aws cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
+	aws --region $(AWS_DEFAULT_REGION) s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(FULL_STACK_NAME).json
 
 enable-kibana-auth:
-	$(eval DOMAIN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ClusterName`].OutputValue' --output text))
-	$(eval ROLE := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ESCognitoRoleArn`].OutputValue' --output text))
-	aws es update-elasticsearch-domain-config --domain-name $(DOMAIN) --cognito-options Enabled=true,UserPoolId=FIXME,IdentityPoolId=FIXME,RoleArn=$(ROLE)
+	$(eval DOMAIN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ClusterName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	$(eval ROLE := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ESCognitoRoleArn`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	$(eval USER_POOL_ID := $(shell aws cloudformation describe-stacks --stack-name $(COGNITO_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	$(eval ID_POOL_ID := $(shell aws cloudformation describe-stacks --stack-name $(COGNITO_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoIdentityPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	aws --region $(AWS_DEFAULT_REGION) es update-elasticsearch-domain-config --domain-name $(DOMAIN) --cognito-options Enabled=true,UserPoolId=$(USER_POOL_ID),IdentityPoolId=$(ID_POOL_ID),RoleArn=$(ROLE)
 
 script-deps:
 	cd scripts && $(MAKE) deps
 
 purge-logs:
 	for f in $(FUNCTIONS) ; do \
-	  aws logs delete-log-group --log-group-name /aws/lambda/$$f ; \
+	  aws --region $(AWS_DEFAULT_REGION) logs delete-log-group --log-group-name /aws/lambda/$$f ; \
 	done
 
 expire-logs:
 	for f in $(FUNCTIONS) ; do \
-	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
+	  aws --region $(AWS_DEFAULT_REGION) logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
 	done
 
 indices:
@@ -132,3 +132,5 @@ indices:
 
 index:
 	./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $(index) --mapping_dir mappings --delete
+
+deploy-all: deploy script-deps enable-s3-events indices expire-logs enable-kibana-auth
