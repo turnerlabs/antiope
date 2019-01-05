@@ -54,7 +54,7 @@ Resources:
         Statement:
           - Effect: "Allow"
             Principal:
-              AWS: !GetAtt CognitoKibanaAuthRole.Arn
+              AWS: !Ref pCognitoKibanaAuthRole
             Action: "es:*"
             Resource: !Sub "arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${pDomainName}/*"
       DomainName: !Ref pDomainName
