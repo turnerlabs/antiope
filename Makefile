@@ -48,3 +48,12 @@ trigger-inventory:
 sync-resources:
 	aws s3 sync s3://$(BUCKET)/Resources/$(type) Scratch/Resources/$(env)/$(type)
 	open Scratch/Resources/$(env)/$(type)
+
+
+disable-inventory:
+	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	aws events disable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
+
+enable-inventory:
+	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	aws events disable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)

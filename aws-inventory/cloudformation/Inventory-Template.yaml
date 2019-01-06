@@ -1455,11 +1455,28 @@ Resources:
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
+    Description: Just the name of this stack
+
   InventoryStackVersion:
     Value: !Ref pLambdaZipFile
+    Description: Object key to the Lambda package
+
   InventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
+    Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
+
   NewAccountNotificationTopic:
     Value: !Ref NewActiveAccountTopic
+    Description: The discovery of new accounts is sent to this topic.
+
   ForeignAccountNotificationTopic:
     Value: !Ref NewForeignAccountTopic
+    Description: The discovery of new foreign (ie discovered in AMI or AssumeRole Policies) are sent to this topic
+
+  TriggerEventName:
+    Value: !Ref TriggerStateMachine
+    Description: Name of the Trigger Event (used by the make file to enable to disable the inventory state machine)
+
+
+
+
