@@ -23,7 +23,7 @@ def lambda_handler(event, context):
     if 'debug' in event and event['debug']:
         logger.setLevel(logging.DEBUG)
 
-    if 'DEBUG' in os.environ and os.environ['DEBUG']:
+    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
         logger.setLevel(logging.DEBUG)
 
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
