@@ -40,10 +40,13 @@ def get_active_accounts():
 
 
 
-def get_account_ids(status=None):
+def get_account_ids(status=None, table_name=None):
     '''return an array of account_ids in the Accounts table. Optionally, filter by status'''
     dynamodb = boto3.resource('dynamodb')
-    account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
+    if table_name:
+        account_table = dynamodb.Table(table_name)
+    else:
+        account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
 
     account_list = []
     response = account_table.scan(

@@ -18,3 +18,4 @@ test: $(FILES)
 
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
+	cp -a ../../lib .
