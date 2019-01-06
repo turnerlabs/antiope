@@ -102,9 +102,12 @@ Resources:
           - Sid: "Allow s3 use of the key"
             Effect: "Allow"
             Principal:
-              Service: "s3.amazonaws.com"
+              Service:
+                - "s3.amazonaws.com"
+                - "sqs.amazonaws.com"
+                - "lambda.amazonaws.com"
             Action:
-              - "kms:GenerateDataKey"
+              - "kms:GenerateDataKey*"
               - "kms:Decrypt"
             Resource: "*"
 
@@ -176,6 +179,15 @@ Resources:
             Action:
             - es:*
             Effect: Allow
+      - PolicyName: KMSDecrypt
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: !GetAtt SearchClusterKMSKey.Arn
+            Action:
+            - kms:GenerateDataKey*
+            - kms:Decrypt
+            Effect: Allow
 
   #
   # Ingestion Function Functions
@@ -204,9 +216,17 @@ Resources:
   SearchIngestEventQueue:
     Type: AWS::SQS::Queue
     Properties:
-      # KmsMasterKeyId: SearchClusterKMSKey
-      # KmsDataKeyReusePeriodSeconds: 86400
-      MessageRetentionPeriod: 345600 # (4 days)
+      KmsMasterKeyId:
+        Fn::If:
+          - EncryptionEnabled
+          - Ref: SearchClusterKMSKey
+          - Ref: AWS::NoValue
+      KmsDataKeyReusePeriodSeconds:
+        Fn::If:
+          - EncryptionEnabled
+          - 86400
+          - Ref: AWS::NoValue
+      MessageRetentionPeriod: 3600 # Any messages older than an hour are probably out-of-date
       ReceiveMessageWaitTimeSeconds: 10
       # RedrivePolicy:
       #   FIXME
@@ -454,7 +474,7 @@ Resources:
                     "width": 9,
                     "height": 3,
                     "properties": {
-                        "markdown": "# Links and Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n"
+                        "markdown": "# Stack Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* Cluster Size: ${pClusterInstanceType} x ${pClusterInstanceCount} Nodes / Encryption: ${pClusterEncryption}\n"
                     }
                 },
                 {
