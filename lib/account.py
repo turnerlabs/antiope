@@ -15,11 +15,7 @@ from lib.vpc import *
 class AWSAccount(object):
     """Class to represent an AWS Account """
     def __init__(self, account_id):
-        '''
-            Takes an account_id or account_name as the lookup attribute
-            You can specify a specific CF Stack (to reference a different set of tables)
-            tables & dynamodb_client can re-use existing variables from an AccountList instance. This improves performance in a lambda
-        '''
+        """ Create a new object representing the AWS account specified by account_id """
         # Execute any parent class init()
         super(AWSAccount, self).__init__()
 
@@ -52,22 +48,24 @@ class AWSAccount(object):
         return(self.account_id)
 
     def __repr__(self):
-        '''Create a useful string for this class if referenced'''
-        return("<AccountModules.Account {} >".format(self.account_id))
+        """Create a useful string for this class if referenced"""
+        return("<AWSAccount {} >".format(self.account_id))
 
     #
     # Cross Account Role Assumption Methods
     #
     def get_creds(self, session_name=None):
-        '''Request temporary credentials for the account. Returns a dict in the form of
+        """
+        Request temporary credentials for the account. Returns a dict in the form of
         {
             creds['AccessKeyId'],
             creds['SecretAccessKey'],
             creds['SessionToken']
         }
         Which can be passed to a new boto3 client or resource.
+        Takes an optional session_name which can be used by CloudTrail and IAM
         Raises AssumeRoleError() if the role is not found or cannot be assumed.
-        '''
+        """
         client = boto3.client('sts')
 
         if session_name is None:
@@ -82,7 +80,10 @@ class AWSAccount(object):
                 self.account_name.encode('ascii', 'ignore'), self.account_id, e.response['Error']['Code']))
 
     def get_client(self, type, region=None, session_name=None):
-        '''Returns a boto3 client for the service "type" with credentials in the target account. Optionally you can specify the region for the client'''
+        """
+        Returns a boto3 client for the service "type" with credentials in the target account.
+        Optionally you can specify the region for the client and the session_name for the AssumeRole.
+        """
         if 'creds' not in self.__dict__:
             self.creds = self.get_creds(session_name=session_name)
         client = boto3.client(type,
@@ -93,7 +94,10 @@ class AWSAccount(object):
         return(client)
 
     def get_resource(self, type, region=None, session_name=None):
-        '''Returns a boto3 client for the service "type" with credentials in the target account. Optionally you can specify the region for the resource.'''
+        """
+        Returns a boto3 Resource for the service "type" with credentials in the target account.
+        Optionally you can specify the region for the resource and the session_name for the AssumeRole.
+        """
         if 'creds' not in self.__dict__:
             self.creds = self.get_creds(session_name=session_name)
         resource = boto3.resource(type,
@@ -107,7 +111,7 @@ class AWSAccount(object):
     # VPC Methods
     #
     def get_regions(self):
-        '''Return an array of the regions this account is active in. Ordered with us-east-1 in the front '''
+        """Return an array of the regions this account is active in. Ordered with us-east-1 in the front."""
         ec2 = self.get_client('ec2')
         response = ec2.describe_regions()
         output = ['us-east-1']
@@ -118,7 +122,7 @@ class AWSAccount(object):
         return(output)
 
     def get_vpc_ids(self):
-        '''Return a list of VPCs for the account. Optionally filter it by region'''
+        """Return a list of VPC ids for the account (as cached in the VPC Table)."""
         # TODO - Add support to filter by region
         output   = []
         vpc_list = []
@@ -151,7 +155,7 @@ class AWSAccount(object):
         return(output)
 
     def get_vpcs(self, region=None):
-        '''Return a list of VPCs for the account. Optionally filter it by region'''
+        """Return a list of VPCs for the account (as cached in the VPC Table). Optionally filter it by region"""
         output   = []
         vpc_list = self.get_vpc_ids()
         for v in vpc_list:
@@ -164,7 +168,7 @@ class AWSAccount(object):
         return(output)
 
     def get_active_vpcs(self, region=None):
-        '''Return a list of active VPCs (one or more running instances) for the account. Optionally filter it by region'''
+        """Return a list of active VPCs (one or more running instances) for the account. Optionally filter it by region"""
         output   = []
         vpc_list = self.get_vpcs(region)
 
@@ -181,7 +185,7 @@ class AWSAccount(object):
     #
 
     def discover_cft_info_by_resource(self, PhysicalResourceId, region=None, VersionOutputKey='TemplateVersion'):
-        '''Jump into the account, and ask Cloudformation in that region about the details of a template'''
+        """Jump into the account, and ask Cloudformation in that region about the details of a template"""
         output = {}
 
         try:
@@ -233,9 +237,10 @@ class AWSAccount(object):
     #
 
     def update_attribute(self, table_name, key, value):
-        '''    update a specific attribute in a specific table for this account
-            table_name should be a valid DynDB table, key is the column, value is the new value to set
-        '''
+        """
+        Update a specific attribute in a specific table for this account.
+        table_name should be a valid DynDB table, key is the column, value is the new value to set
+        """
         logger.info(u"Adding key:{} value:{} to account {}".format(key, value, self))
         table = self.dynamodb.Table(table_name)
         try:
@@ -255,9 +260,9 @@ class AWSAccount(object):
             raise AccountUpdateError("Failed to update {} to {} in {}: {}".format(key, value, table_name, e))
 
     def get_attribute(self, table_name, key):
-        '''
-        Pulls a attribute from the specificed table for the account
-        '''
+        """
+        Fetches a attribute from the specificed table for the account
+        """
         logger.info(u"Getting key:{} from:{} for account {}".format(key, table_name, self))
         table = self.dynamodb.Table(table_name)
         try:
@@ -274,9 +279,9 @@ class AWSAccount(object):
             raise AccountLookupError("Failed to get {} from {} in {}: {}".format(key, table_name, self, e))
 
     def delete_attribute(self, table_name, key):
-        '''
-        Pulls a attribute from the specificed table for the account
-        '''
+        """
+        Delete a attribute from the specificed table for the account
+        """
         logger.info(u"Deleting key:{} from:{} for account {}".format(key, table_name, self))
         table = self.dynamodb.Table(table_name)
         try:
@@ -299,10 +304,10 @@ class AWSAccount(object):
 
 
 class AssumeRoleError(Exception):
-    '''raised when the AssumeRole Fails'''
+    """raised when the AssumeRole Fails"""
 
 class AccountUpdateError(Exception):
-    '''raised when an update to DynamoDB Fails'''
+    """raised when an update to DynamoDB Fails"""
 
 class AccountLookupError(LookupError):
-    '''Raised when the Account requested is not in the database'''
+    """Raised when the Account requested is not in the database"""
