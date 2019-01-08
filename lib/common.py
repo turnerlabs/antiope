@@ -3,6 +3,7 @@ import os
 import time
 import datetime
 from dateutil import tz
+import logging
 
 import boto3
 from botocore.exceptions import ClientError
@@ -68,3 +69,12 @@ def get_account_ids(status=None, table_name=None):
             output.append(a['account_id'])
         # Otherwise, don't bother.
     return(output)
+
+
+def set_debug(event, logger):
+    if 'debug' in event and event['debug']:
+        logger.setLevel(logging.DEBUG)
+
+    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
+        logger.setLevel(logging.DEBUG)
+    return(logger)
