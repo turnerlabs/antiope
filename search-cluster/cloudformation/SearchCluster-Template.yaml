@@ -200,7 +200,7 @@ Resources:
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
       Timeout: 180
-      # MemorySize: !Ref pSmallLambdaSize
+      ReservedConcurrentExecutions: 200
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -368,7 +368,6 @@ Resources:
                         "period": 300
                     }
                 },
-
                 {
                     "type": "metric",
                     "x": 0,
@@ -377,15 +376,15 @@ Resources:
                     "height": 6,
                     "properties": {
                         "metrics": [
-                            [ "AWS/SQS", "NumberOfMessagesSent", "QueueName", "${SearchIngestEventQueue.QueueName}", { "stat": "Sum" } ],
-                            [ ".", "ApproximateAgeOfOldestMessage", ".", ".", { "stat": "Sum", "visible": false } ],
+                            [ "AWS/SQS", "NumberOfMessagesSent", "QueueName", "${SearchIngestEventQueue.QueueName}", { "stat": "Sum", "period": 300 } ],
+                            [ ".", "ApproximateAgeOfOldestMessage", ".", ".", { "stat": "Average", "yAxis": "right", "period": 300 } ],
                             [ ".", "NumberOfMessagesDeleted", ".", ".", { "stat": "Sum" } ],
                             [ ".", "ApproximateNumberOfMessagesNotVisible", ".", ".", { "stat": "Sum" } ],
                             [ ".", "ApproximateNumberOfMessagesDelayed", ".", ".", { "stat": "Sum" } ],
                             [ ".", "NumberOfEmptyReceives", ".", ".", { "stat": "Sum" } ],
                             [ ".", "NumberOfMessagesReceived", ".", ".", { "stat": "Sum" } ],
                             [ ".", "ApproximateNumberOfMessagesVisible", ".", ".", { "stat": "Sum" } ],
-                            [ ".", "SentMessageSize", ".", ".", { "stat": "Sum", "yAxis": "right" } ]
+                            [ ".", "SentMessageSize", ".", ".", { "stat": "Sum", "yAxis": "right", "visible": false, "period": 300 } ]
                         ],
                         "view": "timeSeries",
                         "stacked": false,
