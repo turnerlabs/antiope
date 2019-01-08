@@ -11,7 +11,7 @@ FILES=pull_organization_data.py get_billing_data.py inventory-instances-sg.py in
 
 DEPENDENCIES=yaml semver.py lib
 
-package: test clean zipfile
+package: test clean deps zipfile
 
 #
 # Lambda function management
@@ -21,7 +21,8 @@ clean:
 	rm -rf __pycache__ *.zip *.dist-info $(DEPENDENCIES)
 
 # # Create the package Zip. Assumes all tests were done
-zipfile: deps $(FILES) $(DEPENDENCIES)
+zipfile:  $(FILES) $(DEPENDENCIES)
+	cp -a ../../lib .
 	zip -r $(LAMBDA_PACKAGE) $^
 
 test: $(FILES)
@@ -29,4 +30,4 @@ test: $(FILES)
 
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
-	cp -a ../../lib .
+
