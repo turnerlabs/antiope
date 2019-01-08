@@ -8,15 +8,18 @@ import datetime
 from dateutil import tz
 
 from lib.account import *
+from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
 # Lambda main routine
 def handler(event, context):
+    set_debug(event, logger)
+
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
@@ -52,7 +55,7 @@ def handler(event, context):
 # end handler()
 
 def get_current_spend(account):
-    cwm_client = account.get_client('cloudwatch')
+    cwm_client = account.get_client('cloudwatch', region="us-east-1")
 
     try:
         response = cwm_client.get_metric_statistics(
@@ -70,6 +73,7 @@ def get_current_spend(account):
             Statistics=['Maximum'],
             Unit='None'
         )
+        logger.debug(json.dumps(response, sort_keys=True, indent=2, default=str))
         max_point = None
         for point in response['Datapoints']:
             if max_point is None:
