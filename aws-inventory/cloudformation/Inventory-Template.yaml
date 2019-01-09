@@ -191,6 +191,14 @@ Resources:
               - dynamodb:UpdateItem
             Resource:
               - !GetAtt AccountDBTable.StreamArn
+      - PolicyName: ListExecutions
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - states:ListExecutions
+            Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
 
   #
   # State Machine Functions
@@ -203,6 +211,31 @@ Resources:
       Handler: pull_organization_data.handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          # Specific to this function
+          TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
+          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
+      # Tags inherited from Stack
+
+  TriggerInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-trigger-inventory"
+      Description: Send a message to a topic for each AWS account
+      Handler: trigger_account_actions.handler
+      Runtime: python3.6
+      Timeout: 900 # This should be the max!
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
@@ -789,6 +822,7 @@ Resources:
             Effect: Allow
             Resource:
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
+              - !GetAtt TriggerInventoryLambdaFunction.Arn
               - !GetAtt CreateAccountReportLambdaFunction.Arn
 
       - PolicyName: LambdaLogging
@@ -818,6 +852,15 @@ Resources:
             "PullOrganizationDataLambdaFunction": {
               "Type": "Task",
               "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
+              "Next": "TriggerInventoryLambdaFunction",
+              "Catch": [
+                {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"},
+                {"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}
+              ]
+            },
+            "TriggerInventoryLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${TriggerInventoryLambdaFunction.Arn}",
               "Next": "WaitForLambdaExecutionsToComplete",
               "Catch": [{
                 "ErrorEquals": ["States.ALL"],
@@ -837,6 +880,11 @@ Resources:
                 "ErrorEquals": ["States.ALL"],
                 "Next": "ErrorHandlerState"
               }]
+            },
+            "WaitForStepFunctionToFinish": {
+              "Type" : "Wait",
+              "Seconds" : 300,
+              "Next": "PullOrganizationDataLambdaFunction"
             }
           }
         }
@@ -1207,6 +1255,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
@@ -1244,6 +1293,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
@@ -1281,6 +1331,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
