@@ -11,7 +11,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-hurry_up = 100.00 # seconds remaining in this lambda's lifecycle where it should just send and not sleep anymore
+hurry_up = 800.00 # after this number of seconds, stop delaying between publish and just send the rest. We want to finish before we expire.
 # TODO - have this function return unfinished work to the step function for another pass.
 
 
