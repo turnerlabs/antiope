@@ -14,6 +14,9 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 hurry_up = 800.00 # after this number of seconds, stop delaying between publish and just send the rest. We want to finish before we expire.
 # TODO - have this function return unfinished work to the step function for another pass.
 
+# Increase this number to shorten the interval between SNS Publish calls.
+# The last digit of the account_id is divided by this number to create the number of seconds of delay.
+accel_factor = 3
 
 # Lambda main routine
 def handler(event, context):
@@ -46,9 +49,9 @@ def handler(event, context):
             # if we've still got more than hurry_up time left, do the delay.
             logger.debug(f"{time.time()} - {start_time} < {hurry_up}")
             if time.time() - start_time < hurry_up:
-                delay = message['account_id'][-1:]
+                delay = int(message['account_id'][-1:]) / accel_factor
                 logger.debug(f"Delaying {delay} sec for account {account_id}")
-                time.sleep(int(delay))
+                time.sleep(delay)
             logger.debug(f"Publishing for {account_id}")
             response = client.publish(
                 TopicArn=os.environ['TRIGGER_ACCOUNT_INVENTORY_ARN'],
