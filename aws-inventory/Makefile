@@ -69,6 +69,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-ami-inventory \
 			$(FULL_STACK_NAME)-cloudformation-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
+			$(FULL_STACK_NAME)-create-vpc-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
 
@@ -133,7 +134,7 @@ trigger:
 
 
 templates:
-	aws s3 cp html_templates/* s3://$(BUCKET)/Templates/
+	aws s3 sync html_templates s3://$(BUCKET)/Templates/
 
 purge-logs:
 	for f in $(FUNCTIONS) ; do \
