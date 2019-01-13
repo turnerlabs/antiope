@@ -40,7 +40,7 @@ search-update:
 clean:
 	cd aws-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
-	cd cognito && $(MAKE) clean
+	# cd cognito && $(MAKE) clean
 
 trigger-inventory:
 	./bin/trigger_inventory.sh $(STACK_PREFIX)-$(env)-aws-inventory

@@ -66,6 +66,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-kms-inventory \
 			$(FULL_STACK_NAME)-dx-inventory \
 			$(FULL_STACK_NAME)-ami-inventory \
+			$(FULL_STACK_NAME)-cloudformation-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
@@ -104,6 +105,9 @@ cfn-deploy: cfn-validate $(manifest)
 package:
 	cd lambda && $(MAKE) package
 
+zipfile:
+	cd lambda && $(MAKE) zipfile
+
 upload: package
 	aws s3 cp lambda/$(LAMBDA_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
 
@@ -114,7 +118,7 @@ update: package $(FUNCTIONS)
 	done
 
 # Update one specific function. Called as "make fupdate function=<fillinstackprefix>-aws-inventory-ecs-inventory"
-fupdate: package
+fupdate: zipfile
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
 # This will prompt for confirmation
