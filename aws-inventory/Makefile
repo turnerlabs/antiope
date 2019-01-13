@@ -49,6 +49,7 @@ export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
+			$(FULL_STACK_NAME)-trigger-inventory \
 			$(FULL_STACK_NAME)-get-billing-data \
 			$(FULL_STACK_NAME)-instances-sg-inventory \
 			$(FULL_STACK_NAME)-eni-inventory \
@@ -128,7 +129,7 @@ purge-tables:
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-vpc-inventory --key_attribute vpc_id --force
 
 trigger:
-	../bin/trigger_state_machine.sh $(FULL_STACK_NAME)
+	../bin/trigger_inventory.sh $(FULL_STACK_NAME)
 
 
 templates:

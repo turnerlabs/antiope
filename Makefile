@@ -56,4 +56,4 @@ disable-inventory:
 
 enable-inventory:
 	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
-	aws events disable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
+	aws events enable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
