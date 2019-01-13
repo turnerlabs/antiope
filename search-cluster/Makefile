@@ -48,6 +48,10 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 # location in the Antiope bucket where we drop lambda-packages
 export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
 
+# For uploading CFT to S3
+export TEMPLATE_KEY ?= deploy-packages/$(STACK_NAME)-Template-$(version).yaml
+export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
+
 export COGNITO_STACK_NAME=$(STACK_PREFIX)-$(env)-cognito
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
@@ -71,13 +75,17 @@ clean:
 # Cloudformation Targets
 #
 
+# Upload template to S3
+cfn-upload: $(STACK_TEMPLATE)
+	aws s3 cp $(STACK_TEMPLATE) s3://$(BUCKET)/$(TEMPLATE_KEY)
+
 # Validate the template
-cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-body file://$(STACK_TEMPLATE)
+cfn-validate: cfn-upload $(STACK_TEMPLATE)
+	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-url $(TEMPLATE_URL)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pEnvironment=$(env)  --force
+	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) --force
 
 #
 # Lambda Targets

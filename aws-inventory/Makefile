@@ -95,11 +95,11 @@ cfn-upload: $(STACK_TEMPLATE)
 
 # Validate the template
 cfn-validate: cfn-upload $(STACK_TEMPLATE)
-	aws cloudformation validate-template --template-url $(TEMPLATE_URL)
+	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-url $(TEMPLATE_URL)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pEnvironment=$(env)  --force
+	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET)  --force
 
 #
 # Lambda Targets
