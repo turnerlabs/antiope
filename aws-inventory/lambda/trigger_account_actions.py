@@ -16,7 +16,7 @@ hurry_up = 800.00 # after this number of seconds, stop delaying between publish 
 
 # Increase this number to shorten the interval between SNS Publish calls.
 # The last digit of the account_id is divided by this number to create the number of seconds of delay.
-accel_factor = 3
+accel_factor = os.environ['ACCEL_FACTOR']
 
 # Lambda main routine
 def handler(event, context):

@@ -56,6 +56,11 @@ Parameters:
     Type: Number
     Default: 768
 
+  pStaggerAccelerationFactor:
+    Description: Factor by which the delay between SNS Publish is shrunk. The larger the number, the more frequent the publish.
+    Type: Number
+    Default: 2
+
 Conditions:
   CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
 
@@ -250,6 +255,7 @@ Resources:
           ROLE_NAME: !Ref pRoleName
           # Specific to this function
           TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
+          ACCEL_FACTOR: !Ref pStaggerAccelerationFactor
       # Tags inherited from Stack
 
   InventoryErrorHandlingLambdaFunction:
