@@ -4,13 +4,13 @@
 PYTHON=python3
 PIP=pip3
 
-FILES=pull_organization_data.py trigger_account_actions.py get_billing_data.py \
+FILES=pull_organization_data.py trigger_account_actions.py get_billing_data.py report-accounts.py report-vpcs.py \
 		inventory-instances-sg.py inventory-health-report.py inventory-eni.py inventory-vpc.py \
-		inventory-route53.py inventory-buckets.py inventory-iam.py inventory-ecs.py report-accounts.py new_account_handler.py \
+		inventory-route53.py inventory-buckets.py inventory-iam.py inventory-ecs.py new_account_handler.py \
 		inventory-cloudtrail.py inventory-es.py inventory-secrets.py inventory-ecr.py inventory-lambdas.py inventory-kms.py \
 		inventory-dx.py inventory-ami.py inventory-cft.py
 
-DEPENDENCIES=yaml semver.py lib
+DEPENDENCIES=yaml semver.py lib mako markupsafe bin
 
 package: test clean deps zipfile
 

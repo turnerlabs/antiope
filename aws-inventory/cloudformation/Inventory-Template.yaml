@@ -313,6 +313,28 @@ Resources:
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
 
+  CreateVPCReportLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-create-vpc-report"
+      Description: Create an HTML Report with all the AWS VPCs
+      Handler: report-vpcs.handler
+      Runtime: python3.6
+      Timeout: 600
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
   #
   # New Account Handling
   #
@@ -824,7 +846,7 @@ Resources:
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
               - !GetAtt TriggerInventoryLambdaFunction.Arn
               - !GetAtt CreateAccountReportLambdaFunction.Arn
-
+              - !GetAtt CreateVPCReportLambdaFunction.Arn
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -875,6 +897,15 @@ Resources:
             "CreateAccountReportLambdaFunction": {
               "Type": "Task",
               "Resource": "${CreateAccountReportLambdaFunction.Arn}",
+              "Next": "CreateVPCReportLambdaFunction",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+              }]
+            },
+            "CreateVPCReportLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${CreateVPCReportLambdaFunction.Arn}",
               "End": true,
               "Catch": [{
                 "ErrorEquals": ["States.ALL"],
@@ -1275,6 +1306,7 @@ Resources:
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
@@ -1313,6 +1345,7 @@ Resources:
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
@@ -1351,6 +1384,7 @@ Resources:
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 900, "label": "create-vpc-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
                 ],

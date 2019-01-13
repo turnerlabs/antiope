@@ -108,7 +108,7 @@ def discover_vpcs(target_account, region):
             resource_item['supplementaryConfiguration']['VpcPeeringConnections'] = vpc_peers[v['VpcId']]
 
         # We should cache the VPC Instance count in DDB
-        ddb_item['instance_states'] = query_instances(ec2_client, vpc_id)
+        ddb_item['instance_states'] = query_instances(ec2_client, v['VpcId'])
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
         logger.info("Discovered VPC ({}) in {}\nData: {}".format(v['VpcId'], target_account.account_id, json.dumps(ddb_item, sort_keys=True)))

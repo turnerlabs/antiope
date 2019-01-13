@@ -31,14 +31,14 @@ class VPC(object):
             raise VPCLookupError("ClientError getting {}: {}".format(self.vpc_id, e))
 
         try:
-            item = response['Items'][0]
+            self.db_record = response['Items'][0]
 
             # Make sure there is a name, if not then use the VPC ID
-            if 'name' not in item:
-                item['name'] = self.vpc_id
+            if 'name' not in self.db_record:
+                self.db_record['name'] = self.vpc_id
 
             # Convert the response into instance attributes
-            self.__dict__.update(item)
+            self.__dict__.update(self.db_record)
         except IndexError as e:
             raise VPCLookupError("ID {} not found".format(vpc_id))
         except Exception as e:

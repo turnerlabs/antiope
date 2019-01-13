@@ -31,9 +31,9 @@ class AWSAccount(object):
             Select='ALL_ATTRIBUTES'
         )
         try:
-            item = response['Items'][0]
+            self.db_record = response['Items'][0]
             # Convert the response into instance attributes
-            self.__dict__.update(item)
+            self.__dict__.update(self.db_record)
             # self.account_name = str(self.account_name.encode('ascii', 'ignore'))
         except IndexError as e:
             raise AccountLookupError("ID {} not found".format(account_id))
