@@ -22,6 +22,8 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 # Lambda execution starts here
 def lambda_handler(event, context):
+    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
+        logger.setLevel(logging.DEBUG)
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
 
     region = os.environ['AWS_REGION']
@@ -74,6 +76,8 @@ def lambda_handler(event, context):
                 # Now index the document
                 r = requests.post(url, auth=awsauth, json=modified_resource_to_index, headers=headers)
 
+                logger.debug(f"{es_id} returned {r.status_code} took {r.elapsed} sec")
+
                 if not r.ok:
                     body = r.json()
                     if 'error' in body:
@@ -81,6 +85,7 @@ def lambda_handler(event, context):
                             logger.critical(f"Principal replacement hack failed: {obj_key} / {body['error']['reason']}\n {modified_resource_to_index}")
                         elif body['error']['type'] == "es_rejected_execution_exception":
                             # This tends to be due to the thread pool being full.
+                            logger.debug(f"es_rejected_execution_exception for {es_id}: {body['error']}")
                             requeue.append({ "bucket": bucket, "obj_key": obj_key})
                         else:
                             logger.error(f"Unknown Error: {body['error']['type']} Object: {obj_key} Message: {body['error']['reason']}")
