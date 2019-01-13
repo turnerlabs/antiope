@@ -3,6 +3,8 @@
 Scratch/
 Notes.md
 
+cloudsploit/
+
 # Build-time crud
 *.zip
 *-test-event.json
@@ -34,6 +36,9 @@ aws-inventory/lambda/yaml
 aws-inventory/lambda/jdcal.py
 aws-inventory/lambda/semver.py
 aws-inventory/lambda/lib/
+aws-inventory/lambda/mako/
+aws-inventory/lambda/markupsafe/
+aws-inventory/lambda/bin/
 
 # Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml
