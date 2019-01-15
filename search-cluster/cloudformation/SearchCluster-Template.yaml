@@ -200,7 +200,7 @@ Resources:
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
       Timeout: 180
-      ReservedConcurrentExecutions: 200
+      ReservedConcurrentExecutions: 50  # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -254,7 +254,7 @@ Resources:
   SearchIngestS3FunctionMapping:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
-      BatchSize: 5 # Max
+      BatchSize: 10 # 10 is Max
       Enabled: True
       EventSourceArn: !GetAtt SearchIngestEventQueue.Arn
       FunctionName: !GetAtt SearchIngestS3Function.Arn
@@ -483,7 +483,7 @@ Resources:
                     "width": 15,
                     "height": 6,
                     "properties": {
-                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Processing * objects for ingestion\" as ingest_count\n| parse @message \"Skipping process of *\" as skip_count\n| parse @message \"Re-queuing * Objects\" as requeue_count\n| stats avg(ingest_count), max(ingest_count), median(ingest_count), max(skip_count), avg(skip_count), avg(requeue_count) by bin(5m)",
+                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| filter @message like /INFO/\n| parse @message \"Bulk ingest of * documents request took 0:00:0* sec and processing took * ms\" as doc_count, elapsed, took\n| stats  avg(elapsed * 1000 ), avg(took), max(elapsed*1000), max(took), avg(elapsed*1000 - took) by bin(5m)\n\n\n",
                         "region": "${AWS::Region}",
                         "title": "Log group: /aws/lambda/${AWS::StackName}-ingest-s3"
                     }

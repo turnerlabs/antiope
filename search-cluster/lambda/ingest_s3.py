@@ -35,22 +35,15 @@ def lambda_handler(event, context):
     es_type = "_doc" # This is what es is moving to after deprecating types in 6.0
     headers = { "Content-Type": "application/json" }
 
-    # Store any object keys that weren't indexed due to the es_rejected_execution_exception error
-    requeue = []
+    bulk_ingest_body = ""
+    count = 0
 
     for record in event['Records']:
         message = json.loads(record['body'])
-        logger.debug("message: {}".format(json.dumps(message, sort_keys=True)))
+        logger.debug("records: {} message: {}".format(len(message['Records']), json.dumps(message, sort_keys=True)))
         if 'Records' not in message:
             continue
 
-        # If the requeue gets out of hand, this can spiral into hundreds of messages.
-        if len(message['Records']) > 50:
-            logger.critical(f"Skipping process of {len(message['Records'])}")
-            # These get dropped on the floor
-            continue
-
-        logger.info(f"Processing {len(message['Records'])} objects for ingestion ")
         for s3_record in message['Records']:
             bucket=s3_record['s3']['bucket']['name']
             obj_key=s3_record['s3']['object']['key']
@@ -62,42 +55,73 @@ def lambda_handler(event, context):
             # This is a shitty hack to get around the fact Principal can be "*" or {"AWS": "*"} in an IAM Statement
             modified_resource_to_index = fix_principal(resource_to_index)
 
-            try:
-                key_parts = obj_key.split("/")
-                # The Elastic Search document id, is the object_name minus the file suffix
-                es_id = key_parts.pop().replace(".json", "")
+            # Now we need to build the ES command. We need the index and document name from the object_key
+            key_parts = obj_key.split("/")
+            # The Elastic Search document id, is the object_name minus the file suffix
+            es_id = key_parts.pop().replace(".json", "")
 
-                # The Elastic Search Index is the remaining object prefix, all lowercase with the "/" replaced by "_"
-                index = "_".join(key_parts).lower()
+            # The Elastic Search Index is the remaining object prefix, all lowercase with the "/" replaced by "_"
+            index = "_".join(key_parts).lower()
 
-                # And now we build the ES URL to post to.
-                url = "{}/{}/{}/{}".format(host, index, es_type, es_id)
+            # Now concat that all together for the Bulk API
+            # https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
-                # Now index the document
-                r = requests.post(url, auth=awsauth, json=modified_resource_to_index, headers=headers)
+            command = { "index" : { "_index" : index, "_type" : "_doc", "_id" : es_id } }
+            command_str = json.dumps(command, separators=(',',':'))
+            document = json.dumps(modified_resource_to_index, separators=(',',':'))
+            bulk_ingest_body += f"{command_str}\n{document}\n"
+            count += 1
 
-                logger.debug(f"{es_id} returned {r.status_code} took {r.elapsed} sec")
+    # Don't call ES if there is nothing to do.
+    if count == 0:
+        logger.warning("No objects to index.")
+        return(event)
 
-                if not r.ok:
-                    body = r.json()
-                    if 'error' in body:
-                        if body['error']['type'] == "mapper_parsing_exception":
-                            logger.critical(f"Principal replacement hack failed: {obj_key} / {body['error']['reason']}\n {modified_resource_to_index}")
-                        elif body['error']['type'] == "es_rejected_execution_exception":
-                            # This tends to be due to the thread pool being full.
-                            logger.debug(f"es_rejected_execution_exception for {es_id}: {body['error']}")
-                            requeue.append({ "bucket": bucket, "obj_key": obj_key})
-                        else:
-                            logger.error(f"Unknown Error: {body['error']['type']} Object: {obj_key} Message: {body['error']['reason']}")
-                    else:
-                        logger.error("Unable to Index s3://{}/{}. ES returned non-ok error: {}: {}".format(bucket, obj_key, r.status, r.text))
+    bulk_ingest_body += "\n"
 
-            except Exception as e:
-                logger.critical("General Exception Indexing s3://{}/{}: {}".format(bucket, obj_key, e))
-                raise
+    # all done processing the SQS messages. Send it to ES
+    logger.debug(bulk_ingest_body)
 
-    if len(requeue) > 0:
-        requeue_objects(requeue)
+    requeue_keys = []
+
+    try:
+        # Now index the document
+        r = requests.post(f"{host}/_bulk", auth=awsauth, data=bulk_ingest_body, headers=headers)
+
+        if not r.ok:
+            logger.error(f"Bulk Error: {r.status_code} took {r.elapsed} sec - {r.text}")
+            raise Exception
+
+        else: # We need to make sure all the elements succeeded
+            response = r.json()
+            logger.info(f"Bulk ingest of {count} documents request took {r.elapsed} sec and processing took {response['took']} ms with errors: {response['errors']}")
+            if response['errors'] == False:
+                return(event) # all done here
+
+            for item in response['items']:
+                if 'index' not in item:
+                    logger.error(f"Item {item} was not of type index. Huh?")
+                    continue
+                if item['index']['status'] != 201 and item['index']['status'] != 200:
+                    logger.error(f"Bulk Ingest Failure: Index {item['index']['_index']} ID {item['index']['_id']} Status {item['index']['status']} - {item}")
+                    requeue_keys.append(process_requeue(item))
+
+    except Exception as e:
+        logger.critical("General Exception Indexing s3://{}/{}: {}".format(bucket, obj_key, e))
+        raise
+
+    if len(requeue_keys) > 0:
+        requeue_objects(os.environ['INVENTORY_BUCKET'], requeue_keys)
+
+
+def process_requeue(item):
+    # We must reverse the munge of the object key
+    prefix = item['index']['_index'].replace("_", "/").replace("resources", "Resources")
+    key = f"{prefix}/{item['index']['_id']}.json"
+    logger.warning(f"Requeueing {key} : {item}")
+    return(key)
+
+
 
 
 def fix_principal(json_doc):
@@ -136,7 +160,7 @@ def fix_principal(json_doc):
     return(modified_json_doc)
 
 
-def requeue_objects(objects):
+def requeue_objects(bucket, objects):
     '''Drop any objects that were rejected because of thread issues back into the SQS queue to get ingested later'''
 
     sqs_client = boto3.client('sqs')
@@ -147,7 +171,7 @@ def requeue_objects(objects):
     }
 
     for o in objects:
-        body['Records'].append({'s3': {'bucket': {'name': o['bucket'] }, 'object': {'key': o['obj_key'] } } })
+        body['Records'].append({'s3': {'bucket': {'name': bucket }, 'object': {'key': o } } })
 
     logger.warning(f"Re-queuing {len(objects)} Objects" )
     response = sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(body))
