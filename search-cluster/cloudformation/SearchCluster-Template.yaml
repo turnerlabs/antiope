@@ -183,7 +183,11 @@ Resources:
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
-          - Resource: !GetAtt SearchClusterKMSKey.Arn
+          - Resource:
+            - !If
+              - EncryptionEnabled
+              - !GetAtt SearchClusterKMSKey.Arn
+              - !Sub "arn:aws:kms:us-east-1:${AWS::AccountId}:key/thiskeydoesntexist"
             Action:
             - kms:GenerateDataKey*
             - kms:Decrypt
@@ -483,13 +487,14 @@ Resources:
                     "width": 15,
                     "height": 6,
                     "properties": {
-                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| filter @message like /INFO/\n| parse @message \"Bulk ingest of * documents request took 0:00:0* sec and processing took * ms\" as doc_count, elapsed, took\n| stats  avg(elapsed * 1000 ), avg(took), max(elapsed*1000), max(took), avg(elapsed*1000 - took) by bin(5m)\n\n\n",
+                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Bulk ingest of * documents request took 0:00:0* sec and processing took * ms\" as doc_count, elapsed, took\n| parse @message \"[ERROR]\" as error\n| parse @message \"[WARNING]\" as warning\n| stats  avg(elapsed * 1000 ), avg(took), max(elapsed*1000), max(took), avg(elapsed*1000 - took), count(warning), count(error) by bin(5m)\n\n\n",
                         "region": "${AWS::Region}",
                         "title": "Log group: /aws/lambda/${AWS::StackName}-ingest-s3"
                     }
                 }
             ]
         }
+
 
 Outputs:
   StackName:
