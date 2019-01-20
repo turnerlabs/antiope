@@ -68,6 +68,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-dx-inventory \
 			$(FULL_STACK_NAME)-ami-inventory \
 			$(FULL_STACK_NAME)-cloudformation-inventory \
+			$(FULL_STACK_NAME)-cloudfront-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
 			$(FULL_STACK_NAME)-create-vpc-report \
 			$(FULL_STACK_NAME)-new_account_handler

@@ -25,7 +25,7 @@ endif
 INDICES=resources_cloudtrail resources_dx_connections resources_dx_gw resources_dx_vif resources_ec2_eni resources_ec2_instance \
 		resources_ec2_vpc resources_ecr_repositories resources_ecs_cluster resources_es_domain resources_iam_role \
 		resources_iam_user resources_kms_key resources_lambda resources_route53_domains resources_route53_hostedzone \
-		resources_s3_bucket resources_secretsmanager resources_ec2_ami resources_cloudformation_stack
+		resources_s3_bucket resources_secretsmanager resources_ec2_ami resources_cloudformation_stack resources_cloudfront_distribution
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
