@@ -28,7 +28,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 def main(args, logger):
     logger.info("Purging index {} in {}".format(args.index, args.domain))
 
-    host = get_endpoint(args.domain)
+    host = get_endpoint(args.domain, args.region)
     if host is None:
         print("Failed to get Endpoint. Aborting....")
         exit(1)
@@ -55,9 +55,9 @@ def main(args, logger):
 
 
 
-def get_endpoint(domain):
+def get_endpoint(domain, region):
     ''' using the boto3 api, gets the URL endpoint for the cluster '''
-    es_client = boto3.client('es')
+    es_client = boto3.client('es', region_name=region)
 
     response = es_client.describe_elasticsearch_domain(DomainName=domain)
     if 'DomainStatus' in response:
