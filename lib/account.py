@@ -11,6 +11,8 @@ from pprint import pprint
 
 from lib.vpc import *
 
+import logging
+logger = logging.getLogger()
 
 class AWSAccount(object):
     """Class to represent an AWS Account """
@@ -236,15 +238,14 @@ class AWSAccount(object):
     # Database functions
     #
 
-    def update_attribute(self, table_name, key, value):
+    def update_attribute(self, key, value):
         """
         Update a specific attribute in a specific table for this account.
-        table_name should be a valid DynDB table, key is the column, value is the new value to set
+        key is the column, value is the new value to set
         """
         logger.info(u"Adding key:{} value:{} to account {}".format(key, value, self))
-        table = self.dynamodb.Table(table_name)
         try:
-            response = table.update_item(
+            response = self.account_table.update_item(
                 Key= {
                     'account_id': self.account_id
                 },
@@ -257,16 +258,15 @@ class AWSAccount(object):
                 }
             )
         except ClientError as e:
-            raise AccountUpdateError("Failed to update {} to {} in {}: {}".format(key, value, table_name, e))
+            raise AccountUpdateError("Failed to update {} to {} in account table: {}".format(key, value, e))
 
-    def get_attribute(self, table_name, key):
+    def get_attribute(self, key):
         """
         Fetches a attribute from the specificed table for the account
         """
-        logger.info(u"Getting key:{} from:{} for account {}".format(key, table_name, self))
-        table = self.dynamodb.Table(table_name)
+        logger.info(u"Getting key:{} from account_table for account {}".format(key, self))
         try:
-            response = table.get_item(
+            response = self.account_table.get_item(
                 Key= {
                     'account_id': self.account_id
                 },
@@ -274,16 +274,16 @@ class AWSAccount(object):
             )
             return(response['Item'][key])
         except ClientError as e:
-            raise AccountLookupError("Failed to get {} from {} in {}: {}".format(key, table_name, self, e))
+            raise AccountLookupError("Failed to get {} from {} in account table: {}".format(key, self, e))
         except KeyError as e:
-            raise AccountLookupError("Failed to get {} from {} in {}: {}".format(key, table_name, self, e))
+            raise AccountLookupError("Failed to get {} from {} in account table: {}".format(key, self, e))
 
-    def delete_attribute(self, table_name, key):
+    def delete_attribute(self, key):
         """
         Delete a attribute from the specificed table for the account
         """
-        logger.info(u"Deleting key:{} from:{} for account {}".format(key, table_name, self))
-        table = self.dynamodb.Table(table_name)
+        logger.info(u"Deleting key:{} from account table for account {}".format(key, self))
+        table = self.account_table
         try:
             response = table.update_item(
                 Key= {
@@ -298,9 +298,9 @@ class AWSAccount(object):
                 # }
             )
         except ClientError as e:
-            raise AccountLookupError("Failed to get {} from {} in {}: {}".format(key, table_name, self, e))
+            raise AccountLookupError("Failed to get {} from {} in account table: {}".format(key, self, e))
         except KeyError as e:
-            raise AccountLookupError("Failed to get {} from {} in {}: {}".format(key, table_name, self, e))
+            raise AccountLookupError("Failed to get {} from {} in account table: {}".format(key, self, e))
 
 
 class AssumeRoleError(Exception):
