@@ -14,7 +14,7 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
-components = ["cognito", "aws-inventory", "search-cluster" ]
+components = ["aws-inventory", "search-cluster" ]
 
 def main(args):
 
