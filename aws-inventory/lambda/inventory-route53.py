@@ -139,17 +139,20 @@ def discover_zones(account):
 
 
 def get_resource_records(route53_client, hostedzone_id):
+    # Route 53 Resource Limits: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/DNSLimitations.html#limits-api-requests-route-53
+    # Maxitems can be 1000, frequency is hardlimited to 5 reqs per sec. Antiope will sleep 1 between calls
 
     rr_set = []
     response = route53_client.list_resource_record_sets(
         HostedZoneId=hostedzone_id,
-        MaxItems="100"
+        MaxItems="1000"
     )
     while response['IsTruncated']:
         rr_set += response['ResourceRecordSets']
+        sleep(1)
         response = route53_client.list_resource_record_sets(
             HostedZoneId=hostedzone_id,
-            MaxItems="100",
+            MaxItems="1000",
             StartRecordName=response['NextRecordName']
         )
     rr_set += response['ResourceRecordSets']
