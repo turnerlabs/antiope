@@ -56,6 +56,11 @@ Parameters:
     Type: Number
     Default: 768
 
+  pStaggerAccelerationFactor:
+    Description: Factor by which the delay between SNS Publish is shrunk. The larger the number, the more frequent the publish.
+    Type: Number
+    Default: 2
+
 Conditions:
   CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
 
@@ -191,6 +196,14 @@ Resources:
               - dynamodb:UpdateItem
             Resource:
               - !GetAtt AccountDBTable.StreamArn
+      - PolicyName: ListExecutions
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - states:ListExecutions
+            Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
 
   #
   # State Machine Functions
@@ -217,6 +230,32 @@ Resources:
           ROLE_NAME: !Ref pRoleName
           # Specific to this function
           TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
+          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
+      # Tags inherited from Stack
+
+  TriggerInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-trigger-inventory"
+      Description: Send a message to a topic for each AWS account
+      Handler: trigger_account_actions.handler
+      Runtime: python3.6
+      Timeout: 900 # This should be the max!
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          # Specific to this function
+          TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
+          ACCEL_FACTOR: !Ref pStaggerAccelerationFactor
       # Tags inherited from Stack
 
   InventoryErrorHandlingLambdaFunction:
@@ -266,6 +305,28 @@ Resources:
       Handler: report-accounts.handler
       Runtime: python3.6
       Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+  CreateVPCReportLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-create-vpc-report"
+      Description: Create an HTML Report with all the AWS VPCs
+      Handler: report-vpcs.handler
+      Runtime: python3.6
+      Timeout: 600
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
@@ -396,27 +457,27 @@ Resources:
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
 
-  # StackInventoryLambdaFunction:
-  #   Type: AWS::Lambda::Function
-  #   Properties:
-  #     FunctionName: !Sub "${AWS::StackName}-stack-inventory"
-  #     Description: Inventory the CF Stacks for the specific account
-  #     Handler: inventory_stacks.handler
-  #     Runtime: python3.6
-  #     Timeout: 300
-  #     MemorySize: !Ref pSmallLambdaSize
-  #     Role: !GetAtt InventoryLambdaRole.Arn
-  #     Code:
-  #       S3Bucket: !Ref pBucketName
-  #       S3Key: !Sub ${pLambdaZipFile}
-  #     Environment:
-  #       Variables:
-  #         # ACCOUNT_TABLE: !Ref AccountDBTable
-  #         DEFAULT_ROLE_NAME: !Ref pRoleName
-  #         INVENTORY_STACK_NAME: !Ref AWS::StackName
-  #         CONFIG_FILE: "config.json"
-  #         INVENTORY_BUCKET: !Ref pBucketName
-  #     # Tags inherited from Stack
+  CloudFormationInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-cloudformation-inventory"
+      Description: Inventory the CF Stacks for the specific account
+      Handler: inventory-cft.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
 
   InstancesSecurityGroupsInventoryLambdaFunction:
     Type: AWS::Lambda::Function
@@ -579,6 +640,28 @@ Resources:
       FunctionName: !Sub "${AWS::StackName}-es-inventory"
       Description: Inventory ElasticSearch Service Domains
       Handler: inventory-es.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
+  CloudfrontInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-cloudfront-inventory"
+      Description: Inventory CloudFront Distributions
+      Handler: inventory-cloudfront.lambda_handler
       Runtime: python3.6
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
@@ -789,8 +872,9 @@ Resources:
             Effect: Allow
             Resource:
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
+              - !GetAtt TriggerInventoryLambdaFunction.Arn
               - !GetAtt CreateAccountReportLambdaFunction.Arn
-
+              - !GetAtt CreateVPCReportLambdaFunction.Arn
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -818,6 +902,15 @@ Resources:
             "PullOrganizationDataLambdaFunction": {
               "Type": "Task",
               "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
+              "Next": "TriggerInventoryLambdaFunction",
+              "Catch": [
+                {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"},
+                {"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}
+              ]
+            },
+            "TriggerInventoryLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${TriggerInventoryLambdaFunction.Arn}",
               "Next": "WaitForLambdaExecutionsToComplete",
               "Catch": [{
                 "ErrorEquals": ["States.ALL"],
@@ -832,11 +925,25 @@ Resources:
             "CreateAccountReportLambdaFunction": {
               "Type": "Task",
               "Resource": "${CreateAccountReportLambdaFunction.Arn}",
+              "Next": "CreateVPCReportLambdaFunction",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+              }]
+            },
+            "CreateVPCReportLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${CreateVPCReportLambdaFunction.Arn}",
               "End": true,
               "Catch": [{
                 "ErrorEquals": ["States.ALL"],
                 "Next": "ErrorHandlerState"
               }]
+            },
+            "WaitForStepFunctionToFinish": {
+              "Type" : "Wait",
+              "Seconds" : 300,
+              "Next": "PullOrganizationDataLambdaFunction"
             }
           }
         }
@@ -895,20 +1002,20 @@ Resources:
   #     Protocol: lambda
   #     TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
-  # StackInventoryLambdaFunctionPermission:
-  #   Type: AWS::Lambda::Permission
-  #   Properties:
-  #     FunctionName: !GetAtt StackInventoryLambdaFunction.Arn
-  #     Principal: sns.amazonaws.com
-  #     SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-  #     Action: lambda:invokeFunction
+  CloudFormationInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CloudFormationInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
 
-  # StackInventoryTopicToLambdaSubscription:
-  #   Type: AWS::SNS::Subscription
-  #   Properties:
-  #     Endpoint: !GetAtt [StackInventoryLambdaFunction, Arn]
-  #     Protocol: lambda
-  #     TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+  CloudFormationInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [CloudFormationInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
   InstancesSecurityGroupsInventoryLambdaFunctionPermission:
     Type: AWS::Lambda::Permission
@@ -1027,6 +1134,21 @@ Resources:
     Type: AWS::SNS::Subscription
     Properties:
       Endpoint: !GetAtt [ElasticSearchInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  CloudfrontInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CloudfrontInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  CloudfrontInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [CloudfrontInventoryLambdaFunction, Arn]
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
@@ -1207,6 +1329,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
@@ -1224,7 +1347,10 @@ Resources:
                   [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
@@ -1243,6 +1369,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
@@ -1260,7 +1387,10 @@ Resources:
                   [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
@@ -1279,6 +1409,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
                   [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
@@ -1296,7 +1427,10 @@ Resources:
                   [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 900, "label": "create-vpc-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
                 ],
@@ -1455,11 +1589,28 @@ Resources:
 Outputs:
   StackName:
     Value: !Ref AWS::StackName
+    Description: Just the name of this stack
+
   InventoryStackVersion:
     Value: !Ref pLambdaZipFile
+    Description: Object key to the Lambda package
+
   InventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
+    Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
+
   NewAccountNotificationTopic:
     Value: !Ref NewActiveAccountTopic
+    Description: The discovery of new accounts is sent to this topic.
+
   ForeignAccountNotificationTopic:
     Value: !Ref NewForeignAccountTopic
+    Description: The discovery of new foreign (ie discovered in AMI or AssumeRole Policies) are sent to this topic
+
+  TriggerEventName:
+    Value: !Ref TriggerStateMachine
+    Description: Name of the Trigger Event (used by the make file to enable to disable the inventory state machine)
+
+
+
+

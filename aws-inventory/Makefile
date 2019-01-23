@@ -49,6 +49,7 @@ export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
+			$(FULL_STACK_NAME)-trigger-inventory \
 			$(FULL_STACK_NAME)-get-billing-data \
 			$(FULL_STACK_NAME)-instances-sg-inventory \
 			$(FULL_STACK_NAME)-eni-inventory \
@@ -66,7 +67,10 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-kms-inventory \
 			$(FULL_STACK_NAME)-dx-inventory \
 			$(FULL_STACK_NAME)-ami-inventory \
+			$(FULL_STACK_NAME)-cloudformation-inventory \
+			$(FULL_STACK_NAME)-cloudfront-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
+			$(FULL_STACK_NAME)-create-vpc-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
 
@@ -92,17 +96,20 @@ cfn-upload: $(STACK_TEMPLATE)
 
 # Validate the template
 cfn-validate: cfn-upload $(STACK_TEMPLATE)
-	aws cloudformation validate-template --template-url $(TEMPLATE_URL)
+	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-url $(TEMPLATE_URL)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pEnvironment=$(env)  --force
+	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET)  --force
 
 #
 # Lambda Targets
 #
 package:
 	cd lambda && $(MAKE) package
+
+zipfile:
+	cd lambda && $(MAKE) zipfile
 
 upload: package
 	aws s3 cp lambda/$(LAMBDA_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
@@ -114,7 +121,7 @@ update: package $(FUNCTIONS)
 	done
 
 # Update one specific function. Called as "make fupdate function=<fillinstackprefix>-aws-inventory-ecs-inventory"
-fupdate: package
+fupdate: zipfile
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
 # This will prompt for confirmation
@@ -124,11 +131,11 @@ purge-tables:
 	purge_ddb_table.py --table $(FULL_STACK_NAME)-vpc-inventory --key_attribute vpc_id --force
 
 trigger:
-	../bin/trigger_state_machine.sh $(FULL_STACK_NAME)
+	../bin/trigger_inventory.sh $(FULL_STACK_NAME)
 
 
 templates:
-	aws s3 cp html_templates/* s3://$(BUCKET)/Templates/
+	aws s3 sync html_templates s3://$(BUCKET)/Templates/
 
 purge-logs:
 	for f in $(FUNCTIONS) ; do \

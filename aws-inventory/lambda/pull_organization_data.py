@@ -16,6 +16,10 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 def handler(event, context):
     logger.info("Received event: " + json.dumps(event, sort_keys=True))
 
+    if statemachine_already_running(os.environ['STEPFUNCTION_ARN']):
+        logger.error("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+        raise ScorecardRunningException("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
 
@@ -35,17 +39,11 @@ def handler(event, context):
             create_or_update_account(a, account_table)
 
             if get_account_creds(a['Id']):
-                # Now trigger the parallel collection of data
-                client = boto3.client('sns')
-                message = {}
-                message['account_id'] = a['Id']
-                response = client.publish(
-                    TopicArn=os.environ['TRIGGER_ACCOUNT_INVENTORY_ARN'],
-                    Message=json.dumps(message)
-                )
+                account_list.append(a['Id'])
+
             else:
                 logger.error("Unable to assume role into {}({})".format(a['Name'], a['Id']))
-            account_list.append(a['Id'])
+
 
     event['account_list'] = account_list
     return(event)
@@ -146,3 +144,13 @@ def create_or_update_account(a, account_table):
     except ClientError as e:
         raise AccountUpdateError(u"Unable to create {}: {}".format(a[u'Name'], e))
 
+def statemachine_already_running(stepfunction_arn):
+    client = boto3.client('stepfunctions')
+    response = client.list_executions(stateMachineArn=stepfunction_arn, statusFilter='RUNNING')
+    if len(response['executions']) > 1:
+        return(True)
+    else:
+        return(False)
+
+# Used To tell the Step Function to wait 30 and try again
+class ScorecardRunningException(Exception): pass

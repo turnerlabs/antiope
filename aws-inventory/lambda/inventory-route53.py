@@ -132,13 +132,29 @@ def discover_zones(account):
         if 'VPCs' in response:
             resource_item['supplementaryConfiguration']['AuthorizedVPCs'] = response['VPCs']
 
+        resource_item['supplementaryConfiguration']['ResourceRecordSets'] = get_resource_records(route53_client, zone['Id'])
+        resource_item['supplementaryConfiguration']['ResourceRecordSetCount'] = len(resource_item['supplementaryConfiguration']['ResourceRecordSets'])
+
         save_resource_to_s3(ZONE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
+def get_resource_records(route53_client, hostedzone_id):
+    # Route 53 Resource Limits: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/DNSLimitations.html#limits-api-requests-route-53
+    # Maxitems can be 1000, frequency is hardlimited to 5 reqs per sec. Antiope will sleep 1 between calls
 
-def json_serial(obj):
-    """JSON serializer for objects not serializable by default json code"""
+    rr_set = []
+    response = route53_client.list_resource_record_sets(
+        HostedZoneId=hostedzone_id,
+        MaxItems="1000"
+    )
+    while response['IsTruncated']:
+        rr_set += response['ResourceRecordSets']
+        sleep(1)
+        response = route53_client.list_resource_record_sets(
+            HostedZoneId=hostedzone_id,
+            MaxItems="1000",
+            StartRecordName=response['NextRecordName']
+        )
+    rr_set += response['ResourceRecordSets']
+    return(rr_set)
 
-    if isinstance(obj, (datetime, date)):
-        return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))

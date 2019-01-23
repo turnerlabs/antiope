@@ -102,9 +102,12 @@ Resources:
           - Sid: "Allow s3 use of the key"
             Effect: "Allow"
             Principal:
-              Service: "s3.amazonaws.com"
+              Service:
+                - "s3.amazonaws.com"
+                - "sqs.amazonaws.com"
+                - "lambda.amazonaws.com"
             Action:
-              - "kms:GenerateDataKey"
+              - "kms:GenerateDataKey*"
               - "kms:Decrypt"
             Resource: "*"
 
@@ -176,6 +179,19 @@ Resources:
             Action:
             - es:*
             Effect: Allow
+      - PolicyName: KMSDecrypt
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource:
+            - !If
+              - EncryptionEnabled
+              - !GetAtt SearchClusterKMSKey.Arn
+              - !Sub "arn:aws:kms:us-east-1:${AWS::AccountId}:key/thiskeydoesntexist"
+            Action:
+            - kms:GenerateDataKey*
+            - kms:Decrypt
+            Effect: Allow
 
   #
   # Ingestion Function Functions
@@ -188,7 +204,7 @@ Resources:
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
       Timeout: 180
-      # MemorySize: !Ref pSmallLambdaSize
+      ReservedConcurrentExecutions: 50  # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -204,9 +220,17 @@ Resources:
   SearchIngestEventQueue:
     Type: AWS::SQS::Queue
     Properties:
-      # KmsMasterKeyId: SearchClusterKMSKey
-      # KmsDataKeyReusePeriodSeconds: 86400
-      MessageRetentionPeriod: 345600 # (4 days)
+      KmsMasterKeyId:
+        Fn::If:
+          - EncryptionEnabled
+          - Ref: SearchClusterKMSKey
+          - Ref: AWS::NoValue
+      KmsDataKeyReusePeriodSeconds:
+        Fn::If:
+          - EncryptionEnabled
+          - 86400
+          - Ref: AWS::NoValue
+      MessageRetentionPeriod: 3600 # Any messages older than an hour are probably out-of-date
       ReceiveMessageWaitTimeSeconds: 10
       # RedrivePolicy:
       #   FIXME
@@ -234,7 +258,7 @@ Resources:
   SearchIngestS3FunctionMapping:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
-      BatchSize: 5 # Max
+      BatchSize: 10 # 10 is Max
       Enabled: True
       EventSourceArn: !GetAtt SearchIngestEventQueue.Arn
       FunctionName: !GetAtt SearchIngestS3Function.Arn
@@ -348,7 +372,6 @@ Resources:
                         "period": 300
                     }
                 },
-
                 {
                     "type": "metric",
                     "x": 0,
@@ -357,15 +380,15 @@ Resources:
                     "height": 6,
                     "properties": {
                         "metrics": [
-                            [ "AWS/SQS", "NumberOfMessagesSent", "QueueName", "${SearchIngestEventQueue.QueueName}", { "stat": "Sum" } ],
-                            [ ".", "ApproximateAgeOfOldestMessage", ".", ".", { "stat": "Sum", "visible": false } ],
+                            [ "AWS/SQS", "NumberOfMessagesSent", "QueueName", "${SearchIngestEventQueue.QueueName}", { "stat": "Sum", "period": 300 } ],
+                            [ ".", "ApproximateAgeOfOldestMessage", ".", ".", { "stat": "Average", "yAxis": "right", "period": 300 } ],
                             [ ".", "NumberOfMessagesDeleted", ".", ".", { "stat": "Sum" } ],
                             [ ".", "ApproximateNumberOfMessagesNotVisible", ".", ".", { "stat": "Sum" } ],
                             [ ".", "ApproximateNumberOfMessagesDelayed", ".", ".", { "stat": "Sum" } ],
                             [ ".", "NumberOfEmptyReceives", ".", ".", { "stat": "Sum" } ],
                             [ ".", "NumberOfMessagesReceived", ".", ".", { "stat": "Sum" } ],
                             [ ".", "ApproximateNumberOfMessagesVisible", ".", ".", { "stat": "Sum" } ],
-                            [ ".", "SentMessageSize", ".", ".", { "stat": "Sum", "yAxis": "right" } ]
+                            [ ".", "SentMessageSize", ".", ".", { "stat": "Sum", "yAxis": "right", "visible": false, "period": 300 } ]
                         ],
                         "view": "timeSeries",
                         "stacked": false,
@@ -452,9 +475,9 @@ Resources:
                     "x": 0,
                     "y": 30,
                     "width": 9,
-                    "height": 3,
+                    "height": 6,
                     "properties": {
-                        "markdown": "# Links and Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n"
+                        "markdown": "# Stack Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* Cluster Size: ${pClusterInstanceType} x ${pClusterInstanceCount} Nodes / Encryption: ${pClusterEncryption}\n# Logs\n* [Lambda Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/lambda/${AWS::StackName}-ingest-s3;streamFilter=typeLogStreamPrefix)\n* [ES App Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/application-logs;streamFilter=typeLogStreamPrefix)\n* [ES Slow Index Logs](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/index-logs;streamFilter=typeLogStreamPrefix)\n"
                     }
                 },
                 {
@@ -464,13 +487,14 @@ Resources:
                     "width": 15,
                     "height": 6,
                     "properties": {
-                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Processing * objects for ingestion\" as ingest_count\n| parse @message \"Skipping process of *\" as skip_count\n| parse @message \"Re-queuing * Objects\" as requeue_count\n| stats avg(ingest_count), max(ingest_count), median(ingest_count), max(skip_count), avg(skip_count), avg(requeue_count) by bin(5m)",
+                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Bulk ingest of * documents request took 0:00:0* sec and processing took * ms\" as doc_count, elapsed, took\n| parse @message \"[ERROR]\" as error\n| parse @message \"[WARNING]\" as warning\n| stats  avg(elapsed * 1000 ), avg(took), max(elapsed*1000), max(took), avg(elapsed*1000 - took), count(warning), count(error) by bin(5m)\n\n\n",
                         "region": "${AWS::Region}",
                         "title": "Log group: /aws/lambda/${AWS::StackName}-ingest-s3"
                     }
                 }
             ]
         }
+
 
 Outputs:
   StackName:

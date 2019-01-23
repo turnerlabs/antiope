@@ -40,7 +40,7 @@ search-update:
 clean:
 	cd aws-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
-	cd cognito && $(MAKE) clean
+	# cd cognito && $(MAKE) clean
 
 trigger-inventory:
 	./bin/trigger_inventory.sh $(STACK_PREFIX)-$(env)-aws-inventory
@@ -48,3 +48,15 @@ trigger-inventory:
 sync-resources:
 	aws s3 sync s3://$(BUCKET)/Resources/$(type) Scratch/Resources/$(env)/$(type)
 	open Scratch/Resources/$(env)/$(type)
+
+sync-reports:
+	aws s3 sync s3://$(BUCKET)/Reports Scratch/Reports/$(STACK_PREFIX)-$(env)
+	open Scratch/Reports/$(STACK_PREFIX)-$(env)
+
+disable-inventory:
+	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	aws events disable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
+
+enable-inventory:
+	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	aws events enable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)

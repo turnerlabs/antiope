@@ -107,6 +107,8 @@ def discover_vpcs(target_account, region):
         if v['VpcId'] in vpc_peers:
             resource_item['supplementaryConfiguration']['VpcPeeringConnections'] = vpc_peers[v['VpcId']]
 
+        # We should cache the VPC Instance count in DDB
+        ddb_item['instance_states'] = query_instances(ec2_client, v['VpcId'])
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
         logger.info("Discovered VPC ({}) in {}\nData: {}".format(v['VpcId'], target_account.account_id, json.dumps(ddb_item, sort_keys=True)))
@@ -232,11 +234,40 @@ def discover_vpc_peering(ec2_client):
 
 
 
-# def json_serial(obj):
-#     """JSON serializer for objects not serializable by default json code"""
+def query_instances(ec2_client, vpc_id, instance_state = None):
+    '''return an array of dict representing the data from describe_instances()'''
 
-#     if isinstance(obj, (datetime, date)):
-#         return obj.isoformat()
-#     raise TypeError ("Type %s not serializable" % type(obj))
+    state_count = {
+        "pending": 0,
+        "running": 0,
+        "shutting-down": 0,
+        "terminated": 0,
+        "stopping": 0,
+        "stopped": 0
+    }
 
+    filters = [ { 'Name': 'vpc-id', 'Values': [ vpc_id ] } ]
+    if instance_state is not None:
+        filters.append({'Name': 'instance-state-name', 'Values': [ instance_state ]})
+
+    response = ec2_client.describe_instances(
+        Filters = filters,
+        MaxResults = 1000
+    )
+    while 'NextToken' in response:
+        for r in response['Reservations']:
+            for i in r['Instances']:
+                state = i['State']['Name']
+                state_count[state] += 1
+        response = ec2_client.describe_instances(
+            Filters = filters,
+            MaxResults = 1000,
+            NextToken = response['NextToken']
+        )
+    # Done with the while loop (or never entered it) do the last batch
+    for r in response['Reservations']:
+        for i in r['Instances']:
+            state = i['State']['Name']
+            state_count[state] += 1
+    return(state_count)
 

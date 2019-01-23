@@ -3,6 +3,7 @@ import os
 import time
 import datetime
 from dateutil import tz
+import logging
 
 import boto3
 from botocore.exceptions import ClientError
@@ -11,6 +12,7 @@ from lib.account import *
 
 
 def parse_tags(tagset):
+    """Convert the tagset as returned by AWS into a normal dict of {"tagkey": "tagvalue"}"""
     output = {}
     for tag in tagset:
         output[tag['Key']] = tag['Value']
@@ -18,6 +20,7 @@ def parse_tags(tagset):
 
 
 def save_resource_to_s3(prefix, resource_id, resource):
+    """Saves the resource to S3 in prefix with the object name of resource_id.json"""
     s3client = boto3.client('s3')
     try:
         object_key = "Resources/{}/{}.json".format(prefix, resource_id)
@@ -32,6 +35,7 @@ def save_resource_to_s3(prefix, resource_id, resource):
 
 
 def get_active_accounts():
+    """Returns an array of all active AWS accounts as AWSAccount objects"""
     account_ids = get_account_ids(status="ACTIVE")
     output = []
     for a in account_ids:
@@ -40,10 +44,13 @@ def get_active_accounts():
 
 
 
-def get_account_ids(status=None):
-    '''return an array of account_ids in the Accounts table. Optionally, filter by status'''
+def get_account_ids(status=None, table_name=None):
+    """return an array of account_ids from the Accounts table. Optionally, filter by status"""
     dynamodb = boto3.resource('dynamodb')
-    account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
+    if table_name:
+        account_table = dynamodb.Table(table_name)
+    else:
+        account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
 
     account_list = []
     response = account_table.scan(
@@ -65,3 +72,13 @@ def get_account_ids(status=None):
             output.append(a['account_id'])
         # Otherwise, don't bother.
     return(output)
+
+
+def set_debug(event, logger):
+    """Given the event, and using the environment, decide if the logger default should be overridden."""
+    if 'debug' in event and event['debug']:
+        logger.setLevel(logging.DEBUG)
+
+    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
+        logger.setLevel(logging.DEBUG)
+    return(logger)

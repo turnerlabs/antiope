@@ -6,6 +6,7 @@ Parameters:
   pEmailAddress:
     Type: String
     Description: Default Username for Cognito
+    Default: None
 
   pIdentityPoolName:
     Type: String
@@ -13,6 +14,21 @@ Parameters:
     Default: AntiopeIDPool
     ConstraintDescription: pIdentityPoolName must only contain uppercase and lowercase letters and numbers
     AllowedPattern: "[A-Za-z0-9]+"
+
+  pBucketName:
+    Description: Name of the bucket to hold the images
+    Type: String
+
+  pCustomCognitoDomain:
+    Description: What you will modify the User pool after it is created (Can't be done via CFT)
+    Type: String
+
+  pCustomAPIDomain:
+    Description: The Custom Domain Name you will configure once the API Gateway is created
+    Type: String
+
+Conditions:
+  CreateCognitoUser: !Not [ !Equals [ !Ref pEmailAddress, "NONE"] ]
 
 Resources:
   #
@@ -25,14 +41,9 @@ Resources:
     Properties:
       UserPoolName: !Sub "${AWS::StackName}-UserPool"
 
-  CognitoUserPoolClient:
-    Type: "AWS::Cognito::UserPoolClient"
-    Properties:
-      GenerateSecret: false  #not sure what the default is - if false, then we don't need this property
-      UserPoolId: !Ref CognitoUserPool
-
   KibanaUser:
     Type: "AWS::Cognito::UserPoolUser"
+    Condition: CreateCognitoUser
     Properties:
       Username: !Ref pEmailAddress
       UserAttributes:
@@ -56,22 +67,17 @@ Resources:
                 "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
               "ForAnyValue:StringLike":
                 "cognito-identity.amazonaws.com:amr": authenticated
-
-  CognitoKibanaAuthPolicy:
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      PolicyName: Cognito_Kibana_Auth_Policy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - "mobileanalytics:PutEvents"
-              - "cognito-sync:*"
-              - "cognito-identity:*"
-            Resource: "*"
-      Roles:
-        - !Ref CognitoKibanaAuthRole
+      Policies:
+        - PolicyName: Cognito_Kibana_Auth_Policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "mobileanalytics:PutEvents"
+                  - "cognito-sync:*"
+                  - "cognito-identity:*"
+                Resource: "*"
 
   CognitoKibanaUnauthRole:
     Type: 'AWS::IAM::Role'
@@ -89,21 +95,16 @@ Resources:
                 "cognito-identity.amazonaws.com:aud": !Ref CognitoIDPool
               "ForAnyValue:StringLike":
                 "cognito-identity.amazonaws.com:amr": unauthenticated
-
-  CognitoKibanaUnauthPolicy:
-    Type: 'AWS::IAM::Policy'
-    Properties:
-      PolicyName: Cognito_Kibana_Auth_Policy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: "Allow"
-            Action:
-              - "mobileanalytics:PutEvents"
-              - "cognito-sync:*"
-            Resource: "*"
-      Roles:
-        - !Ref CognitoKibanaUnauthRole
+      Policies:
+        - PolicyName: Cognito_Kibana_UnAuth_Policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "mobileanalytics:PutEvents"
+                  - "cognito-sync:*"
+                Resource: "*"
 
   CognitoIDPool:
     Type: 'AWS::Cognito::IdentityPool'
@@ -111,7 +112,7 @@ Resources:
       IdentityPoolName: !Ref pIdentityPoolName
       AllowUnauthenticatedIdentities: false
       CognitoIdentityProviders:
-        - ClientId: !Ref CognitoUserPoolClient
+        - ClientId: !Ref S3AccessAPIGatewayUserPoolClient
           ProviderName: !GetAtt CognitoUserPool.ProviderName
 
   IdentityPoolRoleMapping:
@@ -121,6 +122,216 @@ Resources:
       Roles:
         authenticated: !GetAtt CognitoKibanaAuthRole.Arn
         unauthenticated: !GetAtt CognitoKibanaUnauthRole.Arn
+
+  ApiGatewayRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+
+  S3AccessAPIGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref AWS::StackName
+      Description: Broker Access to the Antiope Bucket using Cognito Auth
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      # Parameters:
+      #   String: String
+      # Policy: JSON object
+      Body: !Sub |-
+        openapi: "3.0.1"
+        info:
+          title: "${AWS::StackName}-Reports"
+          version: "2016-10-13T23:04:43Z"
+        servers:
+        - url: "https://gpd67rbo57.execute-api.${AWS::Region}.amazonaws.com/{basePath}"
+          variables:
+            basePath:
+              default: "/dev"
+        paths:
+          /login:
+            get:
+              operationId: "Login Redirect"
+              responses:
+                301:
+                  description: "301 response"
+                  headers:
+                    Location:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "301"
+                    responseParameters:
+                      method.response.header.Location: "'https://${pCustomCognitoDomain}.auth.${AWS::Region}.amazoncognito.com/login?response_type=token&client_id=${S3AccessAPIGatewayUserPoolClient}&redirect_uri=https%3A%2F%2F${pCustomAPIDomain}'"
+                    responseTemplates:
+                      application/json: "redirect"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 301}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"
+          /{item}:
+            get:
+              parameters:
+              - name: "item"
+                in: "path"
+                required: true
+                schema:
+                  type: "string"
+              responses:
+                400:
+                  description: "400 response"
+                  content: {}
+                500:
+                  description: "500 response"
+                  content: {}
+                200:
+                  description: "200 response"
+                  headers:
+                    content-type:
+                      schema:
+                        type: "string"
+                    Content-Type:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              security:
+              - ${AWS::StackName}: []
+              x-amazon-apigateway-integration:
+                credentials: "${ApiGatewayRole.Arn}"
+                uri: "arn:aws:apigateway:${AWS::Region}:s3:path/${pBucketName}/Reports/{object}"
+                responses:
+                  4\d{2}:
+                    statusCode: "400"
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.content-type: "integration.response.header.content-type"
+                      method.response.header.Content-Type: "integration.response.header.Content-Type"
+                  5\d{2}:
+                    statusCode: "500"
+                requestParameters:
+                  integration.request.path.object: "method.request.path.item"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "GET"
+                type: "aws"
+          /:
+            get:
+              responses:
+                400:
+                  description: "400 response"
+                  content: {}
+                500:
+                  description: "500 response"
+                  content: {}
+                200:
+                  description: "200 response"
+                  headers:
+                    content-type:
+                      schema:
+                        type: "string"
+                    Content-Type:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                credentials: "${ApiGatewayRole.Arn}"
+                uri: "arn:aws:apigateway:${AWS::Region}:s3:path/${pBucketName}/public/index.html"
+                responses:
+                  4\d{2}:
+                    statusCode: "400"
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.content-type: "integration.response.header.content-type"
+                      method.response.header.Content-Type: "integration.response.header.Content-Type"
+                  5\d{2}:
+                    statusCode: "500"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "GET"
+                type: "aws"
+        components:
+          schemas:
+            Empty:
+              title: "Empty Schema"
+              type: "object"
+          securitySchemes:
+            ${AWS::StackName}:
+              type: "apiKey"
+              name: "Authorization"
+              in: "header"
+              x-amazon-apigateway-authtype: "cognito_user_pools"
+              x-amazon-apigateway-authorizer:
+                providerARNs:
+                - "${CognitoUserPool.Arn}"
+                type: "cognito_user_pools"
+        x-amazon-apigateway-policy:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Deny"
+            Principal: "*"
+            Action: "execute-api:Invoke"
+            Resource: "execute-api:/*"
+            Condition:
+              NotIpAddress:
+                aws:SourceIp: "99.161.92.198/32"
+          - Effect: "Allow"
+            Principal: "*"
+            Action: "execute-api:Invoke"
+            Resource: "execute-api:/*"
+
+  S3AccessAPIGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      Description: "Access to reports"
+      RestApiId: !Ref S3AccessAPIGateway
+      StageName: "Reports"
+
+  S3AccessAPIGatewayUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+        ClientName: !Sub "${AWS::StackName}-S3Access"
+        ExplicitAuthFlows:
+          - ADMIN_NO_SRP_AUTH
+          - USER_PASSWORD_AUTH
+        RefreshTokenValidity: 1
+        UserPoolId: !Ref CognitoUserPool
 
 Outputs:
   StackName:
@@ -134,3 +345,7 @@ Outputs:
   CognitoIdentityPoolId:
     Description: "ID for identity pool used for auth"
     Value: !Ref CognitoIDPool
+  CognitoUserPoolName:
+    Value: !GetAtt CognitoUserPool.ProviderName
+  LoginUrl:
+    Value: !Sub "https://${pCustomAPIDomain}/login"

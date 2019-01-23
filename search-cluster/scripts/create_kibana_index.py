@@ -4,7 +4,7 @@ import boto3
 import re
 import requests
 from requests_aws4auth import AWS4Auth
-from elasticsearch import Elasticsearch, RequestsHttpConnection
+from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException
 
 
 import json
@@ -13,8 +13,8 @@ import time
 import datetime
 from dateutil import tz
 
-from lib.account import *
-from lib.common import *
+# from lib.account import *
+# from lib.common import *
 
 
 import logging
@@ -26,7 +26,6 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 # Lambda execution starts here
 def main(args, logger):
-    logger.info("Purging index {} in {}".format(args.index, args.domain))
 
     host = get_endpoint(args.domain, args.region)
     if host is None:
@@ -37,6 +36,7 @@ def main(args, logger):
     service = 'es'
     credentials = boto3.Session().get_credentials()
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
+    headers = { "Content-Type": "application/json" }
 
     es = Elasticsearch(
         hosts=[{'host': host, 'port': 443}],
@@ -48,10 +48,24 @@ def main(args, logger):
     if args.debug:
         logger.debug(es.info())
 
-    es_idx=es.indices
+    doc = {
+        "index-pattern": {
+            "timeFieldName": "configurationItemCaptureTime"
+          },
+          "type": "index-pattern"
+        }
 
-    es_idx.delete(index=args.index)
 
+    # print(es.indices)
+    if not args.index:
+        search_index = "resources_*"
+    else:
+        search_index = args.index
+    for index_name in es.indices.get(search_index):
+        print(f"Index: {index_name}")
+        doc['index-pattern']['title'] = index_name
+
+        es.index(index=".kibana", doc_type="doc", id=f"index-pattern:{index_name}", body=doc)
 
 
 
@@ -79,7 +93,7 @@ def do_args():
     # parser.add_argument("--env_file", help="Environment File to source", default="config.env")
 
     parser.add_argument("--domain", help="Elastic Search Domain", required=True)
-    parser.add_argument("--index", help="Index to purge", required=True)
+    parser.add_argument("--index", help="Ony dump the mapping for this index")
     parser.add_argument("--region", help="AWS Region")
 
     args = parser.parse_args()

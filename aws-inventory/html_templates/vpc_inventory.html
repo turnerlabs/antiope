@@ -1,0 +1,43 @@
+
+<html>
+<head>
+<title>VPC Inventory</title>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+</head>
+<body style="padding:10;">
+<h1>VPC Inventory</h1>
+Total Active Accounts: ${account_count}<br/>
+Total Active VPCs: ${vpc_count}
+
+<table class="table table-sm table-bordered table-hover">
+<thead class="thead-light">
+    <tr>
+        <th scope="col">Account Name</th>
+        <th scope="col">Account ID</th>
+        <th scope="col">VPC ID</th>
+        <th scope="col">VPC Name</th>
+        <th scope="col">Region</th>
+        <th scope="col">CIDR Block</th>
+        <th scope="col">Running Instances</th>
+        <th scope="col">Stopped Instances</th>
+        <th scope="col">Last Update Time</th>
+    </tr>
+</thead>
+
+% for row in vpcs:
+    <tr>
+        <th scope="row">${row['account']['account_name']}</th>
+        <td>${row['account']['account_id']}</td>
+        <td>${row['vpc']['vpc_id']}</td>
+        <td>${row['vpc']['name']}</td>
+        <td>${row['vpc']['region']}</td>
+        <td>${row['vpc']['cidr_block']}</td>
+        <td>${row['vpc']['instance_states']['running']}</td>
+        <td>${row['vpc']['instance_states']['stopped']}</td>
+        <td>${row['vpc']['last_seen']}</td>
+    </tr>
+%endfor
+
+</table>
+<font size=-2>Page Generated on ${timestamp} UTC</font>
+</body></html>

@@ -1,0 +1,20 @@
+{
+  "Records": [
+    {
+      "EventSource": "aws:sns",
+      "EventSubscriptionArn": "arn:aws:sns:us-west-2:123456789012:PREFIX-ENV-aws-inventory-TriggerAccountInventoryFunctionTopic-FNORD:globldygook",
+      "EventVersion": "1.0",
+      "Sns": {
+        "Message": "{\"account_id\": \"ACCOUNT_ID_GOES_HERE\"}",
+        "MessageAttributes": {},
+        "SignatureVersion": "1",
+        "SigningCertUrl": "https://sns.us-west-2.amazonaws.com/SimpleNotificationService-ac565b8b1a6c5d002d285f9598aa1d9b.pem",
+        "Subject": null,
+        "Timestamp": "2019-01-08T16:46:19.869Z",
+        "TopicArn": "arn:aws:sns:us-west-2:123456789012:PREFIX-ENV-aws-inventory-TriggerAccountInventoryFunctionTopic-FNORD",
+        "Type": "Notification",
+        "UnsubscribeUrl": "https://sns.us-west-2.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:us-west-2:123456789012:PREFIX-ENV-aws-inventory-TriggerAccountInventoryFunctionTopic-FNORD:globldygook"
+      }
+    }
+  ]
+}

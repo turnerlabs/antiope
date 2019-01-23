@@ -25,7 +25,7 @@ endif
 INDICES=resources_cloudtrail resources_dx_connections resources_dx_gw resources_dx_vif resources_ec2_eni resources_ec2_instance \
 		resources_ec2_vpc resources_ecr_repositories resources_ecs_cluster resources_es_domain resources_iam_role \
 		resources_iam_user resources_kms_key resources_lambda resources_route53_domains resources_route53_hostedzone \
-		resources_s3_bucket resources_secretsmanager resources_ec2_ami
+		resources_s3_bucket resources_secretsmanager resources_ec2_ami resources_cloudformation_stack resources_cloudfront_distribution
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
@@ -47,6 +47,10 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 
 # location in the Antiope bucket where we drop lambda-packages
 export OBJECT_KEY=deploy-packages/$(LAMBDA_PACKAGE)
+
+# For uploading CFT to S3
+export TEMPLATE_KEY ?= deploy-packages/$(STACK_NAME)-Template-$(version).yaml
+export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 
 export COGNITO_STACK_NAME=$(STACK_PREFIX)-$(env)-cognito
 
@@ -71,13 +75,17 @@ clean:
 # Cloudformation Targets
 #
 
+# Upload template to S3
+cfn-upload: $(STACK_TEMPLATE)
+	aws s3 cp $(STACK_TEMPLATE) s3://$(BUCKET)/$(TEMPLATE_KEY)
+
 # Validate the template
-cfn-validate: $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-body file://$(STACK_TEMPLATE)
+cfn-validate: cfn-upload $(STACK_TEMPLATE)
+	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-url $(TEMPLATE_URL)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pEnvironment=$(env)  --force
+	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) --force
 
 #
 # Lambda Targets
@@ -92,12 +100,12 @@ upload: package
 update: $(FUNCTIONS)
 	cd lambda && $(MAKE) zipfile
 	for f in $(FUNCTIONS) ; do \
-	  aws lambda update-function-code --function-name $$f --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
+	  aws lambda update-function-code --region $(AWS_DEFAULT_REGION) --function-name $$f --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 	done
 
 # Update one specific function. Called as "make fupdate function=<fillinstackprefix>-aws-inventory-ecs-inventory"
 fupdate: package
-	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
+	aws lambda update-function-code --region $(AWS_DEFAULT_REGION) --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
 
 enable-s3-events:

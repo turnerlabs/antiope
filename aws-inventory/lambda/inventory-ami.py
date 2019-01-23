@@ -20,6 +20,12 @@ RESOURCE_PATH = "ec2/ami"
 RESOURCE_TYPE = "AWS::EC2::AMI"
 
 def lambda_handler(event, context):
+    if 'debug' in event and event['debug']:
+        logger.setLevel(logging.DEBUG)
+
+    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
+        logger.setLevel(logging.DEBUG)
+
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
@@ -51,23 +57,25 @@ def lambda_handler(event, context):
 def process_instances(target_account, ec2_client, region):
 
     instance_reservations = get_all_instances(ec2_client)
-    logger.info("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
+    logger.debug("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
 
     seen_images = []
+    seen_owners = []
 
     # dump info about instances to S3 as json
     for reservation in instance_reservations:
         for instance in reservation['Instances']:
             if instance['ImageId'] not in seen_images:
                 image_id = instance['ImageId']
-                process_image(target_account, ec2_client, region, image_id)
+                owner = process_image(target_account, ec2_client, region, image_id, seen_owners)
                 seen_images.append(image_id)
+                seen_owners.append(owner)
 
 
 
 
 
-def process_image(target_account, ec2_client, region, image_id):
+def process_image(target_account, ec2_client, region, image_id, seen_owners):
 
     response = ec2_client.describe_images(ImageIds=[image_id ] )
 
@@ -91,6 +99,9 @@ def process_image(target_account, ec2_client, region, image_id):
         resource_item['resourceCreationTime']           = image['CreationDate']
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
+        if image['OwnerId'] not in seen_owners:
+            process_trusted_account(image['OwnerId'])
+
 
 def get_all_instances(ec2_client):
     output = []
@@ -101,3 +112,26 @@ def get_all_instances(ec2_client):
     output += response['Reservations']
     return(output)
 
+def process_trusted_account(account_id):
+    '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
+    dynamodb = boto3.resource('dynamodb')
+    account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
+
+    response = account_table.get_item(
+        Key={'account_id': account_id},
+        AttributesToGet=['account_id', 'account_status'],
+        ConsistentRead=True
+    )
+    if 'Item' not in response:
+        logger.info(u"Adding foreign account {}".format(account_id))
+        try:
+            response = account_table.put_item(
+                Item={
+                    'account_id'     : account_id,
+                    'account_name'   : "unknown",
+                    'account_status' : "FOREIGN",
+                    'ami_source'     : True
+                }
+            )
+        except ClientError as e:
+            raise AccountUpdateError(u"Unable to create {}: {}".format(a[u'Name'], e))
