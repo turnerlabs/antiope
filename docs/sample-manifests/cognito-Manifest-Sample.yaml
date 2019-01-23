@@ -20,11 +20,12 @@ TimeOut: 15m
 Parameters:
 
   # Default Username for Cognito, leave this out if you only plan to have federated users
-  # pEmailAddress: you@yourcompany.com
+  pEmailAddress: you@yourcompany.com
 
   # Name of the Identity Pool. Cannot contain non-alphanumeric char
   pIdentityPoolName: AntiopeDevIDPool
 
+  # The API Gateway is currently setup to require a custom domain name, set that here
   pCustomAPIDomain:
 
 ###########
