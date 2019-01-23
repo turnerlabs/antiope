@@ -43,7 +43,7 @@ export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 .PHONY: $(FUNCTIONS)
 
 # Do everything
-deploy: cfn-deploy configure-identity-pool
+deploy: cfn-deploy configure-identity-pool templates api-deploy
 
 #
 # Cloudformation Targets
@@ -59,8 +59,16 @@ cfn-validate: cfn-upload $(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) --force
+	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pBucketName=$(BUCKET) pCustomCognitoDomain=$(STACK_PREFIX)-$(env) --force
 
 configure-identity-pool:
 	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	-aws --region $(AWS_DEFAULT_REGION) cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(STACK_PREFIX)-$(env)
+
+templates:
+	aws s3 sync public s3://$(BUCKET)/public
+
+api-deploy:
+	$(eval API_ID := $(shell aws apigateway get-rest-apis --query 'items[?name==`$(FULL_STACK_NAME)`].id' --output text --region $(AWS_DEFAULT_REGION)))
+	aws apigateway create-deployment --rest-api-id $(API_ID) --region $(AWS_DEFAULT_REGION) --stage-name "Reports"
+
