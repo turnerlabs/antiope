@@ -37,7 +37,7 @@ def lambda_handler(event, context):
             ecs_client = target_account.get_client('ecs', region=r)
 
             for cluster_arn in list_clusters(ecs_client):
-                cluster = ecs_client.describe_clusters(clusters=[cluster_arn], include=['STATISTICS'] )['clusters'][0]
+                cluster = ecs_client.describe_clusters(clusters=[cluster_arn], include=['STATISTICS', 'TAGS'] )['clusters'][0]
 
                 cluster_item = {}
                 cluster_item['awsAccountId']                   = target_account.account_id
@@ -57,7 +57,7 @@ def lambda_handler(event, context):
                 save_resource_to_s3(CLUSTER_RESOURCE_PATH, cluster_item['resourceId'], cluster_item)
 
                 for task_arn in list_tasks(ecs_client, cluster_arn):
-                    task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn])['tasks'][0]
+                    task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn], include=['TAGS'])['tasks'][0]
                     task_item = {}
                     task_item['awsAccountId']                   = target_account.account_id
                     task_item['awsAccountName']                 = target_account.account_name
@@ -95,7 +95,6 @@ def list_tasks(ecs_client, cluster_arn):
         response = ecs_client.list_tasks(cluster=cluster_arn, nextToken=response['nextToken'])
     task_arns += response['taskArns']
     return(task_arns)
-
 
 def list_clusters(ecs_client):
     cluster_arns = []
