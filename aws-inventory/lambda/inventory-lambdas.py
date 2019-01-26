@@ -17,7 +17,10 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-RESOURCE_PATH = "lambda"
+FUNC_PATH = "lambda/function"
+LAYER_PATH = "lambda/layer"
+
+
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -64,7 +67,8 @@ def process_lambda(client, mylambda, target_account, region):
     resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
     resource_item['awsRegion']                      = region
     resource_item['configuration']                  = mylambda
-    # resource_item['tags']                           = FIXME
+    if 'tags' in mylambda:
+        resource_item['tags']                       = parse_tags(mylambda['tags'])
     resource_item['supplementaryConfiguration']     = {}
     resource_item['resourceId']                     = "{}-{}-{}".format(target_account.account_id, region, mylambda['FunctionName'].replace("/", "-"))
     resource_item['resourceName']                   = mylambda['FunctionName']
@@ -76,6 +80,57 @@ def process_lambda(client, mylambda, target_account, region):
         if 'Policy' in response:
             resource_item['supplementaryConfiguration']['Policy']    = json.loads(response['Policy'])
     except ClientError as e:
-        logger.warning(f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}")
+        message = f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}"
+        resource_item['errors']['Policy'] = message
+        logger.warning(message)
 
-    save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
+    save_resource_to_s3(FUNC_PATH, resource_item['resourceId'], resource_item)
+
+
+
+def discover_lambda_layer(target_account, region):
+    '''Iterate across all regions to discover Lambdas'''
+
+    layers = []
+    client = target_account.get_client('lambda', region=region)
+    response = client.list_layers()
+    while 'NextMarker' in response:  # Gotta Catch 'em all!
+        layers += response['Functions']
+        response = client.list_layers(Marker=response['NextMarker'])
+    layers += response['Functions']
+
+    for l in lambdas:
+        process_layer(client, l, target_account, region)
+
+
+def process_layer(client, layer, target_account, region):
+
+    resource_item = {}
+    resource_item['awsAccountId']                   = target_account.account_id
+    resource_item['awsAccountName']                 = target_account.account_name
+    resource_item['resourceType']                   = "AWS::Lambda::Layer"
+    resource_item['source']                         = "Antiope"
+
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+    resource_item['awsRegion']                      = region
+    resource_item['configuration']                  = layer
+    if 'tags' in layer:
+        resource_item['tags']                       = parse_tags(layer['tags'])
+    resource_item['supplementaryConfiguration']     = {}
+    resource_item['resourceId']                     = "{}-{}-{}".format(target_account.account_id, region, layer['LayerName'].replace("/", "-"))
+    resource_item['resourceName']                   = layer['LayerName']
+    resource_item['ARN']                            = layer['LayerArn']
+    resource_item['errors']                         = {}
+
+    try:
+        resource_item['supplementaryConfiguration']['LayerVersions'] = []
+        response = client.list_layer_versions(LayerName=layer['LayerName'], MaxItems=1000)
+        for version in response['LayerVersions']:
+            version['Policy'] = client.get_layer_version_policy(LayerName=layer['LayerName'], VersionNumber=version[Version])
+            resource_item['supplementaryConfiguration']['LayerVersions'].append(version)
+    except ClientError as e:
+        message = f"Error getting the Policy for layer {layer['LayerName']} in {region} for {target_account.account_name}: {e}"
+        resource_item['errors']['LayerVersions'] = message
+        logger.warning(message)
+
+    save_resource_to_s3(LAYER_PATH, resource_item['resourceId'], resource_item)
