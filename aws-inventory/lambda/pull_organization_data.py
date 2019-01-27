@@ -16,10 +16,6 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 def handler(event, context):
     logger.info("Received event: " + json.dumps(event, sort_keys=True))
 
-    if statemachine_already_running(os.environ['STEPFUNCTION_ARN']):
-        logger.error("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
-        raise ScorecardRunningException("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
-
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
 
@@ -129,28 +125,19 @@ def get_consolidated_billing_subaccounts(session_creds):
 def create_or_update_account(a, account_table):
     logger.info(u"Adding account {} with name {} and email {}".format(a[u'Id'], a[u'Name'], a[u'Email']))
     if 'JoinedTimestamp' in a:
-        a[u'JoinedTimestamp'] = a[u'JoinedTimestamp'].isoformat() # Gotta convert to mmake the json save
+        a[u'JoinedTimestamp'] = a[u'JoinedTimestamp'].isoformat() # Gotta convert to make the json save
     try:
-        response = account_table.put_item(
-            Item={
-                'account_id'     : a[u'Id'],
-                'account_name'   : a[u'Name'],
-                'account_status' : a[u'Status'],
-                'payer_id'       : a[u'Payer Id'],
-                'root_email'     : a[u'Email'],
-                'payer_record'   : a
-            }
-        )
+        response = account_table.update_item(
+                Key= {'account_id': a[u'Id'] },
+                UpdateExpression="set account_name=:name, account_status=:status, payer_id=:payer_id, root_email=:root_email, payer_record=:payer_record",
+                ExpressionAttributeValues={
+                    ':name':        a[u'Name'],
+                    ':status':      a[u'Status'],
+                    ':payer_id':    a[u'Payer Id'],
+                    ':root_email':  a[u'Email'],
+                    ':payer_record': a
+                }
+            )
+
     except ClientError as e:
         raise AccountUpdateError(u"Unable to create {}: {}".format(a[u'Name'], e))
-
-def statemachine_already_running(stepfunction_arn):
-    client = boto3.client('stepfunctions')
-    response = client.list_executions(stateMachineArn=stepfunction_arn, statusFilter='RUNNING')
-    if len(response['executions']) > 1:
-        return(True)
-    else:
-        return(False)
-
-# Used To tell the Step Function to wait 30 and try again
-class ScorecardRunningException(Exception): pass
