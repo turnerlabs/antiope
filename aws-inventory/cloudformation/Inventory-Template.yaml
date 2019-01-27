@@ -22,9 +22,9 @@ Parameters:
     Type: String
     Default: Security-Audit
 
-  pPayerAccountList:
-    Description: Comma Delimited list of payer accounts to process
-    Type: String
+  # pPayerAccountList:
+  #   Description: Comma Delimited list of payer accounts to process
+  #   # Type: String
 
   pIamUserName:
     Type: String
@@ -208,6 +208,60 @@ Resources:
   #
   # State Machine Functions
   #
+
+  LoadStepFunctionEventLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-load-sf-event"
+      Description: Load the StepFunction Event from S3
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 300
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Environment:
+        Variables:
+          INVENTORY_STACK_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
+      Code:
+        ZipFile: !Sub |
+          from __future__ import print_function
+          import boto3
+          import json
+          import logging
+          import os
+          from botocore.exceptions import ClientError
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          logging.getLogger('botocore').setLevel(logging.WARNING)
+          logging.getLogger('boto3').setLevel(logging.WARNING)
+
+          # Lambda main routine
+          def handler(event, context):
+              logger.info("Received event: " + json.dumps(event, sort_keys=True))
+              if statemachine_already_running(os.environ['STEPFUNCTION_ARN']):
+                  logger.error("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+                  raise ScorecardRunningException("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+              client = boto3.client('s3')
+              response = client.get_object(
+                Bucket=os.environ['INVENTORY_BUCKET'],
+                Key=event['event_file']
+              )
+              return(json.loads(response['Body'].read()))
+
+          def statemachine_already_running(stepfunction_arn):
+              client = boto3.client('stepfunctions')
+              response = client.list_executions(stateMachineArn=stepfunction_arn, statusFilter='RUNNING')
+              if len(response['executions']) > 1:
+                  return(True)
+              else:
+                  return(False)
+
+          # Used To tell the Step Function to wait 30 and try again
+          class ScorecardRunningException(Exception): pass
+          ### End of Function
+
   PullOrganizationDataLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -340,6 +394,43 @@ Resources:
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
+
+  HandoffToNextStepFunctionLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-next-func-handler"
+      Description: Handoff to the next StepFunction (if specified)
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 300
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Environment:
+        Variables:
+          INVENTORY_STACK_NAME: !Ref AWS::StackName
+          CONFIG_FILE: "config.json"
+          INVENTORY_BUCKET: !Ref pBucketName
+      Code:
+        ZipFile: !Sub |
+          from __future__ import print_function
+          import boto3
+          import json
+          import logging
+          import os
+          from botocore.exceptions import ClientError
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          # Lambda main routine
+          def handler(event, context):
+              logger.info("Received event: " + json.dumps(event, sort_keys=True))
+              if 'next_function' in event and '${AWS::StackName}' in event['next_function']:
+                client = boto3.client('stepfunctions')
+                response = client.start_execution(
+                  stateMachineArn=event['next_function']['${AWS::StackName}'],
+                  input=json.dumps(event, sort_keys=True)
+                )
+          ### End of Function
 
   #
   # New Account Handling
@@ -847,7 +938,7 @@ Resources:
         RoleArn: !GetAtt TriggerStateMachineRole.Arn
         Id: TargetFunctionV1
         Input: !Sub |
-          {"payer": [ ${pPayerAccountList} ]}
+          {"event_file": "${AWS::StackName}-trigger-event.json" }
 
   StateMachineExecutionRole:
     Type: AWS::IAM::Role
@@ -871,10 +962,13 @@ Resources:
             - lambda:InvokeFunction
             Effect: Allow
             Resource:
+              - !GetAtt LoadStepFunctionEventLambdaFunction.Arn
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
               - !GetAtt TriggerInventoryLambdaFunction.Arn
               - !GetAtt CreateAccountReportLambdaFunction.Arn
               - !GetAtt CreateVPCReportLambdaFunction.Arn
+              - !GetAtt HandoffToNextStepFunctionLambdaFunction.Arn
+              - !GetAtt InventoryErrorHandlingLambdaFunction.Arn
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -892,30 +986,32 @@ Resources:
       DefinitionString: !Sub |-
         {
           "Comment": "(${AWS::StackName}) State Machine to Gather Account Inventory Information",
-          "StartAt": "PullOrganizationDataLambdaFunction",
+          "StartAt": "LoadStepFunctionEventLambdaFunction",
           "States": {
             "ErrorHandlerState": {
               "Type": "Task",
               "Resource": "${InventoryErrorHandlingLambdaFunction.Arn}" ,
               "End": true
             },
-            "PullOrganizationDataLambdaFunction": {
+            "LoadStepFunctionEventLambdaFunction": {
               "Type": "Task",
-              "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
-              "Next": "TriggerInventoryLambdaFunction",
+              "Resource": "${LoadStepFunctionEventLambdaFunction.Arn}",
+              "Next": "PullOrganizationDataLambdaFunction",
               "Catch": [
                 {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"},
                 {"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}
               ]
             },
+            "PullOrganizationDataLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
+              "Next": "TriggerInventoryLambdaFunction",
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"} ] },
             "TriggerInventoryLambdaFunction": {
               "Type": "Task",
               "Resource": "${TriggerInventoryLambdaFunction.Arn}",
               "Next": "WaitForLambdaExecutionsToComplete",
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
             },
             "WaitForLambdaExecutionsToComplete": {
               "Type": "Wait",
@@ -926,24 +1022,24 @@ Resources:
               "Type": "Task",
               "Resource": "${CreateAccountReportLambdaFunction.Arn}",
               "Next": "CreateVPCReportLambdaFunction",
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
             },
             "CreateVPCReportLambdaFunction": {
               "Type": "Task",
               "Resource": "${CreateVPCReportLambdaFunction.Arn}",
+              "Next": "HandoffToNextStepFunctionLambdaFunction",
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
+            },
+            "HandoffToNextStepFunctionLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${HandoffToNextStepFunctionLambdaFunction.Arn}",
               "End": true,
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
             },
             "WaitForStepFunctionToFinish": {
               "Type" : "Wait",
               "Seconds" : 300,
-              "Next": "PullOrganizationDataLambdaFunction"
+              "Next": "LoadStepFunctionEventLambdaFunction"
             }
           }
         }
@@ -985,22 +1081,6 @@ Resources:
       Endpoint: !GetAtt [ENIInventoryLambdaFunction, Arn]
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  # Disabled this till we have a better story around how to inventory & leverage this data
-  # HealthInventoryLambdaFunctionPermission:
-  #   Type: AWS::Lambda::Permission
-  #   Properties:
-  #     FunctionName: !GetAtt HealthInventoryLambdaFunction.Arn
-  #     Principal: sns.amazonaws.com
-  #     SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-  #     Action: lambda:invokeFunction
-
-  # HealthInventoryTopicToLambdaSubscription:
-  #   Type: AWS::SNS::Subscription
-  #   Properties:
-  #     Endpoint: !GetAtt [HealthInventoryLambdaFunction, Arn]
-  #     Protocol: lambda
-  #     TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
   CloudFormationInventoryLambdaFunctionPermission:
     Type: AWS::Lambda::Permission
@@ -1251,15 +1331,16 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-accounts"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "account_id"
           AttributeType: "S"
       KeySchema:
         - AttributeName: "account_id"
           KeyType: "HASH"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
+      # ProvisionedThroughput:
+      #   ReadCapacityUnits: !Ref pTableReadUnits
+      #   WriteCapacityUnits: !Ref pTableWriteUnits
       StreamSpecification:
         StreamViewType: NEW_IMAGE
 
@@ -1268,6 +1349,7 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-vpc-inventory"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "vpc_id"
           AttributeType: "S"
@@ -1276,9 +1358,9 @@ Resources:
       KeySchema:
         - AttributeName: "vpc_id"
           KeyType: "HASH"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
+      # ProvisionedThroughput:
+      #   ReadCapacityUnits: !Ref pTableReadUnits
+      #   WriteCapacityUnits: !Ref pTableWriteUnits
       GlobalSecondaryIndexes:
       - IndexName: "account-index"
         KeySchema:
@@ -1286,14 +1368,15 @@ Resources:
             KeyType: "HASH"
         Projection:
           ProjectionType: ALL
-        ProvisionedThroughput:
-          ReadCapacityUnits: !Ref pTableReadUnits
-          WriteCapacityUnits: !Ref pTableWriteUnits
+        # ProvisionedThroughput:
+        #   ReadCapacityUnits: !Ref pTableReadUnits
+        #   WriteCapacityUnits: !Ref pTableWriteUnits
 
   HistoricalBillingDataTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-billing-data"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "account_id"
           AttributeType: "S"
@@ -1304,9 +1387,9 @@ Resources:
           KeyType: "HASH"
         - AttributeName: "datetime"
           KeyType: "RANGE"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
+      # ProvisionedThroughput:
+      #   ReadCapacityUnits: !Ref pTableReadUnits
+      #   WriteCapacityUnits: !Ref pTableWriteUnits
 
 
   #
@@ -1611,6 +1694,8 @@ Outputs:
     Value: !Ref TriggerStateMachine
     Description: Name of the Trigger Event (used by the make file to enable to disable the inventory state machine)
 
-
+  BucketName:
+    Value: !Ref pBucketName
+    Description: Name of S3 Bucket where all files are stored
 
 
