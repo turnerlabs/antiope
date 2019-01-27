@@ -146,3 +146,6 @@ expire-logs:
 	for f in $(FUNCTIONS) ; do \
 	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
 	done
+
+upload-trigger-event:
+	aws s3 cp $(FULL_STACK_NAME)-trigger-event.json s3://$(BUCKET)/

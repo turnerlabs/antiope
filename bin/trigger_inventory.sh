@@ -12,12 +12,12 @@ fi
 # If the user didn't pass in an event file, then get the payer list via the stack's parameters (using this ugly jq command)
 if [ -z $EVENT ] ; then
     EVENT="${STACKNAME}-test-event.json" # file to save the event as
-    PAYERLIST=`aws cloudformation describe-stacks --stack-name ${STACKNAME} | jq -r '.Stacks[].Parameters[]|select(.ParameterKey=="pPayerAccountList").ParameterValue'`
-    if [ -z "$PAYERLIST" ] ; then
-        echo "Didn't find the payerlist in stack ${STACKNAME}. Aborting..."
-        exit 1
-    fi
-    echo "{\"payer\": [ ${PAYERLIST} ] }" > $EVENT
+    # PAYERLIST=`aws cloudformation describe-stacks --stack-name ${STACKNAME} | jq -r '.Stacks[].Parameters[]|select(.ParameterKey=="pPayerAccountList").ParameterValue'`
+    # if [ -z "$PAYERLIST" ] ; then
+    #     echo "Didn't find the payerlist in stack ${STACKNAME}. Aborting..."
+    #     exit 1
+    # fi
+    echo "{\"event_file\": \"${STACKNAME}-trigger-event.json\" }" > $EVENT
 elif [ ! -f $EVENT ] ; then
     echo "Cannot find file $EVENT. Aborting..."
     exit 1
@@ -31,4 +31,3 @@ if [ -z $STATEMACHINE_ARN ] ; then
 fi
 
 aws stepfunctions start-execution --state-machine-arn ${STATEMACHINE_ARN} --name "make-trigger-${DATE}" --input file://$EVENT
-

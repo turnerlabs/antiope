@@ -8,6 +8,7 @@ cloudsploit/
 # Build-time crud
 *.zip
 *-test-event.json
+*-trigger-event.json
 *dist-info
 
 # Deploy specific env vars passed to makefile. Not to be shared.
