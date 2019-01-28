@@ -160,6 +160,10 @@ def discover_users(account):
         if 'MFADevices' in response and len(response['MFADevices']) > 0:
             resource_item['supplementaryConfiguration']['MFADevice'] = response['MFADevices'][0]
 
+        response = iam_client.get_login_profile(UserName=user['UserName'])
+        if 'LoginProfile' in response:
+            resource_item['supplementaryConfiguration']['LoginProfile'] = response["LoginProfile"]
+
         save_resource_to_s3(USER_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 def discover_saml_provider(account):
