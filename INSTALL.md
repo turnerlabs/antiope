@@ -39,6 +39,8 @@ Sample Manifest files can be found in docs/sample-manifests. You can copy the sa
 
 **FUTURE IMPROVEMENT** - running `make manifests env=prod` from the top level directory will pre-generate the manifest files for all the stacks allowing you to customize them as necessary.
 
+Finally, the AWS Inventory needs it's config file created and pushed to S3. The file must be named `PREFIX-ENV-config.json` and reside in the root of the Antiope Bucket. A sample config file can be found in `aws-inventory/config-SAMPLE.json`. This contains the list of organizational master/payer accounts to inventory in addition to any stepfunction arns the inventory StepFunction should pass off to. If you don't need to chain Step Functions right now, you can remove the `next_function` block. `make deploy` in the `aws-inventory` directory will copy the config file to S3.
+
 
 ## Easy install Instructions
 The top-level make file lists all of the targets you can execute.
