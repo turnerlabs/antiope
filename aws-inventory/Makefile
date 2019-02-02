@@ -81,7 +81,7 @@ test: cfn-validate
 	cd lambda && $(MAKE) test
 
 # Do everything
-deploy: package upload cfn-deploy templates
+deploy: package upload cfn-deploy templates upload-config
 
 clean:
 	cd lambda && $(MAKE) clean
@@ -147,5 +147,5 @@ expire-logs:
 	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
 	done
 
-upload-trigger-event:
-	aws s3 cp $(FULL_STACK_NAME)-trigger-event.json s3://$(BUCKET)/
+upload-config:
+	aws s3 cp $(FULL_STACK_NAME)-config.json s3://$(BUCKET)/

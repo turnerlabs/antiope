@@ -938,7 +938,7 @@ Resources:
         RoleArn: !GetAtt TriggerStateMachineRole.Arn
         Id: TargetFunctionV1
         Input: !Sub |
-          {"event_file": "${AWS::StackName}-trigger-event.json" }
+          {"event_file": "${AWS::StackName}-config.json" }
 
   StateMachineExecutionRole:
     Type: AWS::IAM::Role
