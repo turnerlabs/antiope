@@ -17,7 +17,7 @@ if [ -z $EVENT ] ; then
     #     echo "Didn't find the payerlist in stack ${STACKNAME}. Aborting..."
     #     exit 1
     # fi
-    echo "{\"event_file\": \"${STACKNAME}-trigger-event.json\" }" > $EVENT
+    echo "{\"event_file\": \"${STACKNAME}-config.json\" }" > $EVENT
 elif [ ! -f $EVENT ] ; then
     echo "Cannot find file $EVENT. Aborting..."
     exit 1
