@@ -12,7 +12,7 @@ There are three SNS Topic that are created by the inventory stack:
 * ForeignAccountNotificationTopic: When Antiope discovers a new AWS account that is _trusted_ but not part of your organization, a message is published to this topic.
 
 ### AWS StepFunction
-At the conclusion of the AWS Inventory Stepfunction, Antiope can pass off to another custom StepFunction. Here you can create additional reports or conduct post-inventory analysis of the results.
+At the conclusion of the AWS Inventory StepFunction, Antiope can pass off to another custom StepFunction. Here you can create additional reports or conduct post-inventory analysis of the results.
 
 
 ### SNS Messages Published to each topic
@@ -57,10 +57,10 @@ A sample framework for a company custom stack is in `docs/sample-custom-stack`
 
 Because the customized Lambda Functions and StepFunctions tie into the existing Antiope structure, you must first deploy Antiope. You can use deploy_stack's ability to import it's parameters from other stacks to provide the references for that structure.
 
-Lastly, if you've got a add-on StepFunction you need to add that StepFunction's ARN to the `next_function` attribute in the config gile.
+Lastly, if you've got a add-on StepFunction you need to add that StepFunction's ARN to the `next_function` attribute in the config file.
 
 1. Deploy the main Antiope
 2. Create manifest in the custom repo to point to the Antiope Stacks
 3. Deploy the custom stack
-4. Get the stepfunction arn fro the custom stack
+4. Get the StepFunction ARN from the custom stack
 5. Add it to the config file, push config file.
