@@ -101,11 +101,6 @@ Resources:
             - lambda.amazonaws.com
           Action:
           - sts:AssumeRole
-        - Sid: EmuLambdaTestTrust
-          Effect: Allow
-          Principal:
-            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
-          Action: sts:AssumeRole
       Path: /
       Policies:
       - PolicyName: S3Access
