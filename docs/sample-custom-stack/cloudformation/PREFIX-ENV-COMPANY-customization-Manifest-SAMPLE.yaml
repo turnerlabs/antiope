@@ -1,0 +1,94 @@
+# deploy_stack.rb Manifest file generated from cloudformation/COMPANY-Template.yaml on Sun Jan 20 14:24:18 EST 2019
+
+
+# These control how and where the cloudformation is executed
+StackName: PREFIX-ENV-COMPANY-customization
+OnFailure: DO_NOTHING # accepts DO_NOTHING, ROLLBACK, DELETE
+Region: us-west-2
+TimeOut: 15m
+
+# Paramaters:
+# There are two kinds of parameters, regular and sourced.
+# Regular parameters are static and defined in the Parameters: section of this yaml file
+# Sourced are parameters that cfnDeploy will go and fetch from other Stacks.
+# This simple Serverless app does not depend on any other stacks. However if we start using VPC based
+# Lambdas, or have multiple stacks that need to interact, we will want to use Sourced Parameters
+
+###########
+# Parameters to the cloudformation stack that are defined manually.
+###########
+Parameters:
+
+  # Memory footprint for Lambdas processing lots of resources
+  pLargeLambdaSize: 768
+
+  # Default name of the AssumeRole to assume into accounts
+  pRoleName: Security-Audit
+
+  # Memory footprint for smaller Lambda
+  pSmallLambdaSize: 128
+
+###########
+# These stacks are needed by the SourcedParameters section
+###########
+DependsOnStacks:
+    - PREFIX-ENV-aws-inventory
+
+###########
+# Parameters that come from other deployed stacks.
+# Valid Sections are Resources, Outputs Parameters
+#
+# Hint. Get your list of resources this way:
+# aws cloudformation describe-stack-resources --stack-name MSC-DEV-VPC-EAST-1 --output text | awk '{print $2, " ", $3, " " $5}'
+###########
+SourcedParameters:
+
+  # Name of Account Table from Antiope Inventory Stack
+  pAccountTable: PREFIX-ENV-aws-inventory.Resources.AccountDBTable
+
+  # Name of BillingData Table from Antiope Inventory Stack
+  pBillingDataTable: PREFIX-ENV-aws-inventory.Resources.HistoricalBillingDataTable
+
+  # Name of VPC Table from Antiope Inventory Stack
+  pVPCTable: PREFIX-ENV-aws-inventory.Resources.VpcInventoryDBTable
+
+  # Main Antiope Bucket Name
+  pBucketName: PREFIX-ENV-aws-inventory.Parameters.pBucketName
+
+###########
+# Tags that apply to the stack. Will be inherited by some resources.
+###########
+Tags:
+  Name: PREFIX-ENV-COMPANY-customization
+
+
+###########
+# Stack Policies protect resources from accidential deletion or replacement
+# for the definition of stack policies see:
+# see http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/protect-stack-resources.html#stack-policy-reference
+###########
+StackPolicy:
+    # All other resources should be modifiable.
+  - Resource: "*"
+    Effect: Allow
+    Principal: "*"
+    Action:
+      - "Update:Modify"
+      - "Update:Delete"
+      - "Update:Replace"
+
+
+# Preinstall script will build the zip upload the Lambda code to the S3 bucket
+# Anything inside a {{ }} is a stack parameter (Regular or Sourced)
+# PreInstallScript: |
+#   #!/bin/bash -xe
+
+# PostInstall and PostUpdate Script. Anything inside {{ }} is replaced by an stack output
+# PostInstallScript: |
+#   #!/bin/bash -xe
+
+# PostUpdateScript: |
+#   #!/bin/bash -xe
+
+
+# End of Manifest
