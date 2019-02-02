@@ -6,7 +6,7 @@ Parameters:
   pEmailAddress:
     Type: String
     Description: Default Username for Cognito
-    Default: None
+    Default: NONE
 
   pIdentityPoolName:
     Type: String
