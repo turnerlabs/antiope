@@ -149,7 +149,7 @@ def get_resource_records(route53_client, hostedzone_id):
     )
     while response['IsTruncated']:
         rr_set += response['ResourceRecordSets']
-        sleep(1)
+        time.sleep(1)
         response = route53_client.list_resource_record_sets(
             HostedZoneId=hostedzone_id,
             MaxItems="1000",
