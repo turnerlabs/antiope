@@ -139,6 +139,11 @@ expire-logs:
 
 indices:
 	for i in $(INDICES) ; do \
+	  ./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $$i --mapping_dir mappings ; \
+	done
+
+purge-indices:
+	for i in $(INDICES) ; do \
 	  ./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $$i --mapping_dir mappings --delete ; \
 	done
 
