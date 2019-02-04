@@ -17,7 +17,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-RESOURCE_PATH = "cloudtrail"
+RESOURCE_PATH = "cloudtrail/trail"
 RESOURCE_TYPE = "AWS::CloudTrail::Trail"
 
 def lambda_handler(event, context):
