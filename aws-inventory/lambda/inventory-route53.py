@@ -17,7 +17,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-DOMAIN_RESOURCE_PATH = "route53/domains"
+DOMAIN_RESOURCE_PATH = "route53/domain"
 ZONE_RESOURCE_PATH = "route53/hostedzone"
 
 def lambda_handler(event, context):

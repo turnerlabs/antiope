@@ -24,11 +24,31 @@ endif
 
 
 # Indicies should be singular!
-INDICES=resources_cloudtrail resources_dx_connections resources_dx_gw resources_dx_vif resources_ec2_eni resources_ec2_instance \
-		resources_ec2_vpc resources_ecr_repositories resources_ecs_cluster resources_es_domain resources_iam_role \
-		resources_iam_user resources_kms_key resources_lambda_function resources_route53_domains resources_route53_hostedzone \
-		resources_s3_bucket resources_secretsmanager resources_ec2_ami resources_cloudformation_stack resources_cloudfront_distribution \
-		resources_lambda_layer
+INDICES=resources_cloudformation_stack \
+		resources_cloudfront_distribution \
+		resources_cloudtrail_trail \
+		resources_dx_connection \
+		resources_dx_gw \
+		resources_dx_vif \
+		resources_ec2_ami \
+		resources_ec2_eni \
+		resources_ec2_instance \
+		resources_ec2_securitygroup \
+		resources_ec2_vpc \
+		resources_ecr_repository \
+		resources_ecs_cluster \
+		resources_ecs_task \
+		resources_es_domain \
+		resources_iam_saml \
+		resources_iam_role \
+		resources_iam_user \
+		resources_kms_key \
+		resources_lambda_function \
+		resources_lambda_layer \
+		resources_route53_domain \
+		resources_route53_hostedzone \
+		resources_s3_bucket \
+		resources_secretsmanager_secret
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
