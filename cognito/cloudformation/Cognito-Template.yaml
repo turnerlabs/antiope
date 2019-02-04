@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy the Inventory Component of Antiope
+Description: Deploy the User Authentication Component of Antiope
 
 Parameters:
 
