@@ -40,8 +40,17 @@ Parameters:
     Type: String
     Description: ARN for the Kibana Cognito Auth role (Created by the Cognito Stack)
 
+  pReIndexSettings:
+    Type: String
+    Description: Set this to True to enable greater capacity for ReIndex
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
+  ReIndex: !Equals [ !Ref pReIndexSettings, True ]
 
 
 Resources:
@@ -198,8 +207,9 @@ Resources:
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
-      Timeout: 180
-      ReservedConcurrentExecutions: 50  # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
+      Timeout: !If [ ReIndex, 900, 180]
+      # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
+      ReservedConcurrentExecutions: !If [ ReIndex, 500, 50]
       Role: !GetAtt IngestLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -225,7 +235,7 @@ Resources:
           - EncryptionEnabled
           - 86400
           - Ref: AWS::NoValue
-      MessageRetentionPeriod: 3600 # Any messages older than an hour are probably out-of-date
+      MessageRetentionPeriod: !If [ ReIndex, 10800, 3600]  # Any messages older than an hour are probably out-of-date
       ReceiveMessageWaitTimeSeconds: 10
       # RedrivePolicy:
       #   FIXME
@@ -329,7 +339,7 @@ Resources:
                     "width": 3,
                     "height": 3,
                     "properties": {
-                        "markdown": "# QuickLinks\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* [Lambda](https://console.aws.amazon.com/lambda/home?region=${AWS::Region}#/functions/${AWS::StackName}-ingest-s3?tab=monitoring)\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)"
+                        "markdown": "# QuickLinks\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* [Lambda](https://console.aws.amazon.com/lambda/home?region=${AWS::Region}#/functions/${AWS::StackName}-ingest-s3?tab=monitoring)\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)\n* [Stack](https://console.aws.amazon.com/cloudformation/home?region=${AWS::Region}#/stack/detail?stackId=${AWS::StackId})"
                     }
                 },
                 {
@@ -472,7 +482,7 @@ Resources:
                     "width": 9,
                     "height": 6,
                     "properties": {
-                        "markdown": "# Stack Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* Cluster Size: ${pClusterInstanceType} x ${pClusterInstanceCount} Nodes / Encryption: ${pClusterEncryption}\n# Logs\n* [Lambda Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/lambda/${AWS::StackName}-ingest-s3;streamFilter=typeLogStreamPrefix)\n* [ES App Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/application-logs;streamFilter=typeLogStreamPrefix)\n* [ES Slow Index Logs](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/index-logs;streamFilter=typeLogStreamPrefix)\n"
+                        "markdown": "# Stack Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* Cluster Size: ${pClusterInstanceType} x ${pClusterInstanceCount} Nodes / Encryption: ${pClusterEncryption}\n# Logs\n* [Lambda Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/lambda/${AWS::StackName}-ingest-s3;streamFilter=typeLogStreamPrefix)\n* [ES App Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/application-logs;streamFilter=typeLogStreamPrefix)\n* [ES Slow Index Logs](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/index-logs;streamFilter=typeLogStreamPrefix)\n* ReIndex: ${pReIndexSettings}\n"
                     }
                 },
                 {
