@@ -1,6 +1,5 @@
 import boto3
-from botocore.exceptions import ClientError
-import botocore
+from botocore.exceptions import ClientError, ParamValidationError
 
 import json
 import os
@@ -24,9 +23,6 @@ def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
-
-    print("boto3 version:"+boto3.__version__)
-    print("botocore version:"+botocore.__version__)
 
     try:
 
@@ -63,8 +59,13 @@ def lambda_handler(event, context):
                 for task_arn in list_tasks(ecs_client, cluster_arn):
 
                     # Lambda's boto doesn't yet support this API Feature
-                    # task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn], include=['TAGS'])['tasks'][0]
-                    task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn])['tasks'][0]
+                    try:
+                        task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn], include=['TAGS'])['tasks'][0]
+                    except ParamValidationError as e:
+                        import botocore
+                        logger.error(f"Unable to fetch Task Tags - Lambda Boto3 doesn't support yet. Boto3: {boto3.__version__} botocore: {botocore.__version__}")
+                        task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn])['tasks'][0]
+
                     task_item = {}
                     task_item['awsAccountId']                   = target_account.account_id
                     task_item['awsAccountName']                 = target_account.account_name

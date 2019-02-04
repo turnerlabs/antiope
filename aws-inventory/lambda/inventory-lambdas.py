@@ -31,6 +31,7 @@ def lambda_handler(event, context):
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
             discover_lambdas(target_account, r)
+            discover_lambda_layer(target_account, r)
 
     except AssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -91,16 +92,21 @@ def process_lambda(client, mylambda, target_account, region):
 def discover_lambda_layer(target_account, region):
     '''Iterate across all regions to discover Lambdas'''
 
-    layers = []
-    client = target_account.get_client('lambda', region=region)
-    response = client.list_layers()
-    while 'NextMarker' in response:  # Gotta Catch 'em all!
+    try:
+        layers = []
+        client = target_account.get_client('lambda', region=region)
+        response = client.list_layers()
+        while 'NextMarker' in response:  # Gotta Catch 'em all!
+            layers += response['Functions']
+            response = client.list_layers(Marker=response['NextMarker'])
         layers += response['Functions']
-        response = client.list_layers(Marker=response['NextMarker'])
-    layers += response['Functions']
 
-    for l in lambdas:
-        process_layer(client, l, target_account, region)
+        for l in lambdas:
+            process_layer(client, l, target_account, region)
+    except AttributeError as e:
+        import botocore
+        logger.error(f"Unable to inventory Lambda Layers - Lambda Boto3 doesn't support yet. Boto3: {boto3.__version__} botocore: {botocore.__version__}")
+        return()
 
 
 def process_layer(client, layer, target_account, region):
