@@ -31,15 +31,18 @@ search-cluster/*/elasticsearch5/
 search-cluster/*/elasticsearch/
 
 # Build-time crud for the inventory lambda
-aws-inventory/lambda/et_xmlfile
-aws-inventory/lambda/openpyxl
-aws-inventory/lambda/yaml
-aws-inventory/lambda/jdcal.py
-aws-inventory/lambda/semver.py
-aws-inventory/lambda/lib/
-aws-inventory/lambda/mako/
-aws-inventory/lambda/markupsafe/
-aws-inventory/lambda/bin/
+lambda_layer/*dist-info
+lambda_layer/*.zip
+lambda_layer/urllib3*
+lambda_layer/requests*
+lambda_layer/*.rst
+lambda_layer/LICENSE
+lambda_layer/NOTICE
+lambda_layer/*/
+lambda_layer/six.py
+lambda_layer/semver.py
+
+
 
 # Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml
