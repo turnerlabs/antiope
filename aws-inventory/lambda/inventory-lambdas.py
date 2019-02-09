@@ -13,7 +13,7 @@ from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
@@ -97,11 +97,11 @@ def discover_lambda_layer(target_account, region):
         client = target_account.get_client('lambda', region=region)
         response = client.list_layers()
         while 'NextMarker' in response:  # Gotta Catch 'em all!
-            layers += response['Functions']
+            layers += response['Layers']
             response = client.list_layers(Marker=response['NextMarker'])
-        layers += response['Functions']
+        layers += response['Layers']
 
-        for l in lambdas:
+        for l in layers:
             process_layer(client, l, target_account, region)
     except AttributeError as e:
         import botocore
@@ -130,9 +130,9 @@ def process_layer(client, layer, target_account, region):
 
     try:
         resource_item['supplementaryConfiguration']['LayerVersions'] = []
-        response = client.list_layer_versions(LayerName=layer['LayerName'], MaxItems=1000)
+        response = client.list_layer_versions(LayerName=layer['LayerName'], MaxItems=50)
         for version in response['LayerVersions']:
-            version['Policy'] = client.get_layer_version_policy(LayerName=layer['LayerName'], VersionNumber=version[Version])
+            version['Policy'] = client.get_layer_version_policy(LayerName=layer['LayerName'], VersionNumber=version['Version'])
             resource_item['supplementaryConfiguration']['LayerVersions'].append(version)
     except ClientError as e:
         message = f"Error getting the Policy for layer {layer['LayerName']} in {region} for {target_account.account_name}: {e}"
