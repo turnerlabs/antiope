@@ -14,6 +14,8 @@ cloudsploit/
 # Deploy specific env vars passed to makefile. Not to be shared.
 config.*
 
+aws-inventory/*/lib/
+
 # Build-time crud for the search cluster lambda
 search-cluster/*/*dist-info
 search-cluster/*/*.zip
@@ -31,16 +33,8 @@ search-cluster/*/elasticsearch5/
 search-cluster/*/elasticsearch/
 
 # Build-time crud for the inventory lambda
-lambda_layer/*dist-info
-lambda_layer/*.zip
-lambda_layer/urllib3*
-lambda_layer/requests*
-lambda_layer/*.rst
-lambda_layer/LICENSE
-lambda_layer/NOTICE
-lambda_layer/*/
-lambda_layer/six.py
-lambda_layer/semver.py
+lambda_layer/python/
+
 
 
 

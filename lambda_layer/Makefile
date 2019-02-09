@@ -26,7 +26,7 @@ ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
 endif
 
-export LAYER_PACKAGE="Antiope-$(env)-aws_lambda_layer-$(version).zip"
+export LAYER_PACKAGE=Antiope-$(env)-aws_lambda_layer-$(version).zip
 export OBJECT_KEY=deploy-packages/$(LAYER_PACKAGE)
 
 
@@ -43,14 +43,14 @@ layer: clean deps zipfile upload
 #
 
 clean:
-	rm -rf __pycache__ *.zip *.dist-info $(DEPENDENCIES) docutils
+	rm -rf python *.zip
 
 # # Create the package Zip. Assumes all tests were done
-zipfile: $(DEPENDENCIES)
-	zip -r $(LAYER_PACKAGE) $^
+zipfile:
+	zip -r $(LAYER_PACKAGE) python
 
 deps:
-	$(PIP) install -r requirements.txt -t . --upgrade
+	$(PIP) install -r requirements.txt -t python/lib/python3.6/site-packages/ --upgrade
 
 upload:
 	aws s3 cp $(LAYER_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
