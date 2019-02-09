@@ -10,7 +10,7 @@ FILES=pull_organization_data.py trigger_account_actions.py get_billing_data.py r
 		inventory-cloudtrail.py inventory-es.py inventory-secrets.py inventory-ecr.py inventory-lambdas.py inventory-kms.py \
 		inventory-dx.py inventory-ami.py inventory-cft.py inventory-cloudfront.py
 
-DEPENDENCIES=yaml semver.py lib mako markupsafe bin
+DEPENDENCIES=lib
 
 package: test clean deps zipfile
 

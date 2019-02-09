@@ -1,4 +1,1 @@
-#openpyxl==2.5.0
-PyYAML
-semver
-mako
+
