@@ -13,7 +13,7 @@ from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
@@ -31,6 +31,7 @@ def lambda_handler(event, context):
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
             discover_lambdas(target_account, r)
+            discover_lambda_layer(target_account, r)
 
     except AssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -91,16 +92,21 @@ def process_lambda(client, mylambda, target_account, region):
 def discover_lambda_layer(target_account, region):
     '''Iterate across all regions to discover Lambdas'''
 
-    layers = []
-    client = target_account.get_client('lambda', region=region)
-    response = client.list_layers()
-    while 'NextMarker' in response:  # Gotta Catch 'em all!
-        layers += response['Functions']
-        response = client.list_layers(Marker=response['NextMarker'])
-    layers += response['Functions']
+    try:
+        layers = []
+        client = target_account.get_client('lambda', region=region)
+        response = client.list_layers()
+        while 'NextMarker' in response:  # Gotta Catch 'em all!
+            layers += response['Layers']
+            response = client.list_layers(Marker=response['NextMarker'])
+        layers += response['Layers']
 
-    for l in lambdas:
-        process_layer(client, l, target_account, region)
+        for l in layers:
+            process_layer(client, l, target_account, region)
+    except AttributeError as e:
+        import botocore
+        logger.error(f"Unable to inventory Lambda Layers - Lambda Boto3 doesn't support yet. Boto3: {boto3.__version__} botocore: {botocore.__version__}")
+        return()
 
 
 def process_layer(client, layer, target_account, region):
@@ -124,9 +130,9 @@ def process_layer(client, layer, target_account, region):
 
     try:
         resource_item['supplementaryConfiguration']['LayerVersions'] = []
-        response = client.list_layer_versions(LayerName=layer['LayerName'], MaxItems=1000)
+        response = client.list_layer_versions(LayerName=layer['LayerName'], MaxItems=50)
         for version in response['LayerVersions']:
-            version['Policy'] = client.get_layer_version_policy(LayerName=layer['LayerName'], VersionNumber=version[Version])
+            version['Policy'] = client.get_layer_version_policy(LayerName=layer['LayerName'], VersionNumber=version['Version'])
             resource_item['supplementaryConfiguration']['LayerVersions'].append(version)
     except ClientError as e:
         message = f"Error getting the Policy for layer {layer['LayerName']} in {region} for {target_account.account_name}: {e}"

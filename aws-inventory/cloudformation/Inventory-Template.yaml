@@ -10,21 +10,11 @@ Parameters:
   pLambdaZipFile:
     Description: File Name for the lambdas
     Type: String
-    Default: inventory.zip
-
-  pAssumeRoleArn:
-    Description: Arn Name of the Role the lambda needs to assume to do cross account Access
-    Type: String
-    Default: arn:aws:iam::*:role/Security-Audit
 
   pRoleName:
     Description: Default name of the AssumeRole to assume into accounts
     Type: String
     Default: Security-Audit
-
-  pPayerAccountList:
-    Description: Comma Delimited list of payer accounts to process
-    Type: String
 
   pIamUserName:
     Type: String
@@ -35,16 +25,6 @@ Parameters:
     Description: How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
     Type: String
     Default: rate(30 minutes)
-
-  pTableReadUnits:
-    Description: DynamoDB Table Read Units
-    Type: Number
-    Default: 5
-
-  pTableWriteUnits:
-    Description: DynamoDB Table Write Units
-    Type: Number
-    Default: 5
 
   pSmallLambdaSize:
     Description: Memory footprint for smaller Lambda
@@ -60,6 +40,10 @@ Parameters:
     Description: Factor by which the delay between SNS Publish is shrunk. The larger the number, the more frequent the publish.
     Type: Number
     Default: 2
+
+  pAWSLambdaLayerPackage:
+    Description: Object Key for the Antiope Python Dependencies Lambda Layer
+    Type: String
 
 Conditions:
   CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
@@ -101,11 +85,6 @@ Resources:
             - lambda.amazonaws.com
           Action:
           - sts:AssumeRole
-        - Sid: EmuLambdaTestTrust
-          Effect: Allow
-          Principal:
-            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
-          Action: sts:AssumeRole
       Path: /
       Policies:
       - PolicyName: S3Access
@@ -167,7 +146,7 @@ Resources:
           - Effect: "Allow"
             Action:
             - sts:AssumeRole
-            Resource: !Ref pAssumeRoleArn
+            Resource: !Sub "arn:aws:iam::*:role/${pRoleName}"
       - PolicyName: PublishToSNS
         PolicyDocument:
           Version: '2012-10-17'
@@ -205,9 +184,75 @@ Resources:
             - states:ListExecutions
             Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
 
+  AWSInventoryLambdaLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      CompatibleRuntimes:
+        - python3.6
+      Content:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Ref pAWSLambdaLayerPackage
+      Description: !Sub "${AWS::StackName}-AWS-Inventory-Libraries"
+
   #
   # State Machine Functions
   #
+
+  LoadStepFunctionEventLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-load-sf-event"
+      Description: Load the StepFunction Event from S3
+      Handler: index.handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Environment:
+        Variables:
+          INVENTORY_STACK_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
+      Code:
+        ZipFile: !Sub |
+          from __future__ import print_function
+          import boto3
+          import json
+          import logging
+          import os
+          from botocore.exceptions import ClientError
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          logging.getLogger('botocore').setLevel(logging.WARNING)
+          logging.getLogger('boto3').setLevel(logging.WARNING)
+
+          # Lambda main routine
+          def handler(event, context):
+              logger.info("Received event: " + json.dumps(event, sort_keys=True))
+              if statemachine_already_running(os.environ['STEPFUNCTION_ARN']):
+                  logger.error("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+                  raise ScorecardRunningException("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+              client = boto3.client('s3')
+              response = client.get_object(
+                Bucket=os.environ['INVENTORY_BUCKET'],
+                Key=event['event_file']
+              )
+              return(json.loads(response['Body'].read()))
+
+          def statemachine_already_running(stepfunction_arn):
+              client = boto3.client('stepfunctions')
+              response = client.list_executions(stateMachineArn=stepfunction_arn, statusFilter='RUNNING')
+              if len(response['executions']) > 1:
+                  return(True)
+              else:
+                  return(False)
+
+          # Used To tell the Step Function to wait 30 and try again
+          class ScorecardRunningException(Exception): pass
+          ### End of Function
+
   PullOrganizationDataLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -215,6 +260,8 @@ Resources:
       Description: AWS Lamdba to pull data from payer account into account table
       Handler: pull_organization_data.handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -240,6 +287,8 @@ Resources:
       Description: Send a message to a topic for each AWS account
       Handler: trigger_account_actions.handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 900 # This should be the max!
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -265,6 +314,8 @@ Resources:
       Description: Handle Errors generated by the aws-inventory system
       Handler: index.handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       Role: !GetAtt InventoryLambdaRole.Arn
       Environment:
@@ -304,6 +355,8 @@ Resources:
       Description: Create an HTML Report with all the AWS Accounts
       Handler: report-accounts.handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -326,6 +379,8 @@ Resources:
       Description: Create an HTML Report with all the AWS VPCs
       Handler: report-vpcs.handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 600
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -341,6 +396,45 @@ Resources:
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
 
+  HandoffToNextStepFunctionLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-next-func-handler"
+      Description: Handoff to the next StepFunction (if specified)
+      Handler: index.handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Environment:
+        Variables:
+          INVENTORY_STACK_NAME: !Ref AWS::StackName
+          CONFIG_FILE: "config.json"
+          INVENTORY_BUCKET: !Ref pBucketName
+      Code:
+        ZipFile: !Sub |
+          from __future__ import print_function
+          import boto3
+          import json
+          import logging
+          import os
+          from botocore.exceptions import ClientError
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          # Lambda main routine
+          def handler(event, context):
+              logger.info("Received event: " + json.dumps(event, sort_keys=True))
+              if 'next_function' in event and '${AWS::StackName}' in event['next_function']:
+                client = boto3.client('stepfunctions')
+                response = client.start_execution(
+                  stateMachineArn=event['next_function']['${AWS::StackName}'],
+                  input=json.dumps(event, sort_keys=True)
+                )
+          ### End of Function
+
   #
   # New Account Handling
   #
@@ -351,6 +445,8 @@ Resources:
       Description: Function to Handle the discovery of new Accounts written to the Accounts DDB Table
       Handler: new_account_handler.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -398,6 +494,8 @@ Resources:
       Description: AWS Lamdba to populate a table with info on all VPCs
       Handler: inventory-vpc.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -420,6 +518,8 @@ Resources:
       Description: AWS Lamdba to to inventory all public IPs & ENIs in an account
       Handler: inventory-eni.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 600
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -442,6 +542,8 @@ Resources:
       Description: AWS Lamdba to to inventory Health Dashboard results
       Handler: inventory-health-report.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -464,7 +566,9 @@ Resources:
       Description: Inventory the CF Stacks for the specific account
       Handler: inventory-cft.lambda_handler
       Runtime: python3.6
-      Timeout: 300
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 600
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
@@ -486,6 +590,8 @@ Resources:
       Description: Inventory instances and security groups to a JSON file in S3
       Handler: inventory-instances-sg.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -508,6 +614,8 @@ Resources:
       Description: Pull the spend from the AWS account
       Handler: get_billing_data.handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -531,7 +639,9 @@ Resources:
       Description: Inventory Route 53 Domains & Zones
       Handler: inventory-route53.lambda_handler
       Runtime: python3.6
-      Timeout: 300
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 600
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
@@ -553,8 +663,10 @@ Resources:
       Description: Inventory S3 Buckets and their attributes
       Handler: inventory-buckets.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 600
-      MemorySize: !Ref pLargeLambdaSize
+      MemorySize: 1024
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -575,6 +687,8 @@ Resources:
       Description: Inventory IAM Roles & Users
       Handler: inventory-iam.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -597,6 +711,8 @@ Resources:
       Description: Inventory ECS Clusters & Tasks
       Handler: inventory-ecs.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -619,6 +735,8 @@ Resources:
       Description: Inventory CloudTrails
       Handler: inventory-cloudtrail.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -641,6 +759,8 @@ Resources:
       Description: Inventory ElasticSearch Service Domains
       Handler: inventory-es.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -663,6 +783,8 @@ Resources:
       Description: Inventory CloudFront Distributions
       Handler: inventory-cloudfront.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -685,6 +807,8 @@ Resources:
       Description: Inventory Secrets Manager Secrets
       Handler: inventory-secrets.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -707,6 +831,8 @@ Resources:
       Description: Inventory ECR Repos and Images
       Handler: inventory-ecr.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -729,6 +855,8 @@ Resources:
       Description: Inventory Key Management Service
       Handler: inventory-kms.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -751,6 +879,8 @@ Resources:
       Description: Inventory Lambdas Functions
       Handler: inventory-lambdas.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -773,6 +903,8 @@ Resources:
       Description: Inventory DirectConnect
       Handler: inventory-dx.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -795,6 +927,8 @@ Resources:
       Description: Inventory AMIs in use
       Handler: inventory-ami.lambda_handler
       Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -847,7 +981,7 @@ Resources:
         RoleArn: !GetAtt TriggerStateMachineRole.Arn
         Id: TargetFunctionV1
         Input: !Sub |
-          {"payer": [ ${pPayerAccountList} ]}
+          {"event_file": "${AWS::StackName}-config.json" }
 
   StateMachineExecutionRole:
     Type: AWS::IAM::Role
@@ -871,10 +1005,13 @@ Resources:
             - lambda:InvokeFunction
             Effect: Allow
             Resource:
+              - !GetAtt LoadStepFunctionEventLambdaFunction.Arn
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
               - !GetAtt TriggerInventoryLambdaFunction.Arn
               - !GetAtt CreateAccountReportLambdaFunction.Arn
               - !GetAtt CreateVPCReportLambdaFunction.Arn
+              - !GetAtt HandoffToNextStepFunctionLambdaFunction.Arn
+              - !GetAtt InventoryErrorHandlingLambdaFunction.Arn
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -892,30 +1029,32 @@ Resources:
       DefinitionString: !Sub |-
         {
           "Comment": "(${AWS::StackName}) State Machine to Gather Account Inventory Information",
-          "StartAt": "PullOrganizationDataLambdaFunction",
+          "StartAt": "LoadStepFunctionEventLambdaFunction",
           "States": {
             "ErrorHandlerState": {
               "Type": "Task",
               "Resource": "${InventoryErrorHandlingLambdaFunction.Arn}" ,
               "End": true
             },
-            "PullOrganizationDataLambdaFunction": {
+            "LoadStepFunctionEventLambdaFunction": {
               "Type": "Task",
-              "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
-              "Next": "TriggerInventoryLambdaFunction",
+              "Resource": "${LoadStepFunctionEventLambdaFunction.Arn}",
+              "Next": "PullOrganizationDataLambdaFunction",
               "Catch": [
                 {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"},
                 {"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}
               ]
             },
+            "PullOrganizationDataLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
+              "Next": "TriggerInventoryLambdaFunction",
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"} ] },
             "TriggerInventoryLambdaFunction": {
               "Type": "Task",
               "Resource": "${TriggerInventoryLambdaFunction.Arn}",
               "Next": "WaitForLambdaExecutionsToComplete",
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
             },
             "WaitForLambdaExecutionsToComplete": {
               "Type": "Wait",
@@ -926,24 +1065,24 @@ Resources:
               "Type": "Task",
               "Resource": "${CreateAccountReportLambdaFunction.Arn}",
               "Next": "CreateVPCReportLambdaFunction",
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
             },
             "CreateVPCReportLambdaFunction": {
               "Type": "Task",
               "Resource": "${CreateVPCReportLambdaFunction.Arn}",
+              "Next": "HandoffToNextStepFunctionLambdaFunction",
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
+            },
+            "HandoffToNextStepFunctionLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${HandoffToNextStepFunctionLambdaFunction.Arn}",
               "End": true,
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
             },
             "WaitForStepFunctionToFinish": {
               "Type" : "Wait",
               "Seconds" : 300,
-              "Next": "PullOrganizationDataLambdaFunction"
+              "Next": "LoadStepFunctionEventLambdaFunction"
             }
           }
         }
@@ -985,22 +1124,6 @@ Resources:
       Endpoint: !GetAtt [ENIInventoryLambdaFunction, Arn]
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  # Disabled this till we have a better story around how to inventory & leverage this data
-  # HealthInventoryLambdaFunctionPermission:
-  #   Type: AWS::Lambda::Permission
-  #   Properties:
-  #     FunctionName: !GetAtt HealthInventoryLambdaFunction.Arn
-  #     Principal: sns.amazonaws.com
-  #     SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-  #     Action: lambda:invokeFunction
-
-  # HealthInventoryTopicToLambdaSubscription:
-  #   Type: AWS::SNS::Subscription
-  #   Properties:
-  #     Endpoint: !GetAtt [HealthInventoryLambdaFunction, Arn]
-  #     Protocol: lambda
-  #     TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
   CloudFormationInventoryLambdaFunctionPermission:
     Type: AWS::Lambda::Permission
@@ -1251,15 +1374,13 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-accounts"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "account_id"
           AttributeType: "S"
       KeySchema:
         - AttributeName: "account_id"
           KeyType: "HASH"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
       StreamSpecification:
         StreamViewType: NEW_IMAGE
 
@@ -1268,6 +1389,7 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-vpc-inventory"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "vpc_id"
           AttributeType: "S"
@@ -1276,9 +1398,6 @@ Resources:
       KeySchema:
         - AttributeName: "vpc_id"
           KeyType: "HASH"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
       GlobalSecondaryIndexes:
       - IndexName: "account-index"
         KeySchema:
@@ -1286,14 +1405,12 @@ Resources:
             KeyType: "HASH"
         Projection:
           ProjectionType: ALL
-        ProvisionedThroughput:
-          ReadCapacityUnits: !Ref pTableReadUnits
-          WriteCapacityUnits: !Ref pTableWriteUnits
 
   HistoricalBillingDataTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-billing-data"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "account_id"
           AttributeType: "S"
@@ -1304,10 +1421,6 @@ Resources:
           KeyType: "HASH"
         - AttributeName: "datetime"
           KeyType: "RANGE"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
-
 
   #
   # Dashboard
@@ -1528,7 +1641,7 @@ Resources:
               "width": 6,
               "height": 3,
               "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})"
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)"
               }
             },
             {
@@ -1611,6 +1724,8 @@ Outputs:
     Value: !Ref TriggerStateMachine
     Description: Name of the Trigger Event (used by the make file to enable to disable the inventory state machine)
 
-
+  BucketName:
+    Value: !Ref pBucketName
+    Description: Name of S3 Bucket where all files are stored
 
 

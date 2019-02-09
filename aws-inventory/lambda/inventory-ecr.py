@@ -13,11 +13,11 @@ from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-RESOURCE_PATH = "ecr/repositories"
+RESOURCE_PATH = "ecr/repository"
 RESOURCE_TYPE = "AWS::ECR::Repository"
 
 def lambda_handler(event, context):

@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy the Inventory Component of Antiope
+Description: Deploy the User Authentication Component of Antiope
 
 Parameters:
 
   pEmailAddress:
     Type: String
     Description: Default Username for Cognito
-    Default: None
+    Default: NONE
 
   pIdentityPoolName:
     Type: String

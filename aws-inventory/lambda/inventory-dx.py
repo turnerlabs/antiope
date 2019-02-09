@@ -13,11 +13,11 @@ from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-CONNECTION_PATH = "dx/connections"
+CONNECTION_PATH = "dx/connection"
 VIF_PATH = "dx/vif"
 GW_PATH = "dx/gw"
 

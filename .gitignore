@@ -8,10 +8,13 @@ cloudsploit/
 # Build-time crud
 *.zip
 *-test-event.json
+*-config.json
 *dist-info
 
 # Deploy specific env vars passed to makefile. Not to be shared.
 config.*
+
+aws-inventory/*/lib/
 
 # Build-time crud for the search cluster lambda
 search-cluster/*/*dist-info
@@ -30,15 +33,10 @@ search-cluster/*/elasticsearch5/
 search-cluster/*/elasticsearch/
 
 # Build-time crud for the inventory lambda
-aws-inventory/lambda/et_xmlfile
-aws-inventory/lambda/openpyxl
-aws-inventory/lambda/yaml
-aws-inventory/lambda/jdcal.py
-aws-inventory/lambda/semver.py
-aws-inventory/lambda/lib/
-aws-inventory/lambda/mako/
-aws-inventory/lambda/markupsafe/
-aws-inventory/lambda/bin/
+lambda_layer/python/
+
+
+
 
 # Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml

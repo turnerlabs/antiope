@@ -1,5 +1,5 @@
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, ParamValidationError
 
 import json
 import os
@@ -48,7 +48,7 @@ def lambda_handler(event, context):
                 cluster_item['awsRegion']                      = r
                 cluster_item['configuration']                  = cluster
                 if 'tags' in cluster:
-                    cluster_item['tags']                       = parse_tags(cluster['tags'])
+                    cluster_item['tags']                       = parse_ecs_tags(cluster['tags'])
                 cluster_item['supplementaryConfiguration']     = {}
                 cluster_item['resourceId']                     = "{}-{}".format(cluster['clusterName'], target_account.account_id)
                 cluster_item['resourceName']                   = cluster['clusterName']
@@ -57,7 +57,15 @@ def lambda_handler(event, context):
                 save_resource_to_s3(CLUSTER_RESOURCE_PATH, cluster_item['resourceId'], cluster_item)
 
                 for task_arn in list_tasks(ecs_client, cluster_arn):
-                    task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn], include=['TAGS'])['tasks'][0]
+
+                    # Lambda's boto doesn't yet support this API Feature
+                    try:
+                        task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn], include=['TAGS'])['tasks'][0]
+                    except ParamValidationError as e:
+                        import botocore
+                        logger.error(f"Unable to fetch Task Tags - Lambda Boto3 doesn't support yet. Boto3: {boto3.__version__} botocore: {botocore.__version__}")
+                        task = ecs_client.describe_tasks(cluster=cluster_arn, tasks=[task_arn])['tasks'][0]
+
                     task_item = {}
                     task_item['awsAccountId']                   = target_account.account_id
                     task_item['awsAccountName']                 = target_account.account_name
@@ -67,7 +75,7 @@ def lambda_handler(event, context):
                     task_item['awsRegion']                      = r
                     task_item['configuration']                  = task
                     if 'tags' in task:
-                        task_item['tags']                       = parse_tags(task['tags'])
+                        task_item['tags']                       = parse_ecs_tags(task['tags'])
                     task_item['supplementaryConfiguration']     = {}
                     task_item['resourceId']                     = "{}-{}".format(task['taskDefinitionArn'].split('/')[-1], target_account.account_id)
                     task_item['resourceName']                   = task['taskDefinitionArn'].split('/')[-1]
@@ -104,3 +112,10 @@ def list_clusters(ecs_client):
         response = ecs_client.list_clusters(nextToken=response['nextToken'])
     cluster_arns += response['clusterArns']
     return(cluster_arns)
+
+def parse_ecs_tags(tagset):
+    """Convert the tagset as returned by AWS into a normal dict of {"tagkey": "tagvalue"}"""
+    output = {}
+    for tag in tagset:
+        output[tag['key']] = tag['value']
+    return(output)

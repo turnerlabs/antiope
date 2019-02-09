@@ -5,10 +5,10 @@ ifndef env
 endif
 
 ifdef CONFIG
-	include ../$(CONFIG)
+	include $(CONFIG)
 	export
 else
-	include ../config.$(env)
+	include config.$(env)
 	export
 endif
 
@@ -27,9 +27,9 @@ ifndef version
 endif
 
 # Specific to this stack
-export STACK_NAME=aws-inventory
+export STACK_NAME=COMPANY-customization
 # Filename for the CFT to deploy
-export STACK_TEMPLATE=cloudformation/Inventory-Template.yaml
+export STACK_TEMPLATE=cloudformation/COMPANY-Template.yaml
 
 # Name of the Zip file with all the function code and dependencies
 export LAMBDA_PACKAGE=$(STACK_NAME)-lambda-$(version).zip
@@ -48,31 +48,8 @@ export TEMPLATE_KEY ?= deploy-packages/$(STACK_NAME)-Template-$(version).yaml
 export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
-FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
-			$(FULL_STACK_NAME)-trigger-inventory \
-			$(FULL_STACK_NAME)-get-billing-data \
-			$(FULL_STACK_NAME)-instances-sg-inventory \
-			$(FULL_STACK_NAME)-eni-inventory \
-			$(FULL_STACK_NAME)-vpc-inventory \
-			$(FULL_STACK_NAME)-route53-inventory \
-			$(FULL_STACK_NAME)-bucket-inventory \
-			$(FULL_STACK_NAME)-iam-inventory \
-			$(FULL_STACK_NAME)-ecs-inventory \
-			$(FULL_STACK_NAME)-es-inventory \
-			$(FULL_STACK_NAME)-cloudtrail-inventory \
-			$(FULL_STACK_NAME)-secrets-inventory \
-			$(FULL_STACK_NAME)-health-inventory \
-			$(FULL_STACK_NAME)-ecr-inventory \
-			$(FULL_STACK_NAME)-lambdas-inventory \
-			$(FULL_STACK_NAME)-kms-inventory \
-			$(FULL_STACK_NAME)-dx-inventory \
-			$(FULL_STACK_NAME)-ami-inventory \
-			$(FULL_STACK_NAME)-cloudformation-inventory \
-			$(FULL_STACK_NAME)-cloudfront-inventory \
-			$(FULL_STACK_NAME)-create-account-report \
-			$(FULL_STACK_NAME)-create-vpc-report \
-			$(FULL_STACK_NAME)-new_account_handler
-
+FUNCTIONS = $(FULL_STACK_NAME)-populate-contacts \
+			$(FULL_STACK_NAME)-create-account-report
 
 .PHONY: $(FUNCTIONS)
 
@@ -81,7 +58,7 @@ test: cfn-validate
 	cd lambda && $(MAKE) test
 
 # Do everything
-deploy: package upload cfn-deploy templates upload-config
+deploy: package upload cfn-deploy templates
 
 clean:
 	cd lambda && $(MAKE) clean
@@ -124,15 +101,6 @@ update: package $(FUNCTIONS)
 fupdate: zipfile
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
-# This will prompt for confirmation
-purge-tables:
-	purge_ddb_table.py --table $(FULL_STACK_NAME)-accounts --key_attribute account_id --force
-	purge_ddb_table.py --table $(FULL_STACK_NAME)-billing-data --key_attribute account_id --force
-	purge_ddb_table.py --table $(FULL_STACK_NAME)-vpc-inventory --key_attribute vpc_id --force
-
-trigger:
-	../bin/trigger_inventory.sh $(FULL_STACK_NAME)
-
 
 templates:
 	aws s3 sync html_templates s3://$(BUCKET)/Templates/
@@ -147,5 +115,7 @@ expire-logs:
 	  aws logs put-retention-policy --log-group-name /aws/lambda/$$f --retention-in-days 5 ; \
 	done
 
-upload-config:
-	aws s3 cp $(FULL_STACK_NAME)-config.json s3://$(BUCKET)/
+get_stepfunction_arn:
+	aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CustomProcessStateMachineArn`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)
+
+

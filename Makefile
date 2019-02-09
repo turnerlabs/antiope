@@ -22,6 +22,9 @@ endif
 
 everything: cognito-deploy inventory-deploy search-deploy
 
+library:
+	cd lambda_layer && $(MAKE) layer
+
 cognito-deploy:
 	cd cognito && $(MAKE) deploy
 

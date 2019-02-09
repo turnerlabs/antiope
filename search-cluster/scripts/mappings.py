@@ -48,13 +48,14 @@ def main(args, logger):
         logger.debug(es.info())
 
 
-    # Make sure the directory exists
-    try:
-        os.makedirs(args.output_dir)
-    except OSError:
-        print ("Creation of the directory %s failed" % args.output_dir)
-    else:
-        print ("Successfully created the directory %s" % args.output_dir)
+    if args.output_dir is not None:
+        # Make sure the directory exists
+        try:
+            os.makedirs(args.output_dir)
+        except OSError:
+            print ("Creation of the directory %s failed" % args.output_dir)
+        else:
+            print ("Successfully created the directory %s" % args.output_dir)
 
     # print(es.indices)
     if not args.index:
@@ -64,18 +65,31 @@ def main(args, logger):
     for index_name in es.indices.get(search_index):
         if not index_name.startswith("resources_"):
             continue
-        print("Dumping %s" % index_name)
+
         response = es.indices.get_mapping(index=index_name)
         mapping = response[index_name]
+        # print(mapping)
+
+        if args.list:
+            if "_meta" in mapping['mappings']['_doc'] and 'antiope_mapping_version' in mapping['mappings']['_doc']['_meta']:
+                version = mapping['mappings']['_doc']['_meta']['antiope_mapping_version']
+            else:
+                version = "unknown"
+            print(f"Index: {index_name} - {version}")
+            continue
 
         # Clean out any tags
         if 'tags' in mapping['mappings']['_doc']['properties']:
             del(mapping['mappings']['_doc']['properties']['tags'])
 
-        file_name = f"{args.output_dir}/{index_name}.json"
-        file = open(file_name, "w")
-        file.write(json.dumps(mapping, sort_keys=True, indent=2))
-        file.close()
+        print("Dumping %s" % index_name)
+        if args.output_dir is not None:
+            file_name = f"{args.output_dir}/{index_name}.json"
+            file = open(file_name, "w")
+            file.write(json.dumps(mapping, sort_keys=True, indent=2))
+            file.close()
+        else:
+            print(json.dumps(mapping, sort_keys=True, indent=2))
 
 
 
@@ -103,9 +117,10 @@ def do_args():
     # parser.add_argument("--env_file", help="Environment File to source", default="config.env")
 
     parser.add_argument("--domain", help="Elastic Search Domain", required=True)
-    parser.add_argument("--index", help="Ony dump the mapping for this index")
+    parser.add_argument("--index", help="Only dump the mapping for this index")
     parser.add_argument("--region", help="AWS Region")
-    parser.add_argument("--output_dir", help="Directory to dump all mappings into", required=True)
+    parser.add_argument("--output_dir", help="Directory to dump all mappings into", default=None)
+    parser.add_argument("--list", help="Only list all the indices", action='store_true')
 
     args = parser.parse_args()
 
