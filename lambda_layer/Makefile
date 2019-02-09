@@ -54,4 +54,4 @@ deps:
 
 upload:
 	aws s3 cp $(LAYER_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
-	echo "Add $(OBJECT_KEY) as the aws_lambda_layer"
+	echo "Add $(OBJECT_KEY) as the pAWSLambdaLayerPackage in your Manifest files"
