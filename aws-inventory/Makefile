@@ -70,6 +70,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-cloudformation-inventory \
 			$(FULL_STACK_NAME)-cloudfront-inventory \
 			$(FULL_STACK_NAME)-create-account-report \
+			$(FULL_STACK_NAME)-create-foreign-account-report \
 			$(FULL_STACK_NAME)-create-vpc-report \
 			$(FULL_STACK_NAME)-new_account_handler
 
@@ -123,6 +124,10 @@ update: package $(FUNCTIONS)
 # Update one specific function. Called as "make fupdate function=<fillinstackprefix>-aws-inventory-ecs-inventory"
 fupdate: zipfile
 	aws lambda update-function-code --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
+
+#
+# Management Targets
+#
 
 # This will prompt for confirmation
 purge-tables:

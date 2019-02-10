@@ -9,6 +9,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 from lib.account import *
+from lib.foreign_account import *
 
 
 def parse_tags(tagset):
@@ -42,7 +43,16 @@ def get_active_accounts():
         output.append(AWSAccount(a))
     return(output)
 
-
+def get_foreign_accounts():
+    """Returns an array of all active AWS accounts as AWSAccount objects"""
+    foreign_account_ids = get_account_ids(status="FOREIGN")
+    trusted_account_ids = get_account_ids(status="TRUSTED")
+    output = []
+    for a in trusted_account_ids:
+        output.append(ForeignAWSAccount(a))
+    for a in foreign_account_ids:
+        output.append(ForeignAWSAccount(a))
+    return(output)
 
 def get_account_ids(status=None, table_name=None):
     """return an array of account_ids from the Accounts table. Optionally, filter by status"""
