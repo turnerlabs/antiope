@@ -54,6 +54,7 @@ def lambda_handler(event, context):
 
 def process_instances(target_account, ec2_client, region):
 
+    instance_profiles = get_instance_profiles(ec2_client)
     instance_reservations = get_all_instances(ec2_client)
     logger.info("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
 
@@ -75,6 +76,10 @@ def process_instances(target_account, ec2_client, region):
             resource_item['resourceId']                     = instance['InstanceId']
             resource_item['resourceCreationTime']           = instance['LaunchTime']
             resource_item['errors']                         = {}
+
+            if instance['InstanceId'] in instance_profiles:
+                resource_item['supplementaryConfiguration']['IamInstanceProfileAssociation'] = instance_profiles[instance['InstanceId']]
+
             save_resource_to_s3(INSTANCE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
@@ -100,6 +105,20 @@ def process_securitygroups(target_account, ec2_client, region):
         resource_item['resourceId']                     = sec_group['GroupId']
         resource_item['errors']                         = {}
         save_resource_to_s3(SG_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+
+
+def get_instance_profiles(ec2_client):
+    assoc = []
+    response = ec2_client.describe_iam_instance_profile_associations()
+    while 'NextToken' in response:
+        assoc += response['IamInstanceProfileAssociations']
+        response = ec2_client.describe_iam_instance_profile_associations(NextToken=response['NextToken'])
+    assoc += response['IamInstanceProfileAssociations']
+
+    output = {}
+    for a in assoc:
+        output[a['InstanceId']] = a
+    return(output)
 
 
 def get_all_instances(ec2_client):
