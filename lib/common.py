@@ -35,9 +35,9 @@ def save_resource_to_s3(prefix, resource_id, resource):
         logger.error("Unable to save object {}: {}".format(object_key, e))
 
 
-def get_active_accounts():
+def get_active_accounts(table_name=None):
     """Returns an array of all active AWS accounts as AWSAccount objects"""
-    account_ids = get_account_ids(status="ACTIVE")
+    account_ids = get_account_ids(status="ACTIVE", table_name=table_name)
     output = []
     for a in account_ids:
         output.append(AWSAccount(a))

@@ -16,17 +16,34 @@ logger = logging.getLogger()
 
 class AWSAccount(object):
     """Class to represent an AWS Account """
-    def __init__(self, account_id):
+    def __init__(self, account_id, config=None):
         """ Create a new object representing the AWS account specified by account_id """
         # Execute any parent class init()
         super(AWSAccount, self).__init__()
 
         self.account_id = account_id
 
+        if config is None:
+            account_table_name = os.environ['ACCOUNT_TABLE']
+            vpc_table_name = os.environ['VPC_TABLE']
+            role_name = os.environ['ROLE_NAME']
+            role_session_name = os.environ['ROLE_SESSION_NAME']
+        else:
+            try:
+                account_table_name = config['account_table_name']
+                vpc_table_name = config['vpc_table_name']
+                role_name = config['role_name']
+                role_session_name = config['role_session_name']
+            except KeyError as e:
+                logger.critical(f"AWSAccount passed a config that was missing a key: {e}")
+                return(None)
+
         # # Save these as attributes
         self.dynamodb      = boto3.resource('dynamodb')
-        self.account_table = self.dynamodb.Table(os.environ['ACCOUNT_TABLE'])
-        self.vpc_table     = self.dynamodb.Table(os.environ['VPC_TABLE'])
+        self.account_table = self.dynamodb.Table(account_table_name)
+        self.vpc_table     = self.dynamodb.Table(vpc_table_name)
+        self.cross_account_role_arn = "arn:aws:iam::{}:role/{}".format(self.account_id, role_name)
+        self.default_session_name = role_session_name
 
         response = self.account_table.query(
             KeyConditionExpression=Key('account_id').eq(self.account_id),
@@ -42,8 +59,7 @@ class AWSAccount(object):
         except Exception as e:
             logger.error("Got Other error: {}".format(e))
 
-        self.cross_account_role_arn = "arn:aws:iam::{}:role/{}".format(self.account_id, os.environ['ROLE_NAME'])
-        self.default_session_name = os.environ['ROLE_SESSION_NAME']
+
 
     def __str__(self):
         """when converted to a string, become the account_id"""
