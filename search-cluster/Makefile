@@ -44,6 +44,7 @@ INDICES=resources_cloudformation_stack \
 		resources_iam_user \
 		resources_kms_key \
 		resources_lambda_function \
+		resources_ssm_instance \
 		resources_lambda_layer \
 		resources_route53_domain \
 		resources_route53_hostedzone \

@@ -66,6 +66,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-lambdas-inventory \
 			$(FULL_STACK_NAME)-kms-inventory \
 			$(FULL_STACK_NAME)-dx-inventory \
+			$(FULL_STACK_NAME)-ssm-inventory \
 			$(FULL_STACK_NAME)-ami-inventory \
 			$(FULL_STACK_NAME)-cloudformation-inventory \
 			$(FULL_STACK_NAME)-cloudfront-inventory \

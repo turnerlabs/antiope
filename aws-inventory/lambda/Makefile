@@ -4,11 +4,32 @@
 PYTHON=python3
 PIP=pip3
 
-FILES=pull_organization_data.py trigger_account_actions.py get_billing_data.py report-accounts.py report-foreign.py report-vpcs.py \
-		inventory-instances-sg.py inventory-health-report.py inventory-eni.py inventory-vpc.py \
-		inventory-route53.py inventory-buckets.py inventory-iam.py inventory-ecs.py new_account_handler.py \
-		inventory-cloudtrail.py inventory-es.py inventory-secrets.py inventory-ecr.py inventory-lambdas.py inventory-kms.py \
-		inventory-dx.py inventory-ami.py inventory-cft.py inventory-cloudfront.py
+FILES =	get_billing_data.py \
+		inventory-ami.py \
+		inventory-buckets.py \
+		inventory-cft.py \
+		inventory-cloudfront.py \
+		inventory-cloudtrail.py \
+		inventory-dx.py \
+		inventory-ecr.py \
+		inventory-ecs.py \
+		inventory-eni.py \
+		inventory-es.py \
+		inventory-health-report.py \
+		inventory-iam.py \
+		inventory-instances-sg.py \
+		inventory-kms.py \
+		inventory-lambdas.py \
+		inventory-route53.py \
+		inventory-secrets.py \
+		inventory-ssm.py \
+		inventory-vpc.py \
+		new_account_handler.py \
+		pull_organization_data.py \
+		report-accounts.py \
+		report-foreign.py \
+		report-vpcs.py \
+		trigger_account_actions.py
 
 DEPENDENCIES=lib
 
