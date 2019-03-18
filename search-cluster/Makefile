@@ -49,7 +49,8 @@ INDICES=resources_cloudformation_stack \
 		resources_route53_domain \
 		resources_route53_hostedzone \
 		resources_s3_bucket \
-		resources_secretsmanager_secret
+		resources_secretsmanager_secret \
+		resources_support_trustedadvisorcheckresult
 
 ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)

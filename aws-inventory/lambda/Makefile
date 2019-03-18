@@ -23,6 +23,7 @@ FILES =	get_billing_data.py \
 		inventory-route53.py \
 		inventory-secrets.py \
 		inventory-ssm.py \
+		inventory-trusted-advisor.py \
 		inventory-vpc.py \
 		new_account_handler.py \
 		pull_organization_data.py \
