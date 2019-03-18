@@ -45,8 +45,17 @@ Parameters:
     Description: Object Key for the Antiope Python Dependencies Lambda Layer
     Type: String
 
+  pEntSupport:
+    Type: String
+    Description: Set this to True if you have Business or Enterprise Support and can access support API
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
 Conditions:
   CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
+  EnterpriseSupport: !Equals [ !Ref pEntSupport, True]
 
 Resources:
 
@@ -992,6 +1001,31 @@ Resources:
           ROLE_NAME: !Ref pRoleName
       # Tags inherited from Stack
 
+  TAInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Condition: EnterpriseSupport
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ta-inventory"
+      Description: Inventory Trusted Advisor Checks
+      Handler: inventory-trusted-advisor.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+      # Tags inherited from Stack
+
 
   #
   # StateMachine
@@ -1436,6 +1470,23 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
+  TAInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Condition: EnterpriseSupport
+    Properties:
+      FunctionName: !GetAtt TAInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  TAInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: EnterpriseSupport
+    Properties:
+      Endpoint: !GetAtt [TAInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
   #
   # DynamoDB Tables
   #
@@ -1531,6 +1582,7 @@ Resources:
                   [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
@@ -1573,6 +1625,7 @@ Resources:
                   [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
@@ -1615,6 +1668,7 @@ Resources:
                   [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
                   [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
+                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
