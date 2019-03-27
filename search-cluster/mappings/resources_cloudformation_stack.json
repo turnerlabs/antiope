@@ -104,10 +104,14 @@
         },
         "supplementaryConfiguration": {
           "type": "object"
+        },
+        "tags": {
+          "type": "object",
+          "enabled": false
         }
       },
       "_meta": {
-        "antiope_mapping_version": "2019-02-03"
+        "antiope_mapping_version": "2019-03-27"
       }
     }
   }
