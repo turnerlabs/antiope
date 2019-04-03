@@ -45,7 +45,7 @@ def handler(event, context):
     project_list.sort(key=lambda x: x.projectId.lower())
 
     for project in project_list:
-        logger.info(f"{project.projectId}")
+        logger.debug(f"{project.projectId}")
 
         j = {}
         table_data += "<tr>"
@@ -54,9 +54,6 @@ def handler(event, context):
             j[col_name] = getattr(project, col_name)
         table_data += "</tr>\n"
         json_data.append(project.json_data)
-
-
-    print(json_data)
 
     s3_client = boto3.client('s3')
 
