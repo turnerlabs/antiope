@@ -15,6 +15,7 @@ cloudsploit/
 config.*
 
 aws-inventory/*/lib/
+gcp-inventory/*/gcp_lib/
 
 # Build-time crud for the search cluster lambda
 search-cluster/*/*dist-info
@@ -34,7 +35,8 @@ search-cluster/*/elasticsearch/
 
 # Build-time crud for the inventory lambda
 lambda_layer/python/
-
+gcp_lambda_layer/python/
+azure_lambda_layer/python/
 
 
 

@@ -1,0 +1,6 @@
+PyYAML
+semver
+mako
+boto3
+google-api-python-client
+oauth2client
