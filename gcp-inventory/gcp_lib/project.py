@@ -31,9 +31,9 @@ class GCPProject(object):
             Select='ALL_ATTRIBUTES'
         )
         try:
-            item = response['Items'][0]
+            self.json_data = response['Items'][0]
             # Convert the response into instance attributes
-            self.__dict__.update(item)
+            self.__dict__.update(self.json_data)
         except IndexError as e:
             raise ProjectLookupError("ID {} not found".format(projectId))
         except Exception as e:
