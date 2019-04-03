@@ -53,8 +53,10 @@ def handler(event, context):
             table_data += "<td>{}</td>".format(getattr(project, col_name))
             j[col_name] = getattr(project, col_name)
         table_data += "</tr>\n"
-        json_data.append(j)
+        json_data.append(project.json_data)
 
+
+    print(json_data)
 
     s3_client = boto3.client('s3')
 
@@ -88,7 +90,7 @@ def handler(event, context):
         # Save the JSON to S3
         response = s3_client.put_object(
             # ACL='public-read',
-            Body=json.dumps(json_data, sort_keys=True, indent=2),
+            Body=json.dumps(json_data, sort_keys=True, indent=2, default=str),
             Bucket=os.environ['INVENTORY_BUCKET'],
             ContentType='application/json',
             Key='Reports/gcp_project_inventory.json',
