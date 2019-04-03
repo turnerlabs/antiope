@@ -76,7 +76,19 @@ def create_or_update_project(project, project_table):
     logger.info(u"Adding project {} with name {} and number {}".format(project[u'projectId'], project[u'name'], project[u'projectNumber']))
 
     try:
-        response = project_table.put_item(Item=project)
+        response = project_table.update_item(
+                Key= {'projectId': project['projectId'] },
+                UpdateExpression="set projectName=:name, lifecycleState=:lifecycleState, createTime=:createTime, projectNumber=:projectNumber, parent=:parent, labels=:labels",
+                ExpressionAttributeValues={
+                    ':name':            project['name'],
+                    ':lifecycleState':  project['lifecycleState'],
+                    ':createTime':      project['createTime'],
+                    ':projectNumber':   project['projectNumber'],
+                    ':parent':          project['parent'],
+                    ':labels':          project['labels'],
+                }
+            )
+
     except ClientError as e:
         raise AccountUpdateError(u"Unable to create {}: {}".format(project[u'name'], e))
     except KeyError as e:
