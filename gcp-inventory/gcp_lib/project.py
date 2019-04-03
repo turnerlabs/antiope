@@ -9,11 +9,13 @@ import datetime
 from dateutil import tz
 from pprint import pprint
 
+import logging
+logger = logging.getLogger()
 
 
 class GCPProject(object):
     """Class to represent a GCP Project """
-    def __init__(self, projectId):
+    def __init__(self, projectId, project_table=None):
         '''
             Takes an projectId as the lookup attribute
         '''
@@ -24,7 +26,9 @@ class GCPProject(object):
 
         # # Save these as attributes
         self.dynamodb      = boto3.resource('dynamodb')
-        self.project_table = self.dynamodb.Table(os.environ['PROJECT_TABLE'])
+        if project_table is None:
+            project_table = os.environ['PROJECT_TABLE']
+        self.project_table = self.dynamodb.Table(project_table)
 
         response = self.project_table.query(
             KeyConditionExpression=Key('projectId').eq(self.projectId),
