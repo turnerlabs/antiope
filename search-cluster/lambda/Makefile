@@ -6,7 +6,7 @@ PIP=pip3
 
 FILES=ingest_s3.py
 
-DEPENDENCIES=requests requests_aws4auth requests_aws4auth certifi chardet idna urllib3
+DEPENDENCIES=
 
 package: test clean deps zipfile
 
