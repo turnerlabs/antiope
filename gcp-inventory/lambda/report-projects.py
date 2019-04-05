@@ -25,7 +25,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 # }
 
 
-table_format = ["projectId", "Projectname", "projectNumber", "lifecycleState", "createTime" ]
+table_format = ["projectId", "projectName", "projectNumber", "lifecycleState", "createTime" ]
 
 
 # Lambda main routine
