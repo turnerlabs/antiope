@@ -31,6 +31,7 @@ def handler(event, context):
     project_list = get_projects(credential_info)
     if project_list is None:
         raise Exception("No Projects found. Aborting...")
+    logger.info(f"Found {len(project_list)} projects")
 
     # print(project_list)
     for p in project_list:
@@ -75,18 +76,23 @@ def get_projects(credential_info):
 def create_or_update_project(project, project_table):
     logger.info(u"Adding project {} with name {} and number {}".format(project[u'projectId'], project[u'name'], project[u'projectNumber']))
 
-    try:
-        response = project_table.update_item(
-                Key= {'projectId': project['projectId'] },
-                UpdateExpression="set projectName=:name, lifecycleState=:lifecycleState, createTime=:createTime, projectNumber=:projectNumber, parent=:parent, labels=:labels",
-                ExpressionAttributeValues={
+    expression = "set projectName=:name, lifecycleState=:lifecycleState, createTime=:createTime, projectNumber=:projectNumber, parent=:parent"
+    payload = {
                     ':name':            project['name'],
                     ':lifecycleState':  project['lifecycleState'],
                     ':createTime':      project['createTime'],
                     ':projectNumber':   project['projectNumber'],
                     ':parent':          project['parent'],
-                    ':labels':          project['labels'],
                 }
+    if 'labels' in project:
+        payload[':labels'] = project['labels']
+        expression += ", labels=:labels"
+
+    try:
+        response = project_table.update_item(
+                Key= {'projectId': project['projectId'] },
+                UpdateExpression=expression,
+                ExpressionAttributeValues=payload
             )
 
     except ClientError as e:
