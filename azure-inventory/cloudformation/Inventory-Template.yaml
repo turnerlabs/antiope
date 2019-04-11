@@ -1,0 +1,672 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy the Azure Inventory Component of Antiope
+
+Parameters:
+
+  pBucketName:
+    Description: Name of the bucket to hold the images
+    Type: String
+
+  pLambdaZipFile:
+    Description: File Name for the lambdas
+    Type: String
+    Default: inventory.zip
+
+  pIamUserName:
+    Type: String
+    Description: <optional> IAM Username with access to the Inventory Bucket
+    Default: NONE
+
+  pExecutionRate:
+    Description: How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
+    Type: String
+    Default: rate(30 minutes)
+
+  pTableReadUnits:
+    Description: DynamoDB Table Read Units
+    Type: Number
+    Default: 5
+
+  pTableWriteUnits:
+    Description: DynamoDB Table Write Units
+    Type: Number
+    Default: 5
+
+  pSmallLambdaSize:
+    Description: Memory footprint for smaller Lambda
+    Type: Number
+    Default: 128
+
+  pLargeLambdaSize:
+    Description: Memory footprint for Lambdas processing lots of resources
+    Type: Number
+    Default: 768
+
+  pAzureServiceSecretName:
+    Description: Name of the Azure service account credentials secret
+    Type: String
+
+  pAzureServiceSecretArn:
+    Description: Arn of the Azure service account credentials secret
+    Type: String
+
+  pRunStateMachine:
+    Type: String
+    Description: Initial Status of the StateMachine Trigger Event
+    Default: DISABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+
+Conditions:
+  CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
+
+Resources:
+
+  InventoryIAMUser:
+    Condition: CreateIAMUser
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref pIamUserName
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+
+  InventoryLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+        - Sid: EmuLambdaTestTrust
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+      - PolicyName: LambdaLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: '*'
+            Action:
+            - logs:*
+            Effect: Allow
+      - PolicyName: DynamoAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource:
+            - !GetAtt SubscriptionDBTable.Arn
+            Action:
+            - dynamodb:*
+            Effect: Allow
+      - PolicyName: SendEmails
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ses:*
+            Resource: '*'
+      - PolicyName: StartStepFunction
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - states:StartExecution
+            Resource: '*'
+      - PolicyName: DataTableStream
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+              - dynamodb:DescribeStream
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:ListStreams
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Resource:
+              - !GetAtt SubscriptionDBTable.StreamArn
+      - PolicyName: SecretAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: secretsmanager:GetSecretValue
+            Resource: !Sub ${pAzureServiceSecretArn}
+  #
+  # State Machine Functions
+  #
+  PullOrganizationDataLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pull-organization-data"
+      Description: AWS Lamdba to pull data from Azure Organization into the Azure Inventory DDB Table
+      Handler: pull_organization_data.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          SUBSCRIPTION_TABLE: !Ref SubscriptionDBTable
+          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+      # Tags inherited from Stack
+
+  PullVMDataLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pull-vm-data"
+      Description: AWS Lamdba to pull vm data from Azure Organization into the S3
+      Handler: pull_vm_data.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+      # Tags inherited from Stack
+
+  PullIPDataLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pull-ip-data"
+      Description: AWS Lamdba to pull IP data from Azure Organization into the S3
+      Handler: pull_ip_data.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+
+  PullStorageDataLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pull-storage-data"
+      Description: AWS Lamdba to pull IP data from Azure Organization into the S3
+      Handler: pull_storage_data.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+
+  InventoryErrorHandlingLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-error-handler"
+      Description: Handle Errors generated by the azure-inventory system
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 300
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Environment:
+        Variables:
+          INVENTORY_STACK_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+      Code:
+        ZipFile: !Sub |
+          from __future__ import print_function
+          import boto3
+          import json
+          import logging
+          import os
+          from botocore.exceptions import ClientError
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          # Lambda main routine
+          def handler(event, context):
+              logger.info("Received event: " + json.dumps(event, sort_keys=True))
+
+              sns_client = boto3.client('sns')
+              sns_client.publish (
+                TopicArn=os.environ['ALARM_TOPIC'],
+                Message=json.dumps(event, sort_keys=True),
+                Subject="{} Lambda Error".format(os.environ['INVENTORY_STACK_NAME'])
+                )
+              raise Exception(event['Cause'])
+          ### End of Function
+
+      # Tags inherited from Stack
+
+  CreateSubscriptionReportLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-create-subscription-report"
+      Description: Create an HTML Report with all the Azure Subscriptions
+      Handler: report-subscriptions.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          SUBSCRIPTION_TABLE: !Ref SubscriptionDBTable
+      # Tags inherited from Stack
+
+  #
+  # StateMachine
+  #
+  TriggerStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - events.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: ExecuteStateMachine
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - states:StartExecution
+            Effect: Allow
+            Resource:
+              - !Ref InventoryProcessStateMachine
+
+  TriggerStateMachine:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Trigger the state machine to gather Azure subscription data"
+      ScheduleExpression: !Ref pExecutionRate
+      State: !Ref pRunStateMachine
+      Targets:
+      - Arn: !Ref InventoryProcessStateMachine
+        RoleArn: !GetAtt TriggerStateMachineRole.Arn
+        Id: TargetFunctionV1
+        # Input: !Sub |
+        #   {"payer": [ ${pPayerAccountList} ]}
+
+  StateMachineExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - !Sub states.${AWS::Region}.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: InvokeLambda
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - !GetAtt PullOrganizationDataLambdaFunction.Arn
+      - PolicyName: LambdaLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: '*'
+            Action:
+            - logs:*
+            Effect: Allow
+
+  InventoryProcessStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: !GetAtt StateMachineExecutionRole.Arn
+      StateMachineName: !Ref AWS::StackName
+      DefinitionString: !Sub |-
+        {
+          "Comment": "(${AWS::StackName}) State Machine to Gather Subcription Inventory Information",
+          "StartAt": "PullOrganizationDataLambdaFunction",
+          "States": {
+            "ErrorHandlerState": {
+              "Type": "Task",
+              "Resource": "${InventoryErrorHandlingLambdaFunction.Arn}" ,
+              "End": true
+            },
+            "PullOrganizationDataLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
+              "Next": "PullVMDataLambdaFunction",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+              }]
+            },
+            "PullVMDataLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${PullVMDataLambdaFunction.Arn}",
+              "Next": "PullIPDataLambdaFunction",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+              }]
+            },
+            "PullIPDataLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${PullIPDataLambdaFunction.Arn}",
+              "Next": "PullStorageDataLambdaFunction",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+              }]
+            },
+            "PullStorageDataLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${PullStorageDataLambdaFunction.Arn}",
+              "Next": "WaitForLambdaExecutionsToComplete",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+                      }]
+            },
+            "WaitForLambdaExecutionsToComplete": {
+              "Type": "Wait",
+              "Seconds": 300,
+              "Next": "CreateSubscriptionReportLambdaFunction"
+            },
+            "CreateSubscriptionReportLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${CreateSubscriptionReportLambdaFunction.Arn}",
+              "End": true,
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "ErrorHandlerState"
+              }]
+            }
+          }
+        }
+
+
+  #
+  # DynamoDB Tables
+  #
+
+  # This table has a 1-1 mapping of data from the AWS Organization(s) from each payer
+  SubscriptionDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: !Sub "${AWS::StackName}-azure-subscriptions"
+      AttributeDefinitions:
+        - AttributeName: "subscription_id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "subscription_id"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: !Ref pTableReadUnits
+        WriteCapacityUnits: !Ref pTableWriteUnits
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+
+  #
+  # Dashboard
+  #
+  Dashboard:
+    Type: "AWS::CloudWatch::Dashboard"
+    Properties:
+      DashboardName: !Ref AWS::StackName
+      DashboardBody: !Sub |-
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 9,
+              "properties": {
+                "view": "singleValue",
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-create-subscription-report", { "stat": "Sum", "period": 604800, "label": "create-subscription-report" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
+                  [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "Lambda Invocation",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 9,
+              "width": 24,
+              "height": 9,
+              "properties": {
+                "view": "singleValue",
+                "metrics": [
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-create-subscription-report", { "stat": "Sum", "period": 604800, "label": "create-subscription-report" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
+                  [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "Lambda Errors",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 18,
+              "width": 12,
+              "height": 3,
+              "properties": {
+                "view": "singleValue",
+                "metrics": [
+                  [ "AWS/States", "ExecutionsStarted", "StateMachineArn", "${InventoryProcessStateMachine}", { "stat": "Sum", "period": 604800, "label": "Started" } ],
+                  [ ".", "ExecutionsSucceeded", ".", ".", { "stat": "Sum", "period": 604800, "label": "Succeeded" } ],
+                  [ ".", "ExecutionsFailed", ".", ".", { "stat": "Sum", "period": 604800, "label": "Failed" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "StateMachine Executions",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 24,
+              "width": 24,
+              "height": 3,
+              "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [
+                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${SubscriptionDBTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "DDB Throttling"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 21,
+              "width": 12,
+              "height": 3,
+              "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [
+                  [ "AWS/States", "ExecutionTime", "StateMachineArn", "${InventoryProcessStateMachine}", { "stat": "Sum", "period": 300 } ]
+                ],
+                "region": "${AWS::Region}",
+                "annotations": {
+                  "horizontal": [{"label": "10Min", "value": 600000 }]
+                },
+                "title": "State Machine ExecutionTime",
+                "period": 300,
+                "yAxis": {"left": {"min": 0 } }
+              }
+            },
+            {
+              "title": "DynamoDB Activity",
+              "type": "metric",
+              "x": 0,
+              "y": 27,
+              "width": 24,
+              "height": 9,
+              "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${SubscriptionDBTable}", { "stat": "Sum", "period": 60 } ],
+                  [ ".", "ConsumedWriteCapacityUnits", "TableName", "${SubscriptionDBTable}", { "stat": "Sum", "period": 60 } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Activity",
+                "period": 300
+              }
+            },
+            {
+              "type": "text",
+              "x": 12,
+              "y": 21,
+              "width": 6,
+              "height": 3,
+              "properties": {
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})"
+              }
+            },
+            {
+              "type": "text",
+              "x": 18,
+              "y": 21,
+              "width": 6,
+              "height": 3,
+              "properties": {
+                "markdown": "\n# Tables\n* [Accounts](\nhttps://console.aws.amazon.com/dynamodb/home?region=${AWS::Region}#tables:selected=${SubscriptionDBTable})\n"
+              }
+            },
+            {
+              "type": "text",
+              "x": 12,
+              "y": 18,
+              "width": 12,
+              "height": 3,
+              "styles": "undefined",
+              "properties": {
+                  "markdown": "\n# Stack Info\n* **Deploy Package**: ${pLambdaZipFile}\n* **Execution Schedule**: ${pExecutionRate} (GMT)\n"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 36,
+              "width": 12,
+              "height": 3,
+              "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [[ "AWS/S3", "BucketSizeBytes", "StorageType", "StandardStorage", "BucketName", "${pBucketName}", { "period": 86400 } ] ],
+                "region": "${AWS::Region}",
+                "yAxis": {"left": {"min": 0 } },
+                "title": "Inventory Storage Used"
+                }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 36,
+              "width": 12,
+              "height": 3,
+              "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [[ "AWS/S3", "NumberOfObjects", "StorageType", "AllStorageTypes", "BucketName", "${pBucketName}", { "period": 86400 } ] ],
+                "region": "${AWS::Region}",
+                "yAxis": {"left": {"min": 0 } },
+                "title": "Inventory Object Count"
+              }
+            }
+          ]
+        }
+
+
+Outputs:
+  StackName:
+    Value: !Ref AWS::StackName
+  InventoryStackVersion:
+    Value: !Ref pLambdaZipFile
