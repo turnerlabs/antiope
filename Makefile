@@ -42,7 +42,10 @@ search-update:
 
 clean:
 	cd aws-inventory && $(MAKE) clean
+	cd gcp-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
+	cd lambda_layer && $(MAKE) clean
+	cd gcp_lambda_layer && $(MAKE) clean
 	# cd cognito && $(MAKE) clean
 
 trigger-inventory:
