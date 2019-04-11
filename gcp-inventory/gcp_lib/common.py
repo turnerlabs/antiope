@@ -26,16 +26,17 @@ def get_gcp_creds(secret_name):
     except ClientError as e:
         logger.critical(f"Unable to get secret value for {secret_name}: {e}")
         return(None)
+
+    logger.debug(get_secret_value_response)
+    if 'SecretString' in get_secret_value_response:
+        secret_value = get_secret_value_response['SecretString']
     else:
-        if 'SecretString' in get_secret_value_response:
-            secret_value = get_secret_value_response['SecretString']
-        else:
-            secret_value = get_secret_value_response['SecretBinary']
+        secret_value = get_secret_value_response['SecretBinary']
 
     try:
         secret_dict = json.loads(secret_value)
-        credential_dict = json.loads(secret_dict['credentials'])
-        return(credential_dict)
+        # credential_dict = json.loads(secret_dict['credentials'])
+        return(secret_dict)
     except Exception as e:
         logger.critical(f"Error during Credential and Service extraction: {e}")
         return(None)

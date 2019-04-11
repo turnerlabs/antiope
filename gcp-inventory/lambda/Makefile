@@ -6,9 +6,7 @@ PIP=pip3
 
 FILES=pull_organization_data.py report-projects.py new_project_handler.py
 
-DEPENDENCIES=gcp_lib google googleapiclient httplib2 oauth2client pyasn1 pyasn1_modules rsa uritemplate
-DEPENDENCY_CRUD=google_auth-1.6.2-py3.7-nspkg.pth apiclient google_auth_httplib2.py bin cachetools six.py
-
+DEPENDENCIES=gcp_lib
 package: test clean zipfile
 
 #
