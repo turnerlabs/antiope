@@ -255,6 +255,24 @@ Resources:
           INVENTORY_BUCKET: !Ref pBucketName
           AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
 
+  PullAppServiceDataLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pull-app-service-data"
+      Description: AWS Lamdba to pull App Service data from Azure Organization into the S3
+      Handler: pull_app_service_data.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+
   InventoryErrorHandlingLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -292,6 +310,8 @@ Resources:
                 )
               raise Exception(event['Cause'])
           ### End of Function
+
+
 
       # Tags inherited from Stack
 
@@ -434,8 +454,17 @@ Resources:
               "Next": "WaitForLambdaExecutionsToComplete",
               "Catch": [{
                 "ErrorEquals": ["States.ALL"],
+                "Next": "PullAppServiceDataLambdaFunction"
+              }]
+            },
+            "PullAppServiceDataLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${PullAppServiceDataLambdaFunction.Arn}",
+              "Next": "WaitForLambdaExecutionsToComplete",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
                 "Next": "ErrorHandlerState"
-                      }]
+              }]
             },
             "WaitForLambdaExecutionsToComplete": {
               "Type": "Wait",

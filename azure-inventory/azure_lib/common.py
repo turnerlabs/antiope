@@ -10,6 +10,7 @@ from azure.mgmt.consumption import ConsumptionManagementClient
 from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.subscription import SubscriptionClient
 from azure.mgmt.storage import StorageManagementClient
+from azure.mgmt.web import WebSiteManagementClient
 
 
 
@@ -139,3 +140,15 @@ def get_storage_accounts(azure_creds, subscription_id):
         storage_list.append(safe_dump_json(ss))
 
     return storage_list
+
+def get_web_sites(azure_creds, subscription_id):
+
+    creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
+
+    web_client = WebSiteManagementClient(creds, subscription_id)
+
+    website_list = []
+    for website in web_client.web_apps.list():
+        website_list.append(safe_dump_json(website))
+
+    return website_list
