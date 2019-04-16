@@ -156,13 +156,20 @@ def discover_users(account):
         resource_item['resourceCreationTime']           = user['CreateDate']
         resource_item['errors']                         = {}
 
+
         response = iam_client.list_mfa_devices(UserName=user['UserName'])
         if 'MFADevices' in response and len(response['MFADevices']) > 0:
             resource_item['supplementaryConfiguration']['MFADevice'] = response['MFADevices'][0]
 
-        response = iam_client.get_login_profile(UserName=user['UserName'])
-        if 'LoginProfile' in response:
-            resource_item['supplementaryConfiguration']['LoginProfile'] = response["LoginProfile"]
+        try:
+            response = iam_client.get_login_profile(UserName=user['UserName'])
+            if 'LoginProfile' in response:
+                resource_item['supplementaryConfiguration']['LoginProfile'] = response["LoginProfile"]
+        except ClientError as e:
+            if e.response['Error']['Code'] == "NoSuchEntity":
+                pass
+            else:
+                raise
 
         save_resource_to_s3(USER_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
