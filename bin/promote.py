@@ -55,8 +55,6 @@ def main(args):
         os.system(command)
 
 
-
-
 def get_lambda_package_key(src, env, stack_name):
     cf_client = boto3.client('cloudformation', region_name=src['AWS_DEFAULT_REGION'])
     full_stack_name = f"{src['STACK_PREFIX']}-{env}-{stack_name}"
