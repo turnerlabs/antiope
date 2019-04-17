@@ -101,6 +101,10 @@ clean:
 # Cloudformation Targets
 #
 
+# target to generate a manifest file. Only do this once
+manifest:
+	cft-generate-manifest -t $(STACK_TEMPLATE) -m $(manifest) --stack-name $(FULL_STACK_NAME) --region $(AWS_DEFAULT_REGION)
+
 # Upload template to S3
 cfn-upload: $(STACK_TEMPLATE)
 	aws s3 cp $(STACK_TEMPLATE) s3://$(BUCKET)/$(TEMPLATE_KEY)
@@ -108,6 +112,9 @@ cfn-upload: $(STACK_TEMPLATE)
 # Validate the template
 cfn-validate: cfn-upload $(STACK_TEMPLATE)
 	cft-validate --region $(AWS_DEFAULT_REGION) --s3-url s3://$(BUCKET)/$(TEMPLATE_KEY)
+
+cfn-validate-manifest: cfn-validate
+	cft-validate-manifest --region $(AWS_DEFAULT_REGION) -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
