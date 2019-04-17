@@ -122,9 +122,6 @@ class GCPProject(object):
             raise ProjectLookupError("Failed to get {} from {} in {}: {}".format(key, table_name, self, e))
 
 
-class AssumeRoleError(Exception):
-    '''raised when the AssumeRole Fails'''
-
 class ProjectUpdateError(Exception):
     '''raised when an update to DynamoDB Fails'''
 
