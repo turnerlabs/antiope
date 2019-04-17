@@ -50,12 +50,11 @@ def lambda_handler(event, context):
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
-
 def discover_connections(target_account, region):
     '''Inventory all the Direct Connect Connections (ie, physical cross connects into AWS)'''
 
