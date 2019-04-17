@@ -12,7 +12,7 @@ from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
@@ -41,18 +41,20 @@ def lambda_handler(event, context):
                 response = cf_client.describe_stacks(NextToken=response['NextToken'])
             process_stacks(target_account, cf_client, r, response['Stacks'])
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        raise
     except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
 
 def process_stacks(target_account, cf_client, region, stacks):
+
+    start_time = int(time.time())
 
     for stack in stacks:
         logger.debug("Processing stack {} for {} in {}".format(stack['StackId'], target_account.account_id, region))
@@ -76,4 +78,6 @@ def process_stacks(target_account, cf_client, region, stacks):
         resource_item['resourceCreationTime']           = stack['CreationTime']
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
+    end_time = int(time.time())
+    logger.debug(f"process_stacks() took {end_time - start_time} sec to process {len(stacks)} stacks")
 
