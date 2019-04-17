@@ -43,7 +43,7 @@ def lambda_handler(event, context):
             ec2_client = target_account.get_client('ec2', region=r)
             process_instances(target_account, ec2_client, r)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:

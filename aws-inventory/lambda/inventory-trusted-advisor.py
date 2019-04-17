@@ -41,7 +41,7 @@ def lambda_handler(event, context):
         for c in checks:
             process_ta_check(target_account, support_client, c)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:

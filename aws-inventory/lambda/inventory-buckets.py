@@ -29,7 +29,7 @@ def lambda_handler(event, context):
         target_account = AWSAccount(message['account_id'])
         discover_buckets(target_account)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:

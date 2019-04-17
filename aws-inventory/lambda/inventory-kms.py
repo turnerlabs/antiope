@@ -29,7 +29,7 @@ def lambda_handler(event, context):
         for r in target_account.get_regions():
             discover_keys(target_account, r)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:

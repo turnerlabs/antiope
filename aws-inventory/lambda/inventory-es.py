@@ -62,7 +62,7 @@ def lambda_handler(event, context):
                 object_name = "{}-{}-{}".format(domain_name, r, target_account.account_id)
                 save_resource_to_s3(RESOURCE_PATH, object_name, resource_item)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
