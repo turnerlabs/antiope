@@ -33,10 +33,10 @@ def lambda_handler(event, context):
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        raise
     except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
 def discover_keys(target_account, region):
@@ -58,8 +58,14 @@ def process_key(client, key_arn, target_account, region):
 
 
     # Enhance Key Information to include CMK Policy, Aliases, Tags
-    key = client.describe_key(KeyId=key_arn)['KeyMetadata']
-
+    try:
+        key = client.describe_key(KeyId=key_arn)['KeyMetadata']
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'AccessDeniedException':
+            logger.error(f"Unable to get details of key {key_arn}: AccessDenied")
+            return()
+        else:
+            raise
 
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
@@ -70,13 +76,20 @@ def process_key(client, key_arn, target_account, region):
     resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
     resource_item['awsRegion']                      = region
     resource_item['configuration']                  = key
-    resource_item['tags']                           = client.list_resource_tags(KeyId=key['KeyId'])
     resource_item['supplementaryConfiguration']     = {}
     resource_item['resourceId']                     = key['KeyId']
     resource_item['ARN']                            = key['Arn']
     resource_item['errors']                         = {}
 
-
+    try:
+        resource_item['tags']                           = client.list_resource_tags(KeyId=key['KeyId'])
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'NotFoundException':
+            pass
+        elif e.response['Error']['Code'] == 'AccessDeniedException':
+            resource_item['errors']['ResourceTags-Error'] = e.response['Error']['Message']
+        else:
+            raise
 
     try:
         aliases = get_key_aliases(client, key_arn)
