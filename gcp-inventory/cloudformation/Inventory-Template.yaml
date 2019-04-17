@@ -26,16 +26,6 @@ Parameters:
     Type: String
     Default: rate(30 minutes)
 
-  pTableReadUnits:
-    Description: DynamoDB Table Read Units
-    Type: Number
-    Default: 5
-
-  pTableWriteUnits:
-    Description: DynamoDB Table Write Units
-    Type: Number
-    Default: 5
-
   pSmallLambdaSize:
     Description: Memory footprint for smaller Lambda
     Type: Number
@@ -472,15 +462,13 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-gcp-projects"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "projectId"
           AttributeType: "S"
       KeySchema:
         - AttributeName: "projectId"
           KeyType: "HASH"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
       StreamSpecification:
         StreamViewType: NEW_IMAGE
 
