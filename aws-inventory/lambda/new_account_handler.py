@@ -1,6 +1,7 @@
 
 import boto3
 from botocore.exceptions import ClientError
+from boto3.dynamodb.types import TypeDeserializer
 
 import json
 import os
@@ -25,12 +26,14 @@ def lambda_handler(event, context):
             next
         if record['eventName'] == "INSERT":
             ddb_record = record['dynamodb']['NewImage']
+            logger.debug(ddb_record)
             account_id = ddb_record['account_id']['S']
             account_type = ddb_record['account_status']['S']
+            json_record = deseralize(ddb_record)
             if account_type == "ACTIVE":
-                send_message(ddb_record, os.environ['ACTIVE_TOPIC'])
+                send_message(json_record, os.environ['ACTIVE_TOPIC'])
             elif account_type == "FOREIGN":
-                send_message(ddb_record, os.environ['FOREIGN_TOPIC'])
+                send_message(json_record, os.environ['FOREIGN_TOPIC'])
 
 def send_message(record, topic):
     print("Sending Message: {}".format(record))
@@ -39,7 +42,17 @@ def send_message(record, topic):
         sns_client.publish(
             TopicArn=topic,
             Subject="NewAccount",
-            Message=json.dumps(record, sort_keys=True),
+            Message=json.dumps(record, sort_keys=True, default=str),
         )
     except ClientError as e:
         logger.error('Error publishing message: {}'.format(e))
+
+
+def deseralize(ddb_record):
+    # This is probablt a semi-dangerous hack.
+    # https://github.com/boto/boto3/blob/e353ecc219497438b955781988ce7f5cf7efae25/boto3/dynamodb/types.py#L233
+    ds = TypeDeserializer()
+    output={}
+    for k, v in ddb_record.items():
+        output[k] = ds.deserialize(v)
+    return(output)
