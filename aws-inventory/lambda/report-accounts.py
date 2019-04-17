@@ -55,7 +55,10 @@ def handler(event, context):
             j['payer_name'] = "Not Found"
 
         # Build the cross account role link
-        j['assume_role_link'] = assume_role_link.format(a.account_id, os.environ['ROLE_NAME'], a.account_name, os.environ['ROLE_NAME'])
+        if hasattr(a, 'cross_account_role') and a.cross_account_role is not None:
+            j['assume_role_link'] = assume_role_link.format(a.account_id, os.environ['ROLE_NAME'], a.account_name, os.environ['ROLE_NAME'])
+        else:
+            j['assume_role_link'] = "No Cross Account Role"
         json_data['accounts'].append(j)
 
 
