@@ -11,7 +11,10 @@ from azure.mgmt.network import NetworkManagementClient
 from azure.mgmt.subscription import SubscriptionClient
 from azure.mgmt.storage import StorageManagementClient
 from azure.mgmt.web import WebSiteManagementClient
-
+from azure.mgmt.sql import SqlManagementClient
+from azure.mgmt.datafactory import DataFactoryManagementClient
+from azure.mgmt.keyvault import KeyVaultManagementClient
+from azure.mgmt.logic import LogicManagementClient
 
 
 import boto3
@@ -128,6 +131,53 @@ def get_vms(azure_creds, subscription_id):
         vm_list.append(safe_dump_json(m))
 
     return vm_list
+
+
+def get_disks(azure_creds, subscription_id):
+    creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
+
+    compute_management_client = ComputeManagementClient(creds, subscription_id)
+    
+    return _generic_json_list_return(compute_management_client.disks)
+
+def get_sql_servers(azure_creds, subscription_id):
+
+    creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
+    sql_server_resource_client = SqlManagementClient(creds, subscription_id)
+
+    return _generic_json_list_return(sql_server_resource_client.databases)
+
+
+def get_data_factories(azure_creds, subscription_id):
+
+    creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
+
+    data_factory_client = DataFactoryManagementClient(creds,subscription_id)
+
+    return _generic_json_list_return(data_factory_client.factories)
+
+def get_key_vaults(azure_creds, subscription_id):
+    creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
+
+    key_vault_client = KeyVaultManagementClient(creds, subscription_id)
+    
+    return _generic_json_list_return(key_vault_client.vaults)
+
+def get_logic_apps(azure_creds, subscription_id):
+    creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
+
+    logic_app_client = LogicManagementClient(creds, subscription_id)
+
+    return _generic_json_list_return(logic_app_client.workflows)
+
+    
+def _generic_json_list_return(object_list)-> list:
+    return_list = []
+    for m in object_list:
+        return_list.append(safe_dump_json(m))
+
+    return return_list
+    
 
 def get_storage_accounts(azure_creds, subscription_id):
 
