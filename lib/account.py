@@ -82,7 +82,7 @@ class AWSAccount(object):
         }
         Which can be passed to a new boto3 client or resource.
         Takes an optional session_name which can be used by CloudTrail and IAM
-        Raises AssumeRoleError() if the role is not found or cannot be assumed.
+        Raises AntiopeAssumeRoleError() if the role is not found or cannot be assumed.
         """
         client = boto3.client('sts')
 
@@ -94,7 +94,7 @@ class AWSAccount(object):
             self.creds = session['Credentials'] # Save for later
             return(session['Credentials'])
         except ClientError as e:
-            raise AssumeRoleError("Failed to assume role {} in account {} ({}): {}".format(self.cross_account_role_arn,
+            raise AntiopeAssumeRoleError("Failed to assume role {} in account {} ({}): {}".format(self.cross_account_role_arn,
                 self.account_name.encode('ascii', 'ignore'), self.account_id, e.response['Error']['Code']))
 
     def get_client(self, type, region=None, session_name=None):
@@ -211,7 +211,7 @@ class AWSAccount(object):
                 cfn_client      = self.get_client('cloudformation')
             else:
                 cfn_client      = self.get_client('cloudformation', region=region)
-        except AssumeRoleError:
+        except AntiopeAssumeRoleError:
             logger.error("Unable to assume role looking for {} in {}".format(PhysicalResourceId, self.account_id))
             return(None)
 
@@ -319,7 +319,7 @@ class AWSAccount(object):
             raise AccountLookupError("Failed to get {} from {} in account table: {}".format(key, self, e))
 
 
-class AssumeRoleError(Exception):
+class AntiopeAssumeRoleError(Exception):
     """raised when the AssumeRole Fails"""
 
 class AccountUpdateError(Exception):

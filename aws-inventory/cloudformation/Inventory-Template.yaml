@@ -1628,7 +1628,7 @@ Resources:
                   [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],

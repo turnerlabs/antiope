@@ -118,9 +118,6 @@ class ForeignAWSAccount(object):
             raise AccountLookupError("Failed to get {} from {} in account table: {}".format(key, self, e))
 
 
-class AssumeRoleError(Exception):
-    """raised when the AssumeRole Fails"""
-
 class AccountUpdateError(Exception):
     """raised when an update to DynamoDB Fails"""
 

@@ -84,14 +84,14 @@ def lambda_handler(event, context):
                     save_resource_to_s3(TASK_RESOURCE_PATH, task_item['resourceId'], task_item)
 
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        raise
     except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
 
