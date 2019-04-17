@@ -46,7 +46,7 @@ clean:
 	cd search-cluster && $(MAKE) clean
 	cd lambda_layer && $(MAKE) clean
 	cd gcp_lambda_layer && $(MAKE) clean
-	# cd cognito && $(MAKE) clean
+	cd lib && rm *.pyc
 
 trigger-inventory:
 	./bin/trigger_inventory.sh $(STACK_PREFIX)-$(env)-aws-inventory
