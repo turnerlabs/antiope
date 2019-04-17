@@ -11,6 +11,8 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+from lib.account import *
+from lib.common import *
 
 # Lambda main routine
 def handler(event, context):
@@ -19,7 +21,7 @@ def handler(event, context):
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
 
-    account_list = []
+    account_list = [] # The list of accounts that will be processed by this StepFunction execution
 
     for payer_id in event['payer']:
         payer_creds = get_account_creds(payer_id)
@@ -32,13 +34,22 @@ def handler(event, context):
         for a in payer_account_list:
             a['Payer Id'] = payer_id
 
+            # Update the stuff from AWS Organizations
             create_or_update_account(a, account_table)
 
-            if get_account_creds(a['Id']):
-                account_list.append(a['Id'])
-
-            else:
-                logger.error("Unable to assume role into {}({})".format(a['Name'], a['Id']))
+            # Now test the cross-account role if the account is active
+            if a[u'Status'] == "ACTIVE":
+                my_account = AWSAccount(a['Id'])
+                try:
+                    creds = my_account.get_creds(session_name="test-audit-access")
+                    # If an exception isn't thrown, this account is good.
+                    # Add it to the list to process, and update the account's attribute
+                    account_list.append(a['Id'])
+                    my_account.update_attribute('cross_account_role', my_account.cross_account_role_arn)
+                except AntiopeAssumeRoleError as e:
+                    # Otherwise we log the error
+                    logger.error("Unable to assume role into {}({})".format(a['Name'], a['Id']))
+                    pass
 
 
     event['account_list'] = account_list
@@ -58,6 +69,17 @@ def get_account_creds(account_id):
         logger.error(u"Failed to assume role {} in payer account {}: {}".format(role_arn, account_id, e))
         return(False)
 # end get_account_creds()
+
+def test_account_creds(account_id):
+    role_arn = "arn:aws:iam::{}:role/{}".format(account_id, os.environ['ROLE_NAME'])
+    client = boto3.client('sts')
+    try:
+        session = client.assume_role(RoleArn=role_arn, RoleSessionName=os.environ['ROLE_SESSION_NAME'])
+        return(role_arn)
+    except Exception as e:
+        logger.error(u"Failed to assume role {} in payer account {}: {}".format(role_arn, account_id, e))
+        return(False)
+# end test_account_creds()
 
 def get_consolidated_billing_subaccounts(session_creds):
     # Returns: [
