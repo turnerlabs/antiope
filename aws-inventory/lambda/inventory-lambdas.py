@@ -21,7 +21,6 @@ FUNC_PATH = "lambda/function"
 LAYER_PATH = "lambda/layer"
 
 
-
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -43,6 +42,7 @@ def lambda_handler(event, context):
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
+
 def discover_lambdas(target_account, region):
     '''Iterate across all regions to discover Lambdas'''
 
@@ -57,8 +57,8 @@ def discover_lambdas(target_account, region):
     for l in lambdas:
         process_lambda(client, l, target_account, region)
 
-def process_lambda(client, mylambda, target_account, region):
 
+def process_lambda(client, mylambda, target_account, region):
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
@@ -88,10 +88,8 @@ def process_lambda(client, mylambda, target_account, region):
     save_resource_to_s3(FUNC_PATH, resource_item['resourceId'], resource_item)
 
 
-
 def discover_lambda_layer(target_account, region):
     '''Iterate across all regions to discover Lambdas'''
-
     try:
         layers = []
         client = target_account.get_client('lambda', region=region)
@@ -110,7 +108,6 @@ def discover_lambda_layer(target_account, region):
 
 
 def process_layer(client, layer, target_account, region):
-
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name

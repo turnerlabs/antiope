@@ -20,6 +20,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "ecr/repository"
 RESOURCE_TYPE = "AWS::ECR::Repository"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -40,6 +41,7 @@ def lambda_handler(event, context):
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
+
 def discover_repos(target_account, region):
     '''Iterate across all regions to discover Cloudsecrets'''
 
@@ -54,8 +56,8 @@ def discover_repos(target_account, region):
     for r in repos:
         process_repo(client, r, target_account, region)
 
-def process_repo(client, repo, target_account, region):
 
+def process_repo(client, repo, target_account, region):
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
@@ -82,5 +84,3 @@ def process_repo(client, repo, target_account, region):
             raise
 
     save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
-
-
