@@ -1,16 +1,13 @@
 import boto3
 from botocore.exceptions import ClientError
-
 import re
 import requests
 from requests_aws4auth import AWS4Auth
-
 import json
 import os
 import time
 import datetime
 from dateutil import tz
-
 from urllib.parse import unquote
 
 import logging
@@ -32,8 +29,8 @@ def lambda_handler(event, context):
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
 
     host = "https://{}".format(os.environ['ES_DOMAIN_ENDPOINT'])
-    es_type = "_doc" # This is what es is moving to after deprecating types in 6.0
-    headers = { "Content-Type": "application/json" }
+    es_type = "_doc"  # This is what es is moving to after deprecating types in 6.0
+    headers = {"Content-Type": "application/json"}
 
     bulk_ingest_body = ""
     count = 0
@@ -45,8 +42,8 @@ def lambda_handler(event, context):
             continue
 
         for s3_record in message['Records']:
-            bucket=s3_record['s3']['bucket']['name']
-            obj_key=s3_record['s3']['object']['key']
+            bucket = s3_record['s3']['bucket']['name']
+            obj_key = s3_record['s3']['object']['key']
 
             resource_to_index = get_object(bucket, obj_key)
             if resource_to_index is None:
@@ -66,9 +63,9 @@ def lambda_handler(event, context):
             # Now concat that all together for the Bulk API
             # https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
-            command = { "index" : { "_index" : index, "_type" : "_doc", "_id" : es_id } }
-            command_str = json.dumps(command, separators=(',',':'))
-            document = json.dumps(modified_resource_to_index, separators=(',',':'))
+            command = {"index": {"_index": index, "_type": "_doc", "_id": es_id}}
+            command_str = json.dumps(command, separators=(',', ':'))
+            document = json.dumps(modified_resource_to_index, separators=(',', ':'))
             bulk_ingest_body += f"{command_str}\n{document}\n"
             count += 1
 
@@ -92,11 +89,11 @@ def lambda_handler(event, context):
             logger.error(f"Bulk Error: {r.status_code} took {r.elapsed} sec - {r.text}")
             raise Exception
 
-        else: # We need to make sure all the elements succeeded
+        else:  # We need to make sure all the elements succeeded
             response = r.json()
             logger.info(f"Bulk ingest of {count} documents request took {r.elapsed} sec and processing took {response['took']} ms with errors: {response['errors']}")
-            if response['errors'] == False:
-                return(event) # all done here
+            if response['errors'] is False:
+                return(event)  # all done here
 
             for item in response['items']:
                 if 'index' not in item:
@@ -120,8 +117,6 @@ def process_requeue(item):
     key = f"{prefix}/{item['index']['_id']}.json"
     logger.warning(f"Requeueing {key} : {item}")
     return(key)
-
-
 
 
 def fix_principal(json_doc):
@@ -171,9 +166,9 @@ def requeue_objects(bucket, objects):
     }
 
     for o in objects:
-        body['Records'].append({'s3': {'bucket': {'name': bucket }, 'object': {'key': o } } })
+        body['Records'].append({'s3': {'bucket': {'name': bucket}, 'object': {'key': o}}})
 
-    logger.warning(f"Re-queuing {len(objects)} Objects" )
+    logger.warning(f"Re-queuing {len(objects)} Objects")
     response = sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(body))
     return(len(objects))
 
@@ -193,4 +188,3 @@ def get_object(bucket, obj_key):
         else:
             logger.error("Error getting resource s3://{}/{}: {}".format(bucket, obj_key, e))
         return(None)
-

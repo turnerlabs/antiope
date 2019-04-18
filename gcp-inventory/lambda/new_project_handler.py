@@ -17,6 +17,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
 
@@ -31,6 +32,7 @@ def lambda_handler(event, context):
                 send_message(ddb_record, os.environ['ACTIVE_TOPIC'])
             else:
                 send_message(ddb_record, os.environ['FOREIGN_TOPIC'])
+
 
 def send_message(record, topic):
     print("Sending Message: {}".format(record))
