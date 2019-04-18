@@ -28,3 +28,6 @@ test: $(FILES)
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
 	# cp -a ../../lib .
+
+pep8: $(FILES)
+	pycodestyle $^

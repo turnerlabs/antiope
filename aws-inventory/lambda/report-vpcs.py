@@ -18,13 +18,14 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+
 # Lambda main routine
 def handler(event, context):
     set_debug(event, logger)
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
 
     # We will make a HTML Table and a Json file with this data
-    json_data = { "vpcs": [] }
+    json_data = {"vpcs": []}
 
     # Get and then sort the list of accounts by name, case insensitive.
     active_accounts = get_active_accounts()
@@ -60,20 +61,12 @@ def handler(event, context):
             Bucket=os.environ['INVENTORY_BUCKET'],
             Key='Templates/vpc_inventory.html'
         )
-        mako_body = str(response['Body'].read().decode("utf-8") )
+        mako_body = str(response['Body'].read().decode("utf-8"))
     except ClientError as e:
         logger.error("ClientError getting HTML Template: {}".format(e))
         raise
 
-
-    # f = open("../html_templates/vpc_inventory.html", "r")
-    # mako_body = f.read()
-
-
     result = Template(mako_body).render(**json_data)
-
-    # print(result)
-    # exit(0)
 
     try:
         response = s3_client.put_object(
@@ -99,14 +92,12 @@ def handler(event, context):
     return(event)
 
 
-
 if __name__ == '__main__':
 
     # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
     # create console handler and set level to debug
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
-
 
     # create formatter
     # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -116,14 +107,10 @@ if __name__ == '__main__':
     # add ch to logger
     logger.addHandler(ch)
 
-
-
     os.environ['VPC_TABLE'] = "turner-antiope-dev-aws-inventory-vpc-inventory"
     os.environ['ACCOUNT_TABLE'] = "turner-antiope-dev-aws-inventory-accounts"
     os.environ['INVENTORY_BUCKET'] = "turner-antiope-dev"
     os.environ['ROLE_NAME'] = "GTO-ISO-Audit"
     os.environ['ROLE_SESSION_NAME'] = "Antiope"
-
-
 
     handler({}, {})

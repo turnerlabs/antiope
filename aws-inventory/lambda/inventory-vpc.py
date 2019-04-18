@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 RESOURCE_PATH = "ec2/vpc"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -38,6 +39,7 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
+
 
 def discover_vpcs(target_account, region):
     '''Iterate across all regions to discover VPCs'''
@@ -71,13 +73,13 @@ def discover_vpcs(target_account, region):
 
         # We also save the VPCs to a DDB Table
         ddb_item = {
-                    'vpc_id':               v['VpcId'],
-                    'account_id':           str(target_account.account_id),
-                    'region':               region,
-                    'cidr_block':           v['CidrBlock'],
-                    'default':              v['IsDefault'],
-                    'last_seen':            str(datetime.datetime.now())
-                }
+            'vpc_id':               v['VpcId'],
+            'account_id':           str(target_account.account_id),
+            'region':               region,
+            'cidr_block':           v['CidrBlock'],
+            'default':              v['IsDefault'],
+            'last_seen':            str(datetime.datetime.now())
+        }
 
         if 'Tags' in v:
             resource_item['tags']                       = parse_tags(v['Tags'])
@@ -85,7 +87,6 @@ def discover_vpcs(target_account, region):
             if 'Name' in ddb_item['tags']:
                 ddb_item['name']                        = ddb_item['tags']['Name']
                 resource_item['resourceName']           = resource_item['tags']['Name']
-
 
         vgw = discover_vgw(ec2_client, v['VpcId'])
         if vgw is not None:
@@ -118,12 +119,11 @@ def discover_vpcs(target_account, region):
             logger.error("Unable to save VPC ({}) in {}: {}\nData: {}".format(v['VpcId'], target_account.account_id, e, json.dumps(ddb_item, sort_keys=True)))
 
 
-
 def discover_vgw(ec2_client, vpc_id):
     '''find the vgw if it exists for this VPC '''
     try:
         response = ec2_client.describe_vpn_gateways(
-            Filters=[{'Name': 'attachment.vpc-id', 'Values': [vpc_id] } ]
+            Filters=[{'Name': 'attachment.vpc-id', 'Values': [vpc_id]}]
         )
 
         return(response['VpnGateways'][0])
@@ -134,7 +134,6 @@ def discover_vgw(ec2_client, vpc_id):
     except ClientError as e:
         logger.error("Unable to get vgw for {}: {}".format(vpc_id, e))
         return(None)
-
 
 
 def discover_vpn(ec2_client, vgw_id):
@@ -157,7 +156,7 @@ def discover_all_dx_vifs(ec2_client, region, target_account):
     output = {}
     assoc_output = {}
 
-    try: # Not all regions support DX
+    try:  # Not all regions support DX
         dx_client = target_account.get_client('directconnect', region=region)
 
         # This call can't filter on a VGW, so we need to iterate
@@ -179,9 +178,7 @@ def discover_all_dx_vifs(ec2_client, region, target_account):
                         assoc_output[vgw_id] = []
                     assoc_output[vgw_id].append(assoc)
 
-
-            else: # This VIF is directly attached to the VGW.
-
+            else:  # This VIF is directly attached to the VGW.
                 # There can be multiple VIFs per VGW, so this needs to be a list
                 if vif['virtualGatewayId'] not in output:
                     output[vif['virtualGatewayId']] = []
@@ -190,7 +187,7 @@ def discover_all_dx_vifs(ec2_client, region, target_account):
         return(output, assoc_output)
     except Exception as e:
         logger.error("Got an exception trying to dx_client.describe_virtual_interfaces() : {}".format(e))
-        raise # raise the roof till we know how to handle.
+        raise  # raise the roof till we know how to handle.
 
 
 def get_all_dx_gw_associations(dx_client, dxgw_id):
@@ -232,8 +229,6 @@ def discover_vpc_peering(ec2_client):
     return(output)
 
 
-
-
 def query_instances(ec2_client, vpc_id, instance_state = None):
     '''return an array of dict representing the data from describe_instances()'''
 
@@ -246,9 +241,9 @@ def query_instances(ec2_client, vpc_id, instance_state = None):
         "stopped": 0
     }
 
-    filters = [ { 'Name': 'vpc-id', 'Values': [ vpc_id ] } ]
+    filters = [{'Name': 'vpc-id', 'Values': [vpc_id]}]
     if instance_state is not None:
-        filters.append({'Name': 'instance-state-name', 'Values': [ instance_state ]})
+        filters.append({'Name': 'instance-state-name', 'Values': [instance_state]})
 
     response = ec2_client.describe_instances(
         Filters = filters,
@@ -270,4 +265,3 @@ def query_instances(ec2_client, vpc_id, instance_state = None):
             state = i['State']['Name']
             state_count[state] += 1
     return(state_count)
-

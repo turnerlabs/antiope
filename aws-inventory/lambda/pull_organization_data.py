@@ -1,9 +1,11 @@
 import boto3
 from botocore.exceptions import ClientError
-
 import json
 import os
 import time
+
+from lib.account import *
+from lib.common import *
 
 import logging
 logger = logging.getLogger()
@@ -11,8 +13,6 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-from lib.account import *
-from lib.common import *
 
 # Lambda main routine
 def handler(event, context):
@@ -21,11 +21,11 @@ def handler(event, context):
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
 
-    account_list = [] # The list of accounts that will be processed by this StepFunction execution
+    account_list = []  # The list of accounts that will be processed by this StepFunction execution
 
     for payer_id in event['payer']:
         payer_creds = get_account_creds(payer_id)
-        if payer_creds == False:
+        if payer_creds is False:
             logger.error("Unable to assume role in payer {}".format(payer_id))
             continue
 
@@ -51,13 +51,13 @@ def handler(event, context):
                     logger.error("Unable to assume role into {}({})".format(a['Name'], a['Id']))
                     pass
 
-
     event['account_list'] = account_list
     return(event)
 
 # end handler()
 
 ##############################################
+
 
 def get_account_creds(account_id):
     role_arn = "arn:aws:iam::{}:role/{}".format(account_id, os.environ['ROLE_NAME'])
@@ -70,6 +70,7 @@ def get_account_creds(account_id):
         return(False)
 # end get_account_creds()
 
+
 def test_account_creds(account_id):
     role_arn = "arn:aws:iam::{}:role/{}".format(account_id, os.environ['ROLE_NAME'])
     client = boto3.client('sts')
@@ -80,6 +81,7 @@ def test_account_creds(account_id):
         logger.error(u"Failed to assume role {} in payer account {}: {}".format(role_arn, account_id, e))
         return(False)
 # end test_account_creds()
+
 
 def get_consolidated_billing_subaccounts(session_creds):
     # Returns: [
@@ -98,14 +100,13 @@ def get_consolidated_billing_subaccounts(session_creds):
             aws_access_key_id = session_creds['AccessKeyId'],
             aws_secret_access_key = session_creds['SecretAccessKey'],
             aws_session_token = session_creds['SessionToken']
-            )
+        )
         output = []
-        response = org_client.list_accounts( MaxResults=20 )
-        while 'NextToken' in response :
+        response = org_client.list_accounts(MaxResults=20)
+        while 'NextToken' in response:
             output = output + response['Accounts']
             time.sleep(1)
-            response = org_client.list_accounts( MaxResults=20,
-                NextToken=response['NextToken'] )
+            response = org_client.list_accounts(MaxResults=20, NextToken=response['NextToken'])
 
         output = output + response['Accounts']
         return(output)
@@ -116,14 +117,14 @@ def get_consolidated_billing_subaccounts(session_creds):
                 aws_access_key_id = session_creds['AccessKeyId'],
                 aws_secret_access_key = session_creds['SecretAccessKey'],
                 aws_session_token = session_creds['SessionToken']
-                )
+            )
             response = sts_client.get_caller_identity()
             account = {
                 'Id': response['Account'],
                 'Name': response['Account'],
-                'Status': "ACTIVE", # Assume it is active since we could assumerole to it.
+                'Status': "ACTIVE",  # Assume it is active since we could assumerole to it.
                 'Email': "StandAloneAccount"
-                }
+            }
 
             # If there is an IAM Alias, use that. There is no API to the account/billing portal we can
             # use to get an account name
@@ -131,7 +132,7 @@ def get_consolidated_billing_subaccounts(session_creds):
                 aws_access_key_id = session_creds['AccessKeyId'],
                 aws_secret_access_key = session_creds['SecretAccessKey'],
                 aws_session_token = session_creds['SessionToken']
-                )
+            )
             response = iam_client.list_account_aliases()
             if 'AccountAliases' in response and len(response['AccountAliases']) > 0:
                 account['Name'] = response['AccountAliases'][0]
@@ -147,19 +148,19 @@ def get_consolidated_billing_subaccounts(session_creds):
 def create_or_update_account(a, account_table):
     logger.info(u"Adding account {} with name {} and email {}".format(a[u'Id'], a[u'Name'], a[u'Email']))
     if 'JoinedTimestamp' in a:
-        a[u'JoinedTimestamp'] = a[u'JoinedTimestamp'].isoformat() # Gotta convert to make the json save
+        a[u'JoinedTimestamp'] = a[u'JoinedTimestamp'].isoformat()  # Gotta convert to make the json save
     try:
         response = account_table.update_item(
-                Key= {'account_id': a[u'Id'] },
-                UpdateExpression="set account_name=:name, account_status=:status, payer_id=:payer_id, root_email=:root_email, payer_record=:payer_record",
-                ExpressionAttributeValues={
-                    ':name':        a[u'Name'],
-                    ':status':      a[u'Status'],
-                    ':payer_id':    a[u'Payer Id'],
-                    ':root_email':  a[u'Email'],
-                    ':payer_record': a
-                }
-            )
+            Key= {'account_id': a[u'Id']},
+            UpdateExpression="set account_name=:name, account_status=:status, payer_id=:payer_id, root_email=:root_email, payer_record=:payer_record",
+            ExpressionAttributeValues={
+                ':name':        a[u'Name'],
+                ':status':      a[u'Status'],
+                ':payer_id':    a[u'Payer Id'],
+                ':root_email':  a[u'Email'],
+                ':payer_record': a
+            }
+        )
 
     except ClientError as e:
         raise AccountUpdateError(u"Unable to create {}: {}".format(a[u'Name'], e))

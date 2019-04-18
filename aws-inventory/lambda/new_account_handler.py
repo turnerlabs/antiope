@@ -18,6 +18,7 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
 
@@ -34,6 +35,7 @@ def lambda_handler(event, context):
                 send_message(json_record, os.environ['ACTIVE_TOPIC'])
             elif account_type == "FOREIGN":
                 send_message(json_record, os.environ['FOREIGN_TOPIC'])
+
 
 def send_message(record, topic):
     print("Sending Message: {}".format(record))
@@ -52,7 +54,7 @@ def deseralize(ddb_record):
     # This is probablt a semi-dangerous hack.
     # https://github.com/boto/boto3/blob/e353ecc219497438b955781988ce7f5cf7efae25/boto3/dynamodb/types.py#L233
     ds = TypeDeserializer()
-    output={}
+    output = {}
     for k, v in ddb_record.items():
         output[k] = ds.deserialize(v)
     return(output)
