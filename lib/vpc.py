@@ -10,6 +10,7 @@ from pprint import pprint
 
 from lib.account import *
 
+
 class VPC(object):
     """Class to represent a VPC belonging to an Account"""
     def __init__(self, vpc_id, account=None):
@@ -46,7 +47,7 @@ class VPC(object):
 
         # We should reference our account in the VPC object. Perhaps the object exists and is part of the init(),
         # perhaps it isn't and we need to create a new one.
-        if account == None:
+        if account is None:
             # This will fail because AWSAccount is not defined and can't be imported due to circular dependencies
             # (AWSAccount requires VPC too)
             self.account = AWSAccount(self.account_id)
@@ -60,8 +61,6 @@ class VPC(object):
     def __repr__(self):
         '''Create a useful string for this class if referenced'''
         return("<VPC {} >".format(self.vpc_id))
-
-
 
     #
     # Database functions
@@ -78,10 +77,10 @@ class VPC(object):
                 },
                 UpdateExpression="set {} = :r".format(key),
                 ExpressionAttributeValues={
-                ':r': value,
+                    ':r': value,
                 }
             )
-            setattr(self, key, value) # Also update this instance of the object
+            setattr(self, key, value)  # Also update this instance of the object
         except ClientError as e:
             raise VPCUpdateError("Failed to update {} to {} for {}: {}".format(key, value, self, e))
 
@@ -95,7 +94,7 @@ class VPC(object):
                 Key= {
                     'vpc_id': self.vpc_id
                 },
-                AttributesToGet=[ key ]
+                AttributesToGet=[key]
             )
             return(response['Item'][key])
         except ClientError as e:
@@ -103,18 +102,16 @@ class VPC(object):
         except KeyError as e:
             raise VPCLookupError("Failed to get {} for {}: {}".format(key, self, e))
 
-
     #
     # Instance Attributes
     #
-
     def query_instances(self, instance_state = None):
         '''return an array of dict representing the data from describe_instances()'''
         output = []
 
-        filters = [ { 'Name': 'vpc-id', 'Values': [ self.vpc_id ] } ]
+        filters = [{'Name': 'vpc-id', 'Values': [self.vpc_id]}]
         if instance_state is not None:
-            filters.append({'Name': 'instance-state-name', 'Values': [ instance_state ]})
+            filters.append({'Name': 'instance-state-name', 'Values': [instance_state]})
 
         try:
             # Get a boto3 EC2 Resource in this VPC's region.
@@ -184,6 +181,7 @@ class VPC(object):
 
 class VPCLookupError(LookupError):
     '''Raised when the VPC requested is not in the database'''
+
 
 class VPCUpdateError(LookupError):
     '''Raised when the VPC requested is not in the database'''

@@ -51,11 +51,9 @@ class GCPProject(object):
         '''Create a useful string for this class if referenced'''
         return("<Antiope.GCPProject {} >".format(self.projectId))
 
-
     #
     # Database functions
     #
-
     def update_attribute(self, table_name, key, value):
         '''    update a specific attribute in a specific table for this project
             table_name should be a valid DynDB table, key is the column, value is the new value to set
@@ -72,7 +70,7 @@ class GCPProject(object):
                     '#k': key
                 },
                 ExpressionAttributeValues={
-                ':r': value,
+                    ':r': value,
                 }
             )
         except ClientError as e:
@@ -89,7 +87,7 @@ class GCPProject(object):
                 Key= {
                     'projectId': self.projectId
                 },
-                AttributesToGet=[ key ]
+                AttributesToGet=[key]
             )
             return(response['Item'][key])
         except ClientError as e:
@@ -124,6 +122,7 @@ class GCPProject(object):
 
 class ProjectUpdateError(Exception):
     '''raised when an update to DynamoDB Fails'''
+
 
 class ProjectLookupError(LookupError):
     '''Raised when the Project requested is not in the database'''

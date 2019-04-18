@@ -14,6 +14,7 @@ from lib.vpc import *
 import logging
 logger = logging.getLogger()
 
+
 class ForeignAWSAccount(object):
     """Class to represent an AWS Account """
     def __init__(self, account_id):
@@ -49,7 +50,6 @@ class ForeignAWSAccount(object):
         """Create a useful string for this class if referenced"""
         return("<ForeignAWSAccount {} >".format(self.account_id))
 
-
     #
     # Database functions
     #
@@ -69,7 +69,7 @@ class ForeignAWSAccount(object):
                     '#k': key
                 },
                 ExpressionAttributeValues={
-                ':r': value,
+                    ':r': value,
                 }
             )
         except ClientError as e:
@@ -85,7 +85,7 @@ class ForeignAWSAccount(object):
                 Key= {
                     'account_id': self.account_id
                 },
-                AttributesToGet=[ key ]
+                AttributesToGet=[key]
             )
             return(response['Item'][key])
         except ClientError as e:
@@ -120,6 +120,7 @@ class ForeignAWSAccount(object):
 
 class AccountUpdateError(Exception):
     """raised when an update to DynamoDB Fails"""
+
 
 class AccountLookupError(LookupError):
     """Raised when the Account requested is not in the database"""
