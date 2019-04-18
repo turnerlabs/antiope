@@ -76,6 +76,10 @@ def process_ta_check(target_account, client, c):
     check = response['result']
     logger.debug(check)
 
+    # There are a lot of TA checks. We don't need to capture the ones where it's all Ok.
+    if check['status'] == "ok":
+        return()
+
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
