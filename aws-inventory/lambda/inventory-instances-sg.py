@@ -19,18 +19,17 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 INSTANCE_RESOURCE_PATH = "ec2/instance"
 SG_RESOURCE_PATH = "ec2/securitygroup"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
 
     try:
-
         target_account = AWSAccount(message['account_id'])
-
         regions = target_account.get_regions()
         if 'region' in message:
-            regions = [ message['region'] ]
+            regions = [message['region']]
 
         # describe ec2 instances
         for r in regions:
@@ -39,7 +38,6 @@ def lambda_handler(event, context):
 
             # describe ec2 security groups
             process_securitygroups(target_account, ec2_client, r)
-
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -130,6 +128,7 @@ def get_all_instances(ec2_client):
     output += response['Reservations']
     return(output)
 
+
 def get_all_securitygroups(ec2_client):
     output = []
     response = ec2_client.describe_security_groups()
@@ -138,5 +137,3 @@ def get_all_securitygroups(ec2_client):
         response = ec2_client.describe_security_groups(NextToken=response['NextToken'])
     output += response['SecurityGroups']
     return(output)
-
-

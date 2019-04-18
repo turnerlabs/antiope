@@ -20,6 +20,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 DOMAIN_RESOURCE_PATH = "route53/domain"
 ZONE_RESOURCE_PATH = "route53/hostedzone"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -40,6 +41,7 @@ def lambda_handler(event, context):
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
+
 def discover_domains(account):
     '''
         Gathers all the Route53Domains registered domains
@@ -48,7 +50,7 @@ def discover_domains(account):
 
     # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
     # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
-    route53_client = account.get_client('route53domains', region="us-east-1") # Route53 Domains is only available in us-east-1
+    route53_client = account.get_client('route53domains', region="us-east-1")  # Route53 Domains is only available in us-east-1
     response = route53_client.list_domains()
     while 'NextPageMarker' in response:  # Gotta Catch 'em all!
         domains += response['Domains']
@@ -65,7 +67,7 @@ def discover_domains(account):
 
         # Get the real juicy details
         domain = route53_client.get_domain_detail(DomainName=d['DomainName'])
-        del domain['ResponseMetadata'] # Remove response metadata. Not needed
+        del domain['ResponseMetadata']  # Remove response metadata. Not needed
 
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = domain
@@ -85,6 +87,7 @@ def discover_domains(account):
 
         # Need to make sure the resource name is unique and service identifiable.
         save_resource_to_s3(DOMAIN_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+
 
 def discover_zones(account):
     '''
@@ -157,4 +160,3 @@ def get_resource_records(route53_client, hostedzone_id):
         )
     rr_set += response['ResourceRecordSets']
     return(rr_set)
-

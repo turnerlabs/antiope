@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 RESOURCE_PATH = "ec2/eni"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -38,7 +39,6 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
-
 
 
 def discover_enis(account, region):
@@ -92,11 +92,9 @@ def discover_enis(account, region):
                 logger.error("Unable to save object {}: {}".format(object_key, e))
 
 
-
-
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
 
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))
+    raise TypeError("Type %s not serializable" % type(obj))

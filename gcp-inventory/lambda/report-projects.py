@@ -25,16 +25,14 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 # }
 
 
-table_format = ["projectId", "projectName", "projectNumber", "lifecycleState", "createTime" ]
+table_format = ["projectId", "projectName", "projectNumber", "lifecycleState", "createTime"]
 
 
 # Lambda main routine
 def handler(event, context):
     logger.info("Received event: " + json.dumps(event, sort_keys=True))
-
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['PROJECT_TABLE'])
-
 
     # We will make a HTML Table and a Json file with this data
     table_data = ""
@@ -62,7 +60,7 @@ def handler(event, context):
             Bucket=os.environ['INVENTORY_BUCKET'],
             Key='Templates/project_inventory.html'
         )
-        html_body = str(response['Body'].read().decode("utf-8") )
+        html_body = str(response['Body'].read().decode("utf-8"))
     except ClientError as e:
         logger.error("ClientError getting HTML Template: {}".format(e))
         raise
@@ -73,7 +71,6 @@ def handler(event, context):
     except Exception as e:
         logger.error("Error generating HTML Report. Template correct? : {}".format(e))
         raise
-
 
     try:
         response = s3_client.put_object(

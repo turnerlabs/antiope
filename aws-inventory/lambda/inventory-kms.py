@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 RESOURCE_PATH = "kms/key"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -39,6 +40,7 @@ def lambda_handler(event, context):
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
+
 def discover_keys(target_account, region):
     '''Iterate across all regions to discover keys'''
 
@@ -53,10 +55,9 @@ def discover_keys(target_account, region):
     for k in keys:
         process_key(client, k['KeyArn'], target_account, region)
 
+
 def process_key(client, key_arn, target_account, region):
     '''Pull additional information for the key, and save to bucket'''
-
-
     # Enhance Key Information to include CMK Policy, Aliases, Tags
     try:
         key = client.describe_key(KeyId=key_arn)['KeyMetadata']
@@ -142,6 +143,7 @@ def process_key(client, key_arn, target_account, region):
 
     save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
+
 def get_key_grants(client, key_arn):
     '''Returns a list of Grants for Key
 
@@ -163,6 +165,7 @@ def get_key_grants(client, key_arn):
 
     return grants
 
+
 def get_key_aliases(client, key_arn):
     '''Return List of Aliases for Key
 
@@ -181,8 +184,8 @@ def get_key_aliases(client, key_arn):
         aliases += response['Aliases']
         response = client.list_aliases(KeyId=key_arn, Marker=response['NextMarker'])
     aliases += response['Aliases']
-
     return map(lambda x: x['AliasName'], aliases)
+
 
 def get_key_policy(client, key_arn, policies):
     '''Return ResourcePolicy of Key
@@ -212,10 +215,9 @@ def get_key_policy(client, key_arn, policies):
             if 'Policy' in response:
                 policy[p] = json.loads(response['Policy'])
             return policy
-
-
     # Just in case of NotFoundException
     return None
+
 
 def get_policy_list(client, key_arn):
     '''Return list of policies affecting key. Right now, should only be default.
@@ -258,6 +260,7 @@ def get_key_tags(client, key_arn):
     unparsed_tags += response['Tags']
 
     return(kms_parse_tags(unparsed_tags))
+
 
 def kms_parse_tags(tagset):
     '''Format list of tag to something easily consumable in Splunk

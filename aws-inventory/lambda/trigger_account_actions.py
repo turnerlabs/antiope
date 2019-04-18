@@ -11,12 +11,13 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-hurry_up = 800.00 # after this number of seconds, stop delaying between publish and just send the rest. We want to finish before we expire.
+hurry_up = 800.00  # after this number of seconds, stop delaying between publish and just send the rest. We want to finish before we expire.
 # TODO - have this function return unfinished work to the step function for another pass.
 
 # Increase this number to shorten the interval between SNS Publish calls.
 # The last digit of the account_id is divided by this number to create the number of seconds of delay.
 accel_factor = int(os.environ['ACCEL_FACTOR'])
+
 
 # Lambda main routine
 def handler(event, context):
@@ -35,12 +36,11 @@ def handler(event, context):
     for account_id in event['account_list']:
 
         message = event.copy()
-        del(message['account_list']) # Don't need to send this along to each lamdba
-        message['account_id'] = account_id # Which account to process
-
+        del(message['account_list'])  # Don't need to send this along to each lamdba
+        message['account_id'] = account_id  # Which account to process
 
         # Sleep between 0 and 9 seconds before sending the message.
-        if 'nowait' in event and event['nowait'] == True:
+        if 'nowait' in event and event['nowait'] is True:
             response = client.publish(
                 TopicArn=os.environ['TRIGGER_ACCOUNT_INVENTORY_ARN'],
                 Message=json.dumps(message)
@@ -58,11 +58,8 @@ def handler(event, context):
                 Message=json.dumps(message)
             )
 
-
     return(event)
 
 # end handler()
 
 ##############################################
-
-

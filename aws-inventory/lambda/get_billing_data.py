@@ -16,6 +16,7 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+
 # Lambda main routine
 def handler(event, context):
     set_debug(event, logger)
@@ -50,9 +51,8 @@ def handler(event, context):
     except Exception as e:
         logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
-
-
 # end handler()
+
 
 def get_current_spend(account):
     cwm_client = account.get_client('cloudwatch', region="us-east-1")
@@ -69,7 +69,7 @@ def get_current_spend(account):
             ],
             StartTime=datetime.datetime.now() - datetime.timedelta(hours = 24),
             EndTime=datetime.datetime.now(),
-            Period=21600, # 6 hours
+            Period=21600,  # 6 hours
             Statistics=['Maximum'],
             Unit='None'
         )

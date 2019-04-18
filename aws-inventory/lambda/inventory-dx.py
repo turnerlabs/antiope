@@ -23,8 +23,9 @@ GW_PATH = "dx/gw"
 
 # These are NOT AWS Standard Types - DirectConnect is not provided by Config or Cloudformation, so I'm having to guess here.
 CONNECTION_TYPE = "AWS::DX::DXCON"
-VIF_TYPE =  "AWS::DX::DXVIF"
-GW_TYPE =  "AWS::DX::DXGW"
+VIF_TYPE = "AWS::DX::DXVIF"
+GW_TYPE = "AWS::DX::DXGW"
+
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -55,6 +56,8 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
+
+
 def discover_connections(target_account, region):
     '''Inventory all the Direct Connect Connections (ie, physical cross connects into AWS)'''
 
@@ -78,6 +81,7 @@ def discover_connections(target_account, region):
 
         save_resource_to_s3(CONNECTION_PATH, resource_item['resourceId'], resource_item)
 
+
 def discover_vifs(target_account, region, dx_gws):
     ''' Inventory all the Direct Connect Virtual Interfaces '''
 
@@ -100,10 +104,10 @@ def discover_vifs(target_account, region, dx_gws):
         resource_item['resourceName']                   = vif['virtualInterfaceName']
         resource_item['errors']                         = {}
         # The same VIF ID will be discovered in the account with the DX Connection, and the account the DX is shared with.
-        save_resource_to_s3(VIF_PATH, "{}-{}".format(resource_item['resourceId'], target_account.account_id) , resource_item)
+        save_resource_to_s3(VIF_PATH, "{}-{}".format(resource_item['resourceId'], target_account.account_id), resource_item)
 
         if vif['ownerAccount'] != target_account.account_id:
-            continue # Don't marry DXGWs for the account that's sharing out the VIF.
+            continue  # Don't marry DXGWs for the account that's sharing out the VIF.
 
         # We should decorate the dxgws with this regions discovered VIFs
         if 'directConnectGatewayId' in vif and vif['directConnectGatewayId'] != "":
@@ -146,5 +150,3 @@ def discover_gateways(target_account):
         output[c['directConnectGatewayId']] = resource_item
 
     return(output)
-
-

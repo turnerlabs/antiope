@@ -70,3 +70,12 @@ enable-inventory:
 gcp:
 	cd gcp_lambda_layer && $(MAKE) layer
 	cd gcp-inventory && $(MAKE) deploy
+
+pep8:
+	cd aws-inventory/lambda && $(MAKE) pep8
+	cd gcp-inventory/lambda && $(MAKE) pep8
+	cd search-cluster/lambda && $(MAKE) pep8
+	pycodestyle lib
+	pycodestyle gcp-inventory/gcp_lib
+
+

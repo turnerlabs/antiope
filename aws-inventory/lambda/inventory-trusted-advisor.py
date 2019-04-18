@@ -20,14 +20,15 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "support/trustedadvisorcheckresult"
 
 # TA Checks by category (as of 3/6/19)
-  #  9             "category": "cost_optimizing",
-  # 24             "category": "fault_tolerance",
-  # 11             "category": "performance",
-  # 17             "category": "security",
-  # 48             "category": "service_limits",
+#  9             "category": "cost_optimizing",
+# 24             "category": "fault_tolerance",
+# 11             "category": "performance",
+# 17             "category": "security",
+# 48             "category": "service_limits",
 
 # This is what I think we should care about
 CATEGORIES = ['security', 'fault_tolerance', 'service_limits']
+
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -36,7 +37,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        support_client = target_account.get_client('support', region="us-east-1") # Support API is in us-east-1 only
+        support_client = target_account.get_client('support', region="us-east-1")  # Support API is in us-east-1 only
         checks = get_checks(target_account, support_client)
         for c in checks:
             process_ta_check(target_account, support_client, c)
@@ -55,6 +56,7 @@ def lambda_handler(event, context):
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
+
 def get_checks(target_account, client):
     '''Get a List of all the trusted advisor checks, return those that match CATEGORIES'''
 
@@ -64,6 +66,7 @@ def get_checks(target_account, client):
         if c['category'] in CATEGORIES:
             checks.append(c)
     return(checks)
+
 
 def process_ta_check(target_account, client, c):
     '''Get the check results for each check'''
@@ -95,4 +98,3 @@ def process_ta_check(target_account, client, c):
     resource_item['errors']                         = {}
 
     save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}-{check['checkId']}", resource_item)
-

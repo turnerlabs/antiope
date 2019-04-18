@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "cloudformation/stack"
 RESOURCE_TYPE = "AWS::CloudFormation::Stack"
 
+
 def lambda_handler(event, context):
     set_debug(event, logger)
 
@@ -31,7 +32,7 @@ def lambda_handler(event, context):
 
         regions = target_account.get_regions()
         if 'region' in message:
-            regions = [ message['region'] ]
+            regions = [message['region']]
 
         for r in regions:
             cf_client = target_account.get_client('cloudformation', region=r)
@@ -80,4 +81,3 @@ def process_stacks(target_account, cf_client, region, stacks):
 
     end_time = int(time.time())
     logger.debug(f"process_stacks() took {end_time - start_time} sec to process {len(stacks)} stacks")
-

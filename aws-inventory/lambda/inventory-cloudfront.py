@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "cloudfront/distribution"
 RESOURCE_TYPE = "AWS::CloudFront::Distribution"
 
+
 def lambda_handler(event, context):
     set_debug(event, logger)
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))

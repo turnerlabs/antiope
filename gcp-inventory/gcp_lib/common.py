@@ -3,9 +3,10 @@ import os
 import time
 import datetime
 from dateutil import tz
-
 import boto3
 from botocore.exceptions import ClientError
+
+from gcp_lib.project import *
 
 import logging
 logger = logging.getLogger()
@@ -13,7 +14,6 @@ logger.setLevel(logging.ERROR)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-from gcp_lib.project import *
 
 def get_gcp_creds(secret_name):
     """
@@ -63,6 +63,7 @@ def get_active_projects():
         output.append(GCPProject(project_id))
     return(output)
 
+
 def get_all_project_ids(status=None):
     '''return an array of project_ids in the Projects table. Optionally, filter by status'''
     dynamodb = boto3.resource('dynamodb')
@@ -72,7 +73,7 @@ def get_all_project_ids(status=None):
     response = project_table.scan(
         AttributesToGet=['projectId', 'lifecycleState']
     )
-    while 'LastEvaluatedKey' in response :
+    while 'LastEvaluatedKey' in response:
         # Means that dynamoDB didn't return the full set, so ask for more.
         project_list = project_list + response['Items']
         response = project_table.scan(
@@ -82,10 +83,9 @@ def get_all_project_ids(status=None):
     project_list = project_list + response['Items']
     output = []
     for a in project_list:
-        if status is None: # Then we get everything
+        if status is None:  # Then we get everything
             output.append(a['projectId'])
-        elif a['lifecycleState'] == status: # this is what we asked for
+        elif a['lifecycleState'] == status:  # this is what we asked for
             output.append(a['projectId'])
         # Otherwise, don't bother.
     return(output)
-
