@@ -200,6 +200,26 @@ Resources:
           AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
       # Tags inherited from Stack
 
+  PullOtherDataLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pull-other-data"
+      Description: AWS Lamdba to pull data from other Azure resources into the S3
+      Handler: pull_other_data.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          SUBSCRIPTION_TABLE: !Ref SubscriptionDBTable
+          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+      # Tags inherited from Stack
+
   PullVMDataLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:

@@ -36,12 +36,16 @@ def handler(event, context):
     if project_list is None:
         raise Exception("No Projects found. Aborting...")
     
-    data_getters = [(get_vms, "VM"), (get_logic_apps, "Logic-Apps"), (get_key_vaults, "Key-Vaults"), (get_data_factories, "Data-Factories"), (get_sql_servers, "SQL-Servers"), (get_disks, "Disks")]
+    data_getters = [(get_vms, "vm"), (get_logic_apps, "Logic-Apps"), (get_key_vaults, "Key-Vaults"), (get_data_factories, "Data-Factories"), (get_sql_servers, "SQL-Servers"), (get_disks, "Disks")]
     
     for project in project_list:
         for func in data_getters:
-            data_list = func[0](credential_info,project["subscription_id"])
-            write_list_to_db(func[1], data_list)
+            try:
+                data_list = func[0](credential_info,project["subscription_id"])
+                write_list_to_db(func[1], data_list)
+            except Exception as e:
+                logger.exception(e)
+                
             
 
         # vm_list = get_vms(credential_info, project["subscription_id"])

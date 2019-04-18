@@ -15,6 +15,7 @@ from azure.mgmt.sql import SqlManagementClient
 from azure.mgmt.datafactory import DataFactoryManagementClient
 from azure.mgmt.keyvault import KeyVaultManagementClient
 from azure.mgmt.logic import LogicManagementClient
+from azure.mgmt.resource import ResourceManagementClient
 
 
 import boto3
@@ -138,14 +139,16 @@ def get_disks(azure_creds, subscription_id):
 
     compute_management_client = ComputeManagementClient(creds, subscription_id)
     
-    return _generic_json_list_return(compute_management_client.disks)
+    return _generic_json_list_return(compute_management_client.disks.list())
 
 def get_sql_servers(azure_creds, subscription_id):
 
     creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
     sql_server_resource_client = SqlManagementClient(creds, subscription_id)
 
-    return _generic_json_list_return(sql_server_resource_client.databases)
+    resource_source_client = ResourceManagementClient(creds,subscription_id)
+
+    return _generic_json_list_return(sql_server_resource_client.servers.list())
 
 
 def get_data_factories(azure_creds, subscription_id):
@@ -154,21 +157,21 @@ def get_data_factories(azure_creds, subscription_id):
 
     data_factory_client = DataFactoryManagementClient(creds,subscription_id)
 
-    return _generic_json_list_return(data_factory_client.factories)
+    return _generic_json_list_return(data_factory_client.factories.list())
 
 def get_key_vaults(azure_creds, subscription_id):
     creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
 
     key_vault_client = KeyVaultManagementClient(creds, subscription_id)
     
-    return _generic_json_list_return(key_vault_client.vaults)
+    return _generic_json_list_return(key_vault_client.vaults.list())
 
 def get_logic_apps(azure_creds, subscription_id):
     creds = return_azure_creds(azure_creds["application_id"], azure_creds["key"], azure_creds["tenant_id"])
 
     logic_app_client = LogicManagementClient(creds, subscription_id)
 
-    return _generic_json_list_return(logic_app_client.workflows)
+    return _generic_json_list_return(logic_app_client.list_operations())
 
     
 def _generic_json_list_return(object_list)-> list:

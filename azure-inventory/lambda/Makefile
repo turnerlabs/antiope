@@ -4,7 +4,7 @@
 PYTHON=python3
 PIP=pip3
 
-FILES=pull_organization_data.py pull_vm_data.py pull_ip_data.py report-subscriptions.py pull_storage_data.py pull_app_service_data.py
+FILES=pull_organization_data.py pull_vm_data.py pull_ip_data.py report-subscriptions.py pull_storage_data.py pull_app_service_data.py pull_other_data.py
 
 DEPENDENCIES=azure_lib  adal asn1crypto azure certifi cffi chardet cryptography dateutil doc idna isodate jwt msrest msrestazure oauthlib pycparser requests requests_oauthlib samples six.py tests urllib3
 DEPENDENCY_CRUD=bin _cffi_backend.cpython-37m-darwin.so
