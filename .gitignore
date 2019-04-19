@@ -36,7 +36,7 @@ search-cluster/*/elasticsearch/
 # Build-time crud for the inventory lambda
 lambda_layer/python/
 gcp_lambda_layer/python/
-azure_lambda_layer/python/
+azure-lambda-layer/python/
 
 
 

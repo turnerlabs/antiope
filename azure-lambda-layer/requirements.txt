@@ -1,0 +1,5 @@
+PyYAML
+semver
+mako
+boto3
+azure
