@@ -13,7 +13,15 @@ make layer
 You'll get a message saying:
 > Add deploy-packages/Antiope-dev-azure_lambda_layer-2019Apr18-2001.zip as the pAzureLambdaLayerPackage in your Manifest files
 
-### Secrets Manager
+### Azure Credentials
+
+1. Create Credentials in the Azure Portal
+    1. TODO: Define these steps
+2. Create an Azure Credential file that looks like this:
+```
+TODO: Define me
+```
+2. Then add those credentials to AWS Secrets Manager which the lambas will use to authentication Azure Resource Manager
 ```bash
 . config.PROD
 aws secretsmanager create-secret --name ${STACK_PREFIX}-Azure-Credentials --region ${AWS_DEFAULT_REGION} \
@@ -33,15 +41,15 @@ make manifest env=prod
 ```
 Open the Generated Manifest file in an editor
 
-2. Remove ```LocalTemplate``` at the top. That is handled by the makefile
+1. Remove ```LocalTemplate``` at the top. That is handled by the makefile
 1. Remove ```pBucketName``` under parameters. That is handled by the makefile
-2. Enter the Lambda layer for pAzureLambdaLayerPackage
+2. Enter the Lambda layer for pAzureLambdaLayerPackage:
 ```yaml
   # Object Key for the Antiope Azure Python Dependencies Lambda Layer
   pAzureLambdaLayerPackage: deploy-packages/Antiope-dev-azure_lambda_layer-2019Apr18-2001.zip
 ```
 3. Enter the pAzureServiceSecretName and pAzureServiceSecretArn from when you created the secret.
-4. Add the following as part if the StackPolicy block to prevent Cloudformation from youching your subscription table
+4. Add the following as part if the StackPolicy block to prevent Cloudformation from touching your subscription table:
 ```yaml
   - Resource:
     - LogicalResourceId/SubscriptionDBTable
