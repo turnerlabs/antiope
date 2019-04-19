@@ -207,7 +207,7 @@ Resources:
       Description: AWS Lamdba to pull data from other Azure resources into the S3
       Handler: pull_other_data.handler
       Runtime: python3.6
-      Timeout: 300
+      Timeout: 900
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
