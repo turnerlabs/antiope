@@ -45,6 +45,7 @@ INDICES=resources_cloudformation_stack \
 		resources_kms_key \
 		resources_lambda_function \
 		resources_ssm_instance \
+		resources_support_case \
 		resources_lambda_layer \
 		resources_route53_domain \
 		resources_route53_hostedzone \
@@ -100,17 +101,24 @@ clean:
 # Cloudformation Targets
 #
 
+# target to generate a manifest file. Only do this once
+manifest:
+	cft-generate-manifest -t $(STACK_TEMPLATE) -m $(manifest) --stack-name $(FULL_STACK_NAME) --region $(AWS_DEFAULT_REGION)
+
 # Upload template to S3
 cfn-upload: $(STACK_TEMPLATE)
 	aws s3 cp $(STACK_TEMPLATE) s3://$(BUCKET)/$(TEMPLATE_KEY)
 
 # Validate the template
 cfn-validate: cfn-upload $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-url $(TEMPLATE_URL)
+	cft-validate --region $(AWS_DEFAULT_REGION) --s3-url s3://$(BUCKET)/$(TEMPLATE_KEY)
+
+cfn-validate-manifest: cfn-validate
+	cft-validate-manifest --region $(AWS_DEFAULT_REGION) -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) --force
+	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) --force
 
 #
 # Lambda Targets

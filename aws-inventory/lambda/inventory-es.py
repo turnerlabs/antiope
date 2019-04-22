@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "es/domain"
 RESOURCE_TYPE = "AWS::Elasticsearch::Domain"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -30,7 +31,7 @@ def lambda_handler(event, context):
 
         regions = target_account.get_regions()
         if 'region' in message:
-            regions = [ message['region'] ]
+            regions = [message['region']]
 
         # describe ES Domains
         for r in regions:
@@ -62,22 +63,26 @@ def lambda_handler(event, context):
                 object_name = "{}-{}-{}".format(domain_name, r, target_account.account_id)
                 save_resource_to_s3(RESOURCE_PATH, object_name, resource_item)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        raise
     except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
 
 def list_domains(es_client, target_account, region):
     domain_names = []
-    response = es_client.list_domain_names() # This call doesn't support paganiation
+    response = es_client.list_domain_names()  # This call doesn't support paganiation
     if 'DomainNames' not in response:
-        logger.info("No ElasticSearch domains returned by list_domain_names() for {}({}) in {}".format(target_account.account_name, target_account.account_id, region))
+        logger.info("No ElasticSearch domains returned by list_domain_names() for {}({}) in {}".format(
+            target_account.account_name,
+            target_account.account_id,
+            region
+        ))
     else:
         for d in response['DomainNames']:
             domain_names.append(d['DomainName'])

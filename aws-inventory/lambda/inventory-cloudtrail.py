@@ -20,6 +20,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "cloudtrail/trail"
 RESOURCE_TYPE = "AWS::CloudTrail::Trail"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -30,15 +31,16 @@ def lambda_handler(event, context):
         for r in target_account.get_regions():
             discover_trails(target_account, r)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
-    except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
         raise
+    except Exception as e:
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        raise
+
 
 def discover_trails(target_account, region):
     '''Iterate across all regions to discover CloudTrails'''
@@ -77,5 +79,3 @@ def discover_trails(target_account, region):
         del(resource_item['supplementaryConfiguration']['Status']['ResponseMetadata'])
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
-
-

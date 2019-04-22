@@ -17,8 +17,8 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-
 assume_role_link = "<a href=\"https://signin.aws.amazon.com/switchrole?account={}&roleName={}&displayName={}\">{}</a>"
+
 
 # Lambda main routine
 def handler(event, context):
@@ -32,7 +32,7 @@ def handler(event, context):
     payers = {}
 
     # Data to be saved to S3 and used to generate the template report
-    json_data = { "accounts": [] }
+    json_data = {"accounts": []}
 
     # Get and then sort the list of accounts by name, case insensitive.
     active_accounts = get_active_accounts()
@@ -55,9 +55,11 @@ def handler(event, context):
             j['payer_name'] = "Not Found"
 
         # Build the cross account role link
-        j['assume_role_link'] = assume_role_link.format(a.account_id, os.environ['ROLE_NAME'], a.account_name, os.environ['ROLE_NAME'])
+        if hasattr(a, 'cross_account_role') and a.cross_account_role is not None:
+            j['assume_role_link'] = assume_role_link.format(a.account_id, os.environ['ROLE_NAME'], a.account_name, os.environ['ROLE_NAME'])
+        else:
+            j['assume_role_link'] = "No Cross Account Role"
         json_data['accounts'].append(j)
-
 
     json_data['timestamp'] = datetime.datetime.now()
     json_data['account_count'] = len(active_accounts)
@@ -70,7 +72,7 @@ def handler(event, context):
             Bucket=os.environ['INVENTORY_BUCKET'],
             Key='Templates/account_inventory.html'
         )
-        mako_body = str(response['Body'].read().decode("utf-8") )
+        mako_body = str(response['Body'].read().decode("utf-8"))
     except ClientError as e:
         logger.error("ClientError getting HTML Template: {}".format(e))
         raise

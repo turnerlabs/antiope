@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 RESOURCE_PATH = "secretsmanager/secret"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -29,15 +30,16 @@ def lambda_handler(event, context):
         for r in target_account.get_regions():
             discover_secrets(target_account, r)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
-    except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
         raise
+    except Exception as e:
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        raise
+
 
 def discover_secrets(target_account, region):
     '''Iterate across all regions to discover Cloudsecrets'''
@@ -57,8 +59,8 @@ def discover_secrets(target_account, region):
     except EndpointConnectionError as e:
         logger.info("Region {} not supported".format(region))
 
-def process_secret(client, secret, target_account, region):
 
+def process_secret(client, secret, target_account, region):
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
@@ -73,12 +75,17 @@ def process_secret(client, secret, target_account, region):
     resource_item['errors']                         = {}
     resource_item['ARN']                            = secret['ARN']
 
-    response = client.get_resource_policy(SecretId=secret['ARN'])
-    if 'ResourcePolicy' in response:
-        resource_item['supplementaryConfiguration']['ResourcePolicy']    = json.loads(response['ResourcePolicy'])
+    try:
+        response = client.get_resource_policy(SecretId=secret['ARN'])
+        if 'ResourcePolicy' in response:
+            resource_item['supplementaryConfiguration']['ResourcePolicy']    = json.loads(response['ResourcePolicy'])
+    except ClientError as e:
+        if e.response['Error']['Code'] == "AccessDeniedException":
+            resource_item['errors']['ResourcePolicy'] = e.response['Error']['Message']
+        else:
+            raise
+
     if 'Tags' in secret:
         resource_item['tags']              = parse_tags(secret['Tags'])
 
     save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
-
-

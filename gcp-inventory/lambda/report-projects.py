@@ -25,16 +25,14 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 # }
 
 
-table_format = ["projectId", "name", "projectNumber", "lifecycleState", "createTime" ]
+table_format = ["projectId", "projectName", "projectNumber", "lifecycleState", "createTime"]
 
 
 # Lambda main routine
 def handler(event, context):
     logger.info("Received event: " + json.dumps(event, sort_keys=True))
-
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['PROJECT_TABLE'])
-
 
     # We will make a HTML Table and a Json file with this data
     table_data = ""
@@ -45,7 +43,7 @@ def handler(event, context):
     project_list.sort(key=lambda x: x.projectId.lower())
 
     for project in project_list:
-        logger.info(f"{project.projectId}")
+        logger.debug(f"{project.projectId}")
 
         j = {}
         table_data += "<tr>"
@@ -53,8 +51,7 @@ def handler(event, context):
             table_data += "<td>{}</td>".format(getattr(project, col_name))
             j[col_name] = getattr(project, col_name)
         table_data += "</tr>\n"
-        json_data.append(j)
-
+        json_data.append(project.json_data)
 
     s3_client = boto3.client('s3')
 
@@ -63,7 +60,7 @@ def handler(event, context):
             Bucket=os.environ['INVENTORY_BUCKET'],
             Key='Templates/project_inventory.html'
         )
-        html_body = str(response['Body'].read().decode("utf-8") )
+        html_body = str(response['Body'].read().decode("utf-8"))
     except ClientError as e:
         logger.error("ClientError getting HTML Template: {}".format(e))
         raise
@@ -74,7 +71,6 @@ def handler(event, context):
     except Exception as e:
         logger.error("Error generating HTML Report. Template correct? : {}".format(e))
         raise
-
 
     try:
         response = s3_client.put_object(
@@ -88,7 +84,7 @@ def handler(event, context):
         # Save the JSON to S3
         response = s3_client.put_object(
             # ACL='public-read',
-            Body=json.dumps(json_data, sort_keys=True, indent=2),
+            Body=json.dumps(json_data, sort_keys=True, indent=2, default=str),
             Bucket=os.environ['INVENTORY_BUCKET'],
             ContentType='application/json',
             Key='Reports/gcp_project_inventory.json',

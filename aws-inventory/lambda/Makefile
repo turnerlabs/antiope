@@ -23,6 +23,7 @@ FILES =	get_billing_data.py \
 		inventory-route53.py \
 		inventory-secrets.py \
 		inventory-ssm.py \
+		inventory-support-cases.py \
 		inventory-trusted-advisor.py \
 		inventory-vpc.py \
 		new_account_handler.py \
@@ -54,3 +55,6 @@ test: $(FILES)
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
 	cp -a ../../lib .
+
+pep8: $(FILES)
+	pycodestyle $^

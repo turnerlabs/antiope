@@ -20,6 +20,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "s3/bucket"
 RESOURCE_TYPE = "AWS::S3::Bucket"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -29,15 +30,16 @@ def lambda_handler(event, context):
         target_account = AWSAccount(message['account_id'])
         discover_buckets(target_account)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
-    except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
         raise
+    except Exception as e:
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        raise
+
 
 def discover_buckets(account):
     '''
@@ -48,7 +50,7 @@ def discover_buckets(account):
     # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
     # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
     s3_client = account.get_client('s3')
-    response = s3_client.list_buckets() # This API call doesn't paganate. Go fig...
+    response = s3_client.list_buckets()  # This API call doesn't paganate. Go fig...
     bucket_list += response['Buckets']
 
     resource_item = {}
@@ -154,10 +156,9 @@ def discover_buckets(account):
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
-
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
 
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))
+    raise TypeError("Type %s not serializable" % type(obj))

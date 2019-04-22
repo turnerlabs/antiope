@@ -6,13 +6,14 @@
 1. Make sure you have jq installed.
 1. Create an S3 Bucket to act as the inventory bucket
     **It is important that the bucket be created in the region you intend to run Antiope.**
-1. You'll need the [aws_scripts repo](https://github.com/jchrisfarris/aws_scripts) and the bin and sbin directories in your path to run deploy_stack.rb. There are some gem dependencies in there too.
+1. You'll need cftdeploy python package & scripts
+    ```pip3 install cftdeploy```
 1. Deploy a Cross Account role in all payer & child accounts you want to inventory.
     * One is provided in the `cloudformation/SecurityCrossAccountRoleTemplate.yaml` CloudFormation template
 
 
 ## Configuration
-Antiope deploys via Makefiles, deploy_stack.rb and some AWS CLI commands inside the Makefile. Most of the common settings for each of the stacks is kept in a config.${env} file (where ${env} is your environment (dev, stage, prod)).
+Antiope deploys via Makefiles, cft-deploy and some AWS CLI commands inside the Makefile. Most of the common settings for each of the stacks is kept in a config.${env} file (where ${env} is your environment (dev, stage, prod)).
 
 The config file is sourced by the makefiles to construct the stack name and to determine the S3 bucket and region Antiope will use. The file should look like this:
 ```bash
@@ -23,7 +24,7 @@ AWS_DEFAULT_REGION=us-west-2    # I separate my Antiope environments by region t
 I recommending picking something very unique for `STACK_PREFIX`. yourcompany-antiope is a good choice
 
 
-In addition to that config file, each Antiope Module needs a CloudFormation "manifest" file.
+In addition to that config file, each Antiope Module needs a [CloudFormation "manifest" file](https://github.com/jchrisfarris/cft-deploy#user-content-manifest-files).
 
 Sample Manifest files can be found in docs/sample-manifests. You can copy the samples and place them in the right directory with the correct name.
 

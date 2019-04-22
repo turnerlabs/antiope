@@ -6,7 +6,7 @@ PIP=pip3
 
 FILES=ingest_s3.py
 
-DEPENDENCIES=requests requests_aws4auth requests_aws4auth certifi chardet idna urllib3
+DEPENDENCIES=
 
 package: test clean deps zipfile
 
@@ -28,3 +28,6 @@ test: $(FILES)
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
 	# cp -a ../../lib .
+
+pep8: $(FILES)
+	pycodestyle $^

@@ -55,11 +55,11 @@ cfn-upload: $(STACK_TEMPLATE)
 
 # Validate the template
 cfn-validate: cfn-upload $(STACK_TEMPLATE)
-	aws cloudformation validate-template --region $(AWS_DEFAULT_REGION) --template-url $(TEMPLATE_URL)
+	cft-validate --region $(AWS_DEFAULT_REGION) --s3-url s3://$(BUCKET)/$(TEMPLATE_KEY)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	deploy_stack.rb -m $(manifest) --template-url $(TEMPLATE_URL) pBucketName=$(BUCKET) pCustomCognitoDomain=$(STACK_PREFIX)-$(env) --force
+	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pBucketName=$(BUCKET) pCustomCognitoDomain=$(STACK_PREFIX)-$(env) --force
 
 configure-identity-pool:
 	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))

@@ -42,8 +42,11 @@ search-update:
 
 clean:
 	cd aws-inventory && $(MAKE) clean
+	cd gcp-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
-	# cd cognito && $(MAKE) clean
+	cd lambda_layer && $(MAKE) clean
+	cd gcp_lambda_layer && $(MAKE) clean
+	cd lib && rm *.pyc
 
 trigger-inventory:
 	./bin/trigger_inventory.sh $(STACK_PREFIX)-$(env)-aws-inventory
@@ -63,3 +66,16 @@ disable-inventory:
 enable-inventory:
 	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	aws events enable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
+
+gcp:
+	cd gcp_lambda_layer && $(MAKE) layer
+	cd gcp-inventory && $(MAKE) deploy
+
+pep8:
+	cd aws-inventory/lambda && $(MAKE) pep8
+	cd gcp-inventory/lambda && $(MAKE) pep8
+	cd search-cluster/lambda && $(MAKE) pep8
+	pycodestyle lib
+	pycodestyle gcp-inventory/gcp_lib
+
+

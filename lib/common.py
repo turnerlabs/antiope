@@ -43,6 +43,7 @@ def get_active_accounts(table_name=None):
         output.append(AWSAccount(a))
     return(output)
 
+
 def get_foreign_accounts():
     """Returns an array of all active AWS accounts as AWSAccount objects"""
     foreign_account_ids = get_account_ids(status="FOREIGN")
@@ -53,6 +54,7 @@ def get_foreign_accounts():
     for a in foreign_account_ids:
         output.append(ForeignAWSAccount(a))
     return(output)
+
 
 def get_account_ids(status=None, table_name=None):
     """return an array of account_ids from the Accounts table. Optionally, filter by status"""
@@ -66,7 +68,7 @@ def get_account_ids(status=None, table_name=None):
     response = account_table.scan(
         AttributesToGet=['account_id', 'account_status']
     )
-    while 'LastEvaluatedKey' in response :
+    while 'LastEvaluatedKey' in response:
         # Means that dynamoDB didn't return the full set, so ask for more.
         account_list = account_list + response['Items']
         response = account_table.scan(
@@ -76,9 +78,9 @@ def get_account_ids(status=None, table_name=None):
     account_list = account_list + response['Items']
     output = []
     for a in account_list:
-        if status is None: # Then we get everything
+        if status is None:  # Then we get everything
             output.append(a['account_id'])
-        elif a['account_status'] == status: # this is what we asked for
+        elif a['account_status'] == status:  # this is what we asked for
             output.append(a['account_id'])
         # Otherwise, don't bother.
     return(output)

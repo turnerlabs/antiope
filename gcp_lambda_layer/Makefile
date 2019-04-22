@@ -26,7 +26,7 @@ ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
 endif
 
-export LAYER_PACKAGE=Antiope-$(env)-aws_lambda_layer-$(version).zip
+export LAYER_PACKAGE=Antiope-$(env)-gcp_lambda_layer-$(version).zip
 export OBJECT_KEY=deploy-packages/$(LAYER_PACKAGE)
 
 
@@ -54,7 +54,7 @@ deps:
 
 upload:
 	aws s3 cp $(LAYER_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
-	echo "Add \tpAWSLambdaLayerPackage: $(OBJECT_KEY) to your Manifest files"
+	echo "Add $(OBJECT_KEY) as the pGCPLambdaLayerPackage in your Manifest files"
 
 pep8: $(FILES)
 	pycodestyle $^

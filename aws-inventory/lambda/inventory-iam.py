@@ -10,7 +10,6 @@ from dateutil import tz
 import re
 from xml.dom.minidom import parseString
 
-
 from lib.account import *
 from lib.common import *
 
@@ -24,6 +23,7 @@ USER_RESOURCE_PATH = "iam/user"
 ROLE_RESOURCE_PATH = "iam/role"
 SAML_RESOURCE_PATH = "iam/saml"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -35,15 +35,16 @@ def lambda_handler(event, context):
         discover_users(target_account)
         discover_saml_provider(target_account)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
-    except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
         raise
+    except Exception as e:
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        raise
+
 
 def discover_roles(account):
     '''
@@ -55,7 +56,7 @@ def discover_roles(account):
     response = iam_client.list_roles()
     while 'IsTruncated' in response and response['IsTruncated'] is True:  # Gotta Catch 'em all!
         roles += response['Roles']
-        response = iam_client.list_roles(Marker=response['Marker']) # I love how the AWS API is so inconsistent with how they do pagination.
+        response = iam_client.list_roles(Marker=response['Marker'])  # I love how the AWS API is so inconsistent with how they do pagination.
     roles += response['Roles']
 
     resource_item = {}
@@ -79,7 +80,7 @@ def discover_roles(account):
 
         # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
         for s in role['AssumeRolePolicyDocument']['Statement']:
-            if s['Principal'] == "*": # Dear mother of god, you're p0wned
+            if s['Principal'] == "*":  # Dear mother of god, you're p0wned
                 logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
                 raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role['Arn']))
             elif 'AWS' in s['Principal']:  # This means it's trusting an AWS Account and not an AWS Service.
@@ -88,6 +89,7 @@ def discover_roles(account):
                         process_trusted_account(p, role['Arn'])
                 else:
                     process_trusted_account(s['Principal']['AWS'], role['Arn'])
+
 
 def process_trusted_account(principal, role_arn):
     '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
@@ -102,7 +104,7 @@ def process_trusted_account(principal, role_arn):
     elif principal == "*":
         logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
         raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
-        return() # No accounts to add to the DB
+        return()  # No accounts to add to the DB
     else:
         logger.error("Unable to identify what kind of AWS Principal this is: {}".format(principal))
         return()
@@ -117,13 +119,14 @@ def process_trusted_account(principal, role_arn):
         try:
             response = account_table.put_item(
                 Item={
-                    'account_id'     : account_id,
-                    'account_name'   : "unknown",
-                    'account_status' : "FOREIGN",
+                    'account_id':       account_id,
+                    'account_name':     "unknown",
+                    'account_status':   "FOREIGN",
                 }
             )
         except ClientError as e:
             raise AccountUpdateError(u"Unable to create {}: {}".format(a[u'Name'], e))
+
 
 def discover_users(account):
     '''
@@ -160,11 +163,18 @@ def discover_users(account):
         if 'MFADevices' in response and len(response['MFADevices']) > 0:
             resource_item['supplementaryConfiguration']['MFADevice'] = response['MFADevices'][0]
 
-        response = iam_client.get_login_profile(UserName=user['UserName'])
-        if 'LoginProfile' in response:
-            resource_item['supplementaryConfiguration']['LoginProfile'] = response["LoginProfile"]
+        try:
+            response = iam_client.get_login_profile(UserName=user['UserName'])
+            if 'LoginProfile' in response:
+                resource_item['supplementaryConfiguration']['LoginProfile'] = response["LoginProfile"]
+        except ClientError as e:
+            if e.response['Error']['Code'] == "NoSuchEntity":
+                pass
+            else:
+                raise
 
         save_resource_to_s3(USER_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+
 
 def discover_saml_provider(account):
     '''
@@ -199,4 +209,3 @@ def discover_saml_provider(account):
         resource_item['errors']                         = {}
 
         save_resource_to_s3(SAML_RESOURCE_PATH, resource_item['resourceId'], resource_item)
-

@@ -18,6 +18,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 
 INSTANCE_RESOURCE_PATH = "ssm/managedinstance"
 
+
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
@@ -28,22 +29,21 @@ def lambda_handler(event, context):
 
         regions = target_account.get_regions()
         if 'region' in message:
-            regions = [ message['region'] ]
+            regions = [message['region']]
 
         # describe ec2 instances
         for r in regions:
             client = target_account.get_client('ssm', region=r)
             process_instances(target_account, client, r)
 
-
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        raise
     except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
 
@@ -76,5 +76,3 @@ def get_all_instances(client):
         response = client.describe_instance_information(NextToken=response['NextToken'])
     output += response['InstanceInformationList']
     return(output)
-
-

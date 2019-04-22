@@ -14,6 +14,7 @@ from lib.vpc import *
 import logging
 logger = logging.getLogger()
 
+
 class AWSAccount(object):
     """Class to represent an AWS Account """
     def __init__(self, account_id, config=None):
@@ -59,8 +60,6 @@ class AWSAccount(object):
         except Exception as e:
             logger.error("Got Other error: {}".format(e))
 
-
-
     def __str__(self):
         """when converted to a string, become the account_id"""
         return(self.account_id)
@@ -82,7 +81,7 @@ class AWSAccount(object):
         }
         Which can be passed to a new boto3 client or resource.
         Takes an optional session_name which can be used by CloudTrail and IAM
-        Raises AssumeRoleError() if the role is not found or cannot be assumed.
+        Raises AntiopeAssumeRoleError() if the role is not found or cannot be assumed.
         """
         client = boto3.client('sts')
 
@@ -91,10 +90,10 @@ class AWSAccount(object):
 
         try:
             session = client.assume_role(RoleArn=self.cross_account_role_arn, RoleSessionName=session_name)
-            self.creds = session['Credentials'] # Save for later
+            self.creds = session['Credentials']  # Save for later
             return(session['Credentials'])
         except ClientError as e:
-            raise AssumeRoleError("Failed to assume role {} in account {} ({}): {}".format(self.cross_account_role_arn,
+            raise AntiopeAssumeRoleError("Failed to assume role {} in account {} ({}): {}".format(self.cross_account_role_arn,
                 self.account_name.encode('ascii', 'ignore'), self.account_id, e.response['Error']['Code']))
 
     def get_client(self, type, region=None, session_name=None):
@@ -154,7 +153,7 @@ class AWSAccount(object):
             ConsistentRead=False,
             KeyConditionExpression=Key('account_id').eq(self.account_id)
         )
-        while 'LastEvaluatedKey' in response :
+        while 'LastEvaluatedKey' in response:
             # Means that dynamoDB didn't return the full set, so as for more.
             vpc_list = vpc_list + response['Items']
             response = vpc_table.query(
@@ -201,17 +200,16 @@ class AWSAccount(object):
     #
     # Compliance Functions
     #
-
     def discover_cft_info_by_resource(self, PhysicalResourceId, region=None, VersionOutputKey='TemplateVersion'):
         """Jump into the account, and ask Cloudformation in that region about the details of a template"""
         output = {}
 
         try:
-            if region == None:
+            if region is None:
                 cfn_client      = self.get_client('cloudformation')
             else:
                 cfn_client      = self.get_client('cloudformation', region=region)
-        except AssumeRoleError:
+        except AntiopeAssumeRoleError:
             logger.error("Unable to assume role looking for {} in {}".format(PhysicalResourceId, self.account_id))
             return(None)
 
@@ -221,7 +219,7 @@ class AWSAccount(object):
         except ClientError:
             # More error checking needed here.
             # logger.error("Failed to find CFT for {} in {}".format(PhysicalResourceId, self.account_id))
-            return(None) # Nothing else to do. Go home and cry.
+            return(None)  # Nothing else to do. Go home and cry.
 
         for i in stack['StackResources']:
             if i['PhysicalResourceId'] == PhysicalResourceId:
@@ -242,10 +240,10 @@ class AWSAccount(object):
         if 'Outputs' in stack:
             for o in stack['Outputs']:
                 if o['OutputKey'] == VersionOutputKey:
-                    output['template_version']= o['OutputValue']
+                    output['template_version'] = o['OutputValue']
                     break
             else:
-                output['template_version']= "NotFound"
+                output['template_version'] = "NotFound"
 
         # Return the stackname and template_version
         return(output)
@@ -253,7 +251,6 @@ class AWSAccount(object):
     #
     # Database functions
     #
-
     def update_attribute(self, key, value):
         """
         Update a specific attribute in a specific table for this account.
@@ -270,7 +267,7 @@ class AWSAccount(object):
                     '#k': key
                 },
                 ExpressionAttributeValues={
-                ':r': value,
+                    ':r': value,
                 }
             )
         except ClientError as e:
@@ -286,7 +283,7 @@ class AWSAccount(object):
                 Key= {
                     'account_id': self.account_id
                 },
-                AttributesToGet=[ key ]
+                AttributesToGet=[key]
             )
             return(response['Item'][key])
         except ClientError as e:
@@ -319,11 +316,13 @@ class AWSAccount(object):
             raise AccountLookupError("Failed to get {} from {} in account table: {}".format(key, self, e))
 
 
-class AssumeRoleError(Exception):
+class AntiopeAssumeRoleError(Exception):
     """raised when the AssumeRole Fails"""
+
 
 class AccountUpdateError(Exception):
     """raised when an update to DynamoDB Fails"""
+
 
 class AccountLookupError(LookupError):
     """Raised when the Account requested is not in the database"""

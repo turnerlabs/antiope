@@ -19,6 +19,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 RESOURCE_PATH = "ec2/ami"
 RESOURCE_TYPE = "AWS::EC2::AMI"
 
+
 def lambda_handler(event, context):
     if 'debug' in event and event['debug']:
         logger.setLevel(logging.DEBUG)
@@ -36,26 +37,25 @@ def lambda_handler(event, context):
 
         regions = target_account.get_regions()
         if 'region' in message:
-            regions = [ message['region'] ]
+            regions = [message['region']]
 
         # describe ec2 instances
         for r in regions:
             ec2_client = target_account.get_client('ec2', region=r)
             process_instances(target_account, ec2_client, r)
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        raise
     except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         raise
 
 
 def process_instances(target_account, ec2_client, region):
-
     instance_reservations = get_all_instances(ec2_client)
     logger.debug("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
 
@@ -72,13 +72,8 @@ def process_instances(target_account, ec2_client, region):
                 seen_owners.append(owner)
 
 
-
-
-
 def process_image(target_account, ec2_client, region, image_id, seen_owners):
-
-    response = ec2_client.describe_images(ImageIds=[image_id ] )
-
+    response = ec2_client.describe_images(ImageIds=[image_id])
     # dump info about instances to S3 as json
     for image in response['Images']:
 
@@ -112,6 +107,7 @@ def get_all_instances(ec2_client):
     output += response['Reservations']
     return(output)
 
+
 def process_trusted_account(account_id):
     '''Given an AWS Principal, determine if the account is known, and if not known, add to the accounts database'''
     dynamodb = boto3.resource('dynamodb')
@@ -127,10 +123,10 @@ def process_trusted_account(account_id):
         try:
             response = account_table.put_item(
                 Item={
-                    'account_id'     : account_id,
-                    'account_name'   : "unknown",
-                    'account_status' : "FOREIGN",
-                    'ami_source'     : True
+                    'account_id': account_id,
+                    'account_name': "unknown",
+                    'account_status': "FOREIGN",
+                    'ami_source': True
                 }
             )
         except ClientError as e:

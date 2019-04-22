@@ -31,7 +31,12 @@ def lambda_handler(event, context):
 
         arn_list = []
         try:
-            response = health_client.describe_events(filter={ 'eventStatusCodes': [ 'upcoming' ], 'eventTypeCodes': ['AWS_EC2_INSTANCE_REBOOT_MAINTENANCE_SCHEDULED']})
+            response = health_client.describe_events(
+                filter={
+                    'eventStatusCodes': ['upcoming'],
+                    'eventTypeCodes': ['AWS_EC2_INSTANCE_REBOOT_MAINTENANCE_SCHEDULED']
+                }
+            )
             for e in response['events']:
                 arn_list.append(e['arn'])
 
@@ -41,7 +46,7 @@ def lambda_handler(event, context):
                 response = health_client.describe_event_details(eventArns=arn_list)
                 data['details'] = response['successfulSet']
 
-                response = health_client.describe_affected_entities(filter={'eventArns': arn_list })
+                response = health_client.describe_affected_entities(filter={'eventArns': arn_list})
                 data['entities'] = response['entities']
         except ClientError as e:
             if e.response['Error']['Code'] == 'SubscriptionRequiredException':
@@ -58,20 +63,15 @@ def lambda_handler(event, context):
             Key="Health/{}.json".format(target_account.account_id),
         )
 
-    except AssumeRoleError as e:
+    except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.error("AWS Error getting info for {}: {}".format(target_account.account_name, e))
-        return()
-    except Exception as e:
-        logger.error("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
         raise
-
-
-
-
-
+    except Exception as e:
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        raise
 
 
 def json_serial(obj):
@@ -79,4 +79,4 @@ def json_serial(obj):
 
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError ("Type %s not serializable" % type(obj))
+    raise TypeError("Type %s not serializable" % type(obj))

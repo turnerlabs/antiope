@@ -12,6 +12,10 @@ Parameters:
     Type: String
     Default: inventory.zip
 
+  pGCPLambdaLayerPackage:
+    Description: Object Key for the Antiope GCP Python Dependencies Lambda Layer
+    Type: String
+
   pIamUserName:
     Type: String
     Description: <optional> IAM Username with access to the Inventory Bucket
@@ -21,16 +25,6 @@ Parameters:
     Description: How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
     Type: String
     Default: rate(30 minutes)
-
-  pTableReadUnits:
-    Description: DynamoDB Table Read Units
-    Type: Number
-    Default: 5
-
-  pTableWriteUnits:
-    Description: DynamoDB Table Write Units
-    Type: Number
-    Default: 5
 
   pSmallLambdaSize:
     Description: Memory footprint for smaller Lambda
@@ -188,6 +182,18 @@ Resources:
           - Effect: Allow
             Action: secretsmanager:GetSecretValue
             Resource: !Sub ${pGCPServiceSecretArn}
+
+  GCPInventoryLambdaLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      CompatibleRuntimes:
+        - python3.6
+      Content:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Ref pGCPLambdaLayerPackage
+      Description: !Sub "${AWS::StackName}-GCP-Inventory-Libraries"
+
+
   #
   # State Machine Functions
   #
@@ -204,6 +210,8 @@ Resources:
       Code:
         S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
+      Layers:
+        - !Ref GCPInventoryLambdaLayer
       Environment:
         Variables:
           INVENTORY_BUCKET: !Ref pBucketName
@@ -264,6 +272,8 @@ Resources:
       Code:
         S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
+      Layers:
+        - !Ref GCPInventoryLambdaLayer
       Environment:
         Variables:
           INVENTORY_BUCKET: !Ref pBucketName
@@ -286,6 +296,8 @@ Resources:
       Code:
         S3Bucket: !Ref pBucketName
         S3Key: !Sub ${pLambdaZipFile}
+      Layers:
+        - !Ref GCPInventoryLambdaLayer
       Environment:
         Variables:
           INVENTORY_BUCKET: !Ref pBucketName
@@ -450,15 +462,13 @@ Resources:
     Type: "AWS::DynamoDB::Table"
     Properties:
       TableName: !Sub "${AWS::StackName}-gcp-projects"
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "projectId"
           AttributeType: "S"
       KeySchema:
         - AttributeName: "projectId"
           KeyType: "HASH"
-      ProvisionedThroughput:
-        ReadCapacityUnits: !Ref pTableReadUnits
-        WriteCapacityUnits: !Ref pTableWriteUnits
       StreamSpecification:
         StreamViewType: NEW_IMAGE
 
@@ -484,7 +494,7 @@ Resources:
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-create-project-report", { "stat": "Sum", "period": 604800, "label": "create-project-report" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
+                  [ "...", "${AWS::StackName}-new_project_handler", { "stat": "Sum", "period": 604800, "label": "new_project_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -504,7 +514,7 @@ Resources:
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
                   [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${AWS::StackName}-create-project-report", { "stat": "Sum", "period": 604800, "label": "create-project-report" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
+                  [ "...", "${AWS::StackName}-new_project_handler", { "stat": "Sum", "period": 604800, "label": "new_project_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",

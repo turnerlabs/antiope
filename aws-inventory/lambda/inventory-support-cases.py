@@ -17,17 +17,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
-RESOURCE_PATH = "support/trustedadvisorcheckresult"
-
-# TA Checks by category (as of 3/6/19)
-#  9             "category": "cost_optimizing",
-# 24             "category": "fault_tolerance",
-# 11             "category": "performance",
-# 17             "category": "security",
-# 48             "category": "service_limits",
-
-# This is what I think we should care about
-CATEGORIES = ['security', 'fault_tolerance', 'service_limits']
+RESOURCE_PATH = "support/case"
 
 
 def lambda_handler(event, context):
@@ -35,13 +25,14 @@ def lambda_handler(event, context):
     message = json.loads(event['Records'][0]['Sns']['Message'])
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
 
+    get_all = False
+    if 'get-all-support-cases' in message:
+        get_all = True
+
     try:
         target_account = AWSAccount(message['account_id'])
         support_client = target_account.get_client('support', region="us-east-1")  # Support API is in us-east-1 only
-        checks = get_checks(target_account, support_client)
-        for c in checks:
-            process_ta_check(target_account, support_client, c)
-
+        cases = get_cases(target_account, support_client, get_all)
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
@@ -57,44 +48,32 @@ def lambda_handler(event, context):
         raise
 
 
-def get_checks(target_account, client):
-    '''Get a List of all the trusted advisor checks, return those that match CATEGORIES'''
+def get_cases(target_account, client, get_all):
+    '''Get a List of all the trusted advisor cases, return those that match CATEGORIES'''
+    cases = []
+    response = client.describe_cases(includeResolvedCases=get_all)
+    while 'NextToken' in response:
+        for c in response['cases']:
+            process_case(target_account, client, c)
+        response = client.describe_cases(includeResolvedCases=get_all, NextToken=response['NextToken'])
+    for c in response['cases']:
+        process_case(target_account, client, c)
 
-    checks = []
-    response = client.describe_trusted_advisor_checks(language='en')
-    for c in response['checks']:
-        if c['category'] in CATEGORIES:
-            checks.append(c)
-    return(checks)
 
-
-def process_ta_check(target_account, client, c):
+def process_case(target_account, client, c):
     '''Get the check results for each check'''
-
-    response = client.describe_trusted_advisor_check_result(checkId=c['id'])
-    if 'result' not in response:
-        logger.error(f"Unable to get TA Check Results for checkId {c['id']} / {c['name']}")
-        return()
-
-    check = response['result']
-    logger.debug(check)
-
-    # There are a lot of TA checks. We don't need to capture the ones where it's all Ok.
-    if check['status'] == "ok":
-        return()
 
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
-    resource_item['resourceType']                   = "AWS::TrustedAdvisor::CheckResult"
+    resource_item['resourceType']                   = "AWS::Support::Case"
     resource_item['source']                         = "Antiope"
 
     resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
-    resource_item['configuration']                  = check
+    resource_item['configuration']                  = c
     resource_item['supplementaryConfiguration']     = {}
-    resource_item['supplementaryConfiguration']['CheckData'] = c
-    resource_item['resourceId']                     = check['checkId']
-    resource_item['resourceName']                   = c['name']
+    resource_item['resourceId']                     = c['caseId']
+    resource_item['resourceName']                   = c['displayId']
     resource_item['errors']                         = {}
 
-    save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}-{check['checkId']}", resource_item)
+    save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}-{c['caseId']}", resource_item)
