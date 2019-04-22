@@ -17,16 +17,20 @@ You'll get a message saying:
 
 1. Create Credentials in the Azure Portal
     1. TODO: Define these steps
-2. Create an Azure Credential file that looks like this:
-```
-TODO: Define me
+2. Create an Azure Credential file (azure_cred.json) that looks like this:
+```json
+{
+  "application_id": "REPLACEME",
+  "key": "REPLACEME",
+  "tenant_id": "THIS_IS_YOUR_AZURE_AD_TENANT_ID"
+}
 ```
 2. Then add those credentials to AWS Secrets Manager which the lambas will use to authentication Azure Resource Manager
 ```bash
 . config.PROD
 aws secretsmanager create-secret --name ${STACK_PREFIX}-Azure-Credentials --region ${AWS_DEFAULT_REGION} \
             --description "Provide Azure Inventory Credentails for Antiope" \
-            --secret-string file://path-to-mycreds.json
+            --secret-string file://azure_cred.json
 ````
 
 The Arn returned by that command should be added as pAzureServiceSecretArn to the Manifest file.

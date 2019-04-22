@@ -16,6 +16,7 @@ config.*
 
 aws-inventory/*/lib/
 gcp-inventory/*/gcp_lib/
+azure-inventory/*/azure_lib/
 
 # Build-time crud for the search cluster lambda
 search-cluster/*/*dist-info
@@ -46,6 +47,8 @@ azure-lambda-layer/python/
 # Test events also contain sensitive datad
 *test-events/*
 
+# Do not want creds in github!
+azure_cred.json
 
 
 
@@ -180,4 +183,5 @@ ENV/
 
 
 # End of https://www.gitignore.io/api/osx,python
+
 
