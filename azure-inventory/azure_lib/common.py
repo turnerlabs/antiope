@@ -29,6 +29,7 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
 
+
 def safe_dump_json(obj)->dict:
     # TODO needs to be able to parse json of json
     json_obj = {}
@@ -205,3 +206,4 @@ def get_web_sites(azure_creds, subscription_id):
         website_list.append(safe_dump_json(website))
 
     return website_list
+

@@ -14,8 +14,8 @@ logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
+
 def write_list_to_db(tag, obj_list):
-    
     if obj_list is not None:
         for obj in obj_list:
             logger.info(obj)
@@ -23,46 +23,37 @@ def write_list_to_db(tag, obj_list):
         for obj in obj_list:
             cleaned_obj_id = obj["id"].replace("/", "-")
             save_resource_to_s3(tag, cleaned_obj_id, obj)
-    
+
+
 # Lambda main routine
 def handler(event, context):
     logger.info("Received event: " + json.dumps(event, sort_keys=True))
+
+    message = json.loads(event['Records'][0]['Sns']['Message'])
+
+    subscription_id = message["subscription_id"]
+    what_resource = message["resource"]
+
+    resources_dict = {
+        "Logic-Apps": get_logic_apps,
+        "Key-Vaults": get_key_vaults,
+        "Data-Factories": get_data_factories,
+        "SQL-Servers": get_sql_servers,
+        "Disks": get_disks,
+        "Storage-Account":get_storage_accounts,
+        "VM":get_vms,
+        "App-Service":get_web_sites,
+        "IP":get_public_ips_of_subscription
+    }
+
+    resource_getter_function = resources_dict[what_resource]
 
     credential_info = get_azure_creds(os.environ['AZURE_SECRET_NAME'])
     if credential_info is None:
         raise Exception("Unable to extract Azure Credentials. Aborting...")
 
-    project_list = get_subcriptions(credential_info)
-    if project_list is None:
-        raise Exception("No Projects found. Aborting...")
-    
-    data_getters = [(get_vms, "vm"), (get_logic_apps, "Logic-Apps"), (get_key_vaults, "Key-Vaults"), (get_data_factories, "Data-Factories"), (get_sql_servers, "SQL-Servers"), (get_disks, "Disks")]
-    
-    for project in project_list:
-        for func in data_getters:
-            try:
-                data_list = func[0](credential_info,project["subscription_id"])
-                write_list_to_db(func[1], data_list)
-            except Exception as e:
-                logger.exception(e)
-                
-            
-
-        # vm_list = get_vms(credential_info, project["subscription_id"])
-        # write_list_to_db("vm", vm_list)
-        # 
-        # logic_apps = get_logic_apps(credential_info, project["subscription_id"])
-        # write_list_to_db("Logic-Apps", logic_apps)
-        # 
-        # key_vaults = get_key_vaults(credential_info, project["subscription_id"])
-        # write_list_to_db("Key-Vaults", key_vaults)
-        # 
-        # data_factories = get_data_factories(credential_info,project["subscription_id"])
-        # write_list_to_db("Data-Factories", data_factories)
-        # 
-        # sql_servers = get_sql_servers(credential_info,project["subscription_id"])
-        # write_list_to_db("SQL-Servers", sql_servers)
-        # 
-        # disks = get_disks(credential_info, project["subscription_id"])
-        # write_list_to_db("Disks", disks)
-        
+    try:
+        data_list = resource_getter_function(credential_info, subscription_id)
+        write_list_to_db(what_resource, data_list)
+    except Exception as e:
+        logger.exception(e)

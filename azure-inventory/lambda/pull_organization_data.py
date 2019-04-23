@@ -2,6 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 from azure_lib.common import *
+from azure.mgmt.subscription import SubscriptionClient
 
 import json
 import os
@@ -26,18 +27,25 @@ def handler(event, context):
     if credential_info is None:
         raise Exception("Unable to extract Azure Credentials. Aborting...")
 
-    subscription_list = get_subcriptions(credential_info)
-    if subscription_list is None:
+    # subscription_list = get_subcriptions(credential_info)
+
+    creds = return_azure_creds(credential_info["application_id"], credential_info["key"], credential_info["tenant_id"])
+
+    resource_client = SubscriptionClient(creds)
+
+    collected_subs = []
+    for subscription in resource_client.subscriptions.list():
+
+        subscription_dict = {"subscription_id": subscription.subscription_id,
+                                 "display_name": subscription.display_name, "state": str(subscription.state)}
+
+        create_or_update_subscription(subscription_dict, subscription_table)
+        collected_subs.append(subscription_dict)
+
+    if collected_subs is None:
         raise Exception("No Subscriptions found. Aborting...")
 
-    # # print(subscription_list)
-    # for p in subscription_list:
-    #     logger.info(p)
-
-    for p in subscription_list:
-        create_or_update_subscription(p, subscription_table)
-
-    event['subscription_list'] = subscription_list
+    event['subscription_list'] = collected_subs
     return(event)
 
 # end handler()

@@ -114,6 +114,15 @@ Resources:
             - s3:GetBucketLocation
             Effect: Allow
             Resource: '*'
+      - PolicyName: PublishToSNS
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - sns:publish
+              Resource:
+                - !Ref TriggerSubscriptionInventoryFunctionTopic
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -183,6 +192,11 @@ Resources:
       Description: !Sub "${AWS::StackName}-Azure-Inventory-Libraries"
 
 
+  TriggerSubscriptionInventoryFunctionTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Triggers the Inventory of each Subscription for ${AWS::StackName}"
+
   #
   # State Machine Functions
   #
@@ -230,53 +244,27 @@ Resources:
           AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
       # Tags inherited from Stack
 
-  PullVMDataLambdaFunction:
-    Type: AWS::Lambda::Function
+  PullOtherDataLambdaFunctionTriggerPermission:
+    Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-pull-vm-data"
-      Description: AWS Lamdba to pull vm data from Azure Organization into the S3
-      Handler: pull_vm_data.handler
-      Runtime: python3.6
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Layers:
-        - !Ref AzureInventoryLambdaLayer
-      Environment:
-        Variables:
-          INVENTORY_BUCKET: !Ref pBucketName
-          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
-      # Tags inherited from Stack
+      FunctionName: !GetAtt PullOtherDataLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerSubscriptionInventoryFunctionTopic
+      Action: lambda:invokeFunction
 
-  PullIPDataLambdaFunction:
-    Type: AWS::Lambda::Function
+  PullOtherDataLambdaFunctionTriggerSubscription:
+    Type: AWS::SNS::Subscription
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-pull-ip-data"
-      Description: AWS Lamdba to pull IP data from Azure Organization into the S3
-      Handler: pull_ip_data.handler
-      Runtime: python3.6
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Layers:
-        - !Ref AzureInventoryLambdaLayer
-      Environment:
-        Variables:
-          INVENTORY_BUCKET: !Ref pBucketName
-          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+      Endpoint: !GetAtt [PullOtherDataLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerSubscriptionInventoryFunctionTopic'
 
-  PullStorageDataLambdaFunction:
+  TriggerSubscriptionActionsLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-pull-storage-data"
-      Description: AWS Lamdba to pull IP data from Azure Organization into the S3
-      Handler: pull_storage_data.handler
+      FunctionName: !Sub "${AWS::StackName}-trigger-subscription-actions"
+      Description: AWS Lamdba to trigger all the inventorying magicky magicky functions.
+      Handler: trigger_subscription_actions.handler
       Runtime: python3.6
       Timeout: 300
       MemorySize: !Ref pSmallLambdaSize
@@ -288,28 +276,7 @@ Resources:
         - !Ref AzureInventoryLambdaLayer
       Environment:
         Variables:
-          INVENTORY_BUCKET: !Ref pBucketName
-          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
-
-  PullAppServiceDataLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-pull-app-service-data"
-      Description: AWS Lamdba to pull App Service data from Azure Organization into the S3
-      Handler: pull_app_service_data.handler
-      Runtime: python3.6
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Layers:
-        - !Ref AzureInventoryLambdaLayer
-      Environment:
-        Variables:
-          INVENTORY_BUCKET: !Ref pBucketName
-          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+          TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerSubscriptionInventoryFunctionTopic
 
   InventoryErrorHandlingLambdaFunction:
     Type: AWS::Lambda::Function
@@ -348,8 +315,6 @@ Resources:
                 )
               raise Exception(event['Cause'])
           ### End of Function
-
-
 
       # Tags inherited from Stack
 
@@ -437,6 +402,9 @@ Resources:
             Effect: Allow
             Resource:
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
+              - !GetAtt TriggerSubscriptionActionsLambdaFunction.Arn
+              - !GetAtt CreateSubscriptionReportLambdaFunction.Arn
+              - !GetAtt InventoryErrorHandlingLambdaFunction.Arn
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -464,42 +432,15 @@ Resources:
             "PullOrganizationDataLambdaFunction": {
               "Type": "Task",
               "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
-              "Next": "PullVMDataLambdaFunction",
+              "Next": "TriggerSubscriptionActionsLambdaFunction",
               "Catch": [{
                 "ErrorEquals": ["States.ALL"],
                 "Next": "ErrorHandlerState"
               }]
             },
-            "PullVMDataLambdaFunction": {
+            "TriggerSubscriptionActionsLambdaFunction": {
               "Type": "Task",
-              "Resource": "${PullVMDataLambdaFunction.Arn}",
-              "Next": "PullIPDataLambdaFunction",
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
-            },
-            "PullIPDataLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${PullIPDataLambdaFunction.Arn}",
-              "Next": "PullStorageDataLambdaFunction",
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "ErrorHandlerState"
-              }]
-            },
-            "PullStorageDataLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${PullStorageDataLambdaFunction.Arn}",
-              "Next": "WaitForLambdaExecutionsToComplete",
-              "Catch": [{
-                "ErrorEquals": ["States.ALL"],
-                "Next": "PullAppServiceDataLambdaFunction"
-              }]
-            },
-            "PullAppServiceDataLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${PullAppServiceDataLambdaFunction.Arn}",
+              "Resource": "${TriggerSubscriptionActionsLambdaFunction.Arn}",
               "Next": "WaitForLambdaExecutionsToComplete",
               "Catch": [{
                 "ErrorEquals": ["States.ALL"],
