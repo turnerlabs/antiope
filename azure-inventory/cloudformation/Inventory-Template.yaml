@@ -262,7 +262,7 @@ Resources:
   TriggerSubscriptionActionsLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-trigger-subscription-actions"
+      FunctionName: !Sub "${AWS::StackName}-trigger-collection"
       Description: AWS Lamdba to trigger all the inventorying magicky magicky functions.
       Handler: trigger_subscription_actions.handler
       Runtime: python3.6
