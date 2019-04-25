@@ -2,7 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 from azure_lib.common import *
-
+from .pull_organization_data import create_or_update_subscription
 import json
 import os
 import time
@@ -33,6 +33,7 @@ def handler(event, context):
 
     subscription_id = message["subscription_id"]
     what_resource = message["resource"]
+    write_to_s3 = True #some functions such as cost, do not write to s3, in order to make it agile we use a flag
 
     resources_dict = {
         "Logic-Apps": get_logic_apps,
@@ -43,8 +44,12 @@ def handler(event, context):
         "Storage-Account":get_storage_accounts,
         "VM":get_vms,
         "App-Service":get_web_sites,
-        "IP":get_public_ips_of_subscription
+        "IP":get_public_ips_of_subscription,
+        "Cost": cost_handler
     }
+
+    if what_resource == "cost":
+        write_to_s3 = False
 
     resource_getter_function = resources_dict[what_resource]
 
@@ -54,6 +59,24 @@ def handler(event, context):
 
     try:
         data_list = resource_getter_function(credential_info, subscription_id)
-        write_list_to_db(what_resource, data_list)
+        if write_to_s3:
+            write_list_to_db(what_resource, data_list)
     except Exception as e:
         logger.exception(e)
+
+def cost_handler(credential_info, subscription_id):
+    """
+    Cost handler is spesifically handled here because it writes to dynamo db table unlike the other getter methods which
+    write to S3
+    :param subscription_id:
+    :return:
+    """
+
+    dynamodb = boto3.resource('dynamodb')
+    subscription_table = dynamodb.Table(os.environ['SUBSCRIPTION_TABLE'])
+
+    cost = get_cost(credential_info, subscription_id)
+
+    subscription_json = {"subscription_id": subscription_id, "cost":cost}
+
+    create_or_update_subscription(subscription_json,subscription_table)
