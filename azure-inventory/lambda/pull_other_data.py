@@ -18,17 +18,12 @@ class AccountUpdateError(Exception):
 
 def create_or_update_subscription(subscription, subscription_table):
     #todo move this to more common place
-    logger.info(u"Adding subscription {}".format(subscription))
+    logger.info(u"Updating subscription {}".format(subscription))
 
     try:
-        #response = subscription_table.put_item(Item=subscription)
-        # response = subscription_table.update_item(
-        #     Key={'subscription_id': subscription["subscription_id"]},
-        #     AttributeUpdates=subscription,
-        # )
-        #
         for key in subscription.keys():
             if key != "subscription_id":
+                logger.info("Key: {}, Value: {}".format(key, subscription[key]))
                 response = subscription_table.update_item(
                         Key={'subscription_id': subscription["subscription_id"]},
                     UpdateExpression='SET #ts = :val1',
@@ -39,10 +34,9 @@ def create_or_update_subscription(subscription, subscription_table):
                         "#ts": key
                     }
                 )
-    except ClientError as e:
-        raise AccountUpdateError(u"Unable to create {}: {}".format(subscription, e))
-    except KeyError as e:
-        logger.critical(f"Subscription {subscription} is missing a key: {e}")
+                logger.info(response)
+    except Exception as e:
+        logger.exception(e)
 
 def write_list_to_db(tag, obj_list):
     if obj_list is not None:
@@ -77,7 +71,7 @@ def handler(event, context):
         "Cost": cost_handler
     }
 
-    if what_resource == "cost":
+    if what_resource == "Cost":
         write_to_s3 = False
 
     resource_getter_function = resources_dict[what_resource]

@@ -121,7 +121,7 @@ def get_cost(azure_creds, subscription_id):
     for uu in consumption_client.usage_details.list():
         sum += uu.pretax_cost
 
-    return sum
+    return int(sum)
 
 
 def get_subcriptions(azure_creds):
