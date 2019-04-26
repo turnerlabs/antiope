@@ -4,7 +4,7 @@
 PYTHON=python3
 PIP=pip3
 
-FILES=pull_organization_data.py pull_vm_data.py pull_ip_data.py report-subscriptions.py pull_storage_data.py pull_app_service_data.py pull_other_data.py trigger_subscription_actions.py
+FILES=pull_organization_data.py report-subscriptions.py pull_other_data.py trigger_subscription_actions.py
 
 DEPENDENCIES=azure_lib
 

@@ -33,7 +33,8 @@ def handler(event, context):
             "Storage-Account",
             "VM",
             "App-Service",
-            "IP"]
+            "IP",
+            "Cost"]
 
         for resource in resources_available:
 
