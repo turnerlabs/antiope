@@ -4,7 +4,7 @@ from botocore.exceptions import ClientError
 import json
 import os
 import time
-import datetime
+from datetime import datetime, timezone
 from dateutil import tz
 
 from lib.account import *
@@ -27,6 +27,8 @@ def lambda_handler(event, context):
     message = json.loads(event['Records'][0]['Sns']['Message'])
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
 
+    last_run_time = datetime.datetime.now(timezone.utc) - datetime.timedelta(minutes=35) # FIXME from being hardcoded time
+
     try:
         target_account = AWSAccount(message['account_id'])
 
@@ -38,9 +40,9 @@ def lambda_handler(event, context):
             cf_client = target_account.get_client('cloudformation', region=r)
             response = cf_client.describe_stacks()
             while 'NextToken' in response:
-                process_stacks(target_account, cf_client, r, response['Stacks'])
+                process_stacks(target_account, cf_client, r, response['Stacks'], last_run_time)
                 response = cf_client.describe_stacks(NextToken=response['NextToken'])
-            process_stacks(target_account, cf_client, r, response['Stacks'])
+            process_stacks(target_account, cf_client, r, response['Stacks'], last_run_time)
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -53,12 +55,23 @@ def lambda_handler(event, context):
         raise
 
 
-def process_stacks(target_account, cf_client, region, stacks):
+def process_stacks(target_account, cf_client, region, stacks, last_run_time):
 
     start_time = int(time.time())
+    count = 0
 
     for stack in stacks:
+
+        # FIXME, support a full inventory somehow
+        if 'LastUpdatedTime' in stack and stack['LastUpdatedTime'] < last_run_time:
+            # Don't inventory what's been done before
+            continue
+        if 'LastUpdatedTime' not in stack and stack['CreationTime'] < last_run_time:
+            # Don't inventory what's been done before
+            continue
+
         logger.debug("Processing stack {} for {} in {}".format(stack['StackId'], target_account.account_id, region))
+        count += 1
 
         resource_item = {}
         resource_item['awsAccountId']                   = target_account.account_id
@@ -80,4 +93,4 @@ def process_stacks(target_account, cf_client, region, stacks):
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
     end_time = int(time.time())
-    logger.debug(f"process_stacks() took {end_time - start_time} sec to process {len(stacks)} stacks")
+    logger.debug(f"process_stacks() took {end_time - start_time} sec to process {count} stacks")
