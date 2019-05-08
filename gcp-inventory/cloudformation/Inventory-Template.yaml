@@ -12,6 +12,10 @@ Parameters:
     Type: String
     Default: inventory.zip
 
+  pVersion:
+    Description: Version of this stack's deployment
+    Type: String
+
   pGCPLambdaLayerPackage:
     Description: Object Key for the Antiope GCP Python Dependencies Lambda Layer
     Type: String
@@ -663,12 +667,22 @@ Resources:
 
 Outputs:
   StackName:
+    Description: Name of this Stack
     Value: !Ref AWS::StackName
+
+  Version:
+    Description: Version of this stack's deployment
+    Value: !Ref pVersion
+
   InventoryStackVersion:
     Value: !Ref pLambdaZipFile
+
   InventoryTriggerTopic:
     Value: !Ref TriggerProjectInventoryFunctionTopic
+
   NewProjectNotificationTopic:
     Value: !Ref NewActiveProjectTopic
+
   ForeignAccountNotificationTopic:
     Value: !Ref NewForeignProjectTopic
+
