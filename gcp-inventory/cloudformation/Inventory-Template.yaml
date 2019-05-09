@@ -674,7 +674,7 @@ Outputs:
     Description: Version of this stack's deployment
     Value: !Ref pVersion
 
-  InventoryStackVersion:
+  LambdaPackageFile:
     Value: !Ref pLambdaZipFile
 
   InventoryTriggerTopic:
