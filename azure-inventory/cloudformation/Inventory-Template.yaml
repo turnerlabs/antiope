@@ -12,6 +12,10 @@ Parameters:
     Type: String
     Default: inventory.zip
 
+  pVersion:
+    Description: Version of this stack's deployment
+    Type: String
+
   pAzureLambdaLayerPackage:
     Description: Object Key for the Antiope Azure Python Dependencies Lambda Layer
     Type: String
@@ -191,36 +195,13 @@ Resources:
         S3Key: !Ref pAzureLambdaLayerPackage
       Description: !Sub "${AWS::StackName}-Azure-Inventory-Libraries"
 
-
+  #
+  # Auzre Spray-n-Pray functions
+  #
   TriggerSubscriptionInventoryFunctionTopic:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: !Sub "Triggers the Inventory of each Subscription for ${AWS::StackName}"
-
-  #
-  # State Machine Functions
-  #
-  PullOrganizationDataLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-pull-organization-data"
-      Description: AWS Lamdba to pull data from Azure Organization into the Azure Inventory DDB Table
-      Handler: pull_organization_data.handler
-      Runtime: python3.6
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Layers:
-        - !Ref AzureInventoryLambdaLayer
-      Environment:
-        Variables:
-          INVENTORY_BUCKET: !Ref pBucketName
-          SUBSCRIPTION_TABLE: !Ref SubscriptionDBTable
-          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
-      # Tags inherited from Stack
 
   PullOtherDataLambdaFunction:
     Type: AWS::Lambda::Function
@@ -258,6 +239,32 @@ Resources:
       Endpoint: !GetAtt [PullOtherDataLambdaFunction, Arn]
       Protocol: lambda
       TopicArn: !Ref 'TriggerSubscriptionInventoryFunctionTopic'
+
+
+  #
+  # State Machine Functions
+  #
+  PullOrganizationDataLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-pull-organization-data"
+      Description: AWS Lamdba to pull data from Azure Organization into the Azure Inventory DDB Table
+      Handler: pull_organization_data.handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Layers:
+        - !Ref AzureInventoryLambdaLayer
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          SUBSCRIPTION_TABLE: !Ref SubscriptionDBTable
+          AZURE_SECRET_NAME: !Ref pAzureServiceSecretName
+      # Tags inherited from Stack
 
   TriggerSubscriptionActionsLambdaFunction:
     Type: AWS::Lambda::Function
@@ -485,6 +492,44 @@ Resources:
         StreamViewType: NEW_IMAGE
 
   #
+  # New Subscription Handling
+  #
+  NewSubscriptionHandlerLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-new_sub_handler"
+      Description: Function to Handle the discovery of new Subscriptions written to the Subscriptions DDB Table
+      Handler: new_subscription_handler.lambda_handler
+      Runtime: python3.6
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          SUBSCRIPTION_TABLE: !Ref SubscriptionDBTable
+          ACTIVE_TOPIC: !Ref NewActiveSubscriptionTopic
+      # Tags inherited from Stack
+
+  DataTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    DependsOn: InventoryLambdaRole
+    Properties:
+      BatchSize: 25 #trigger one lambda per document
+      Enabled: True
+      EventSourceArn: !GetAtt SubscriptionDBTable.StreamArn
+      FunctionName: !GetAtt NewSubscriptionHandlerLambdaFunction.Arn
+      StartingPosition: LATEST #always start at the tail of the stream
+
+  NewActiveSubscriptionTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Notifications of a new Azure Subscription"
+
+
+  #
   # Dashboard
   #
   Dashboard:
@@ -675,6 +720,13 @@ Resources:
 
 Outputs:
   StackName:
+    Description: Name of this Stack
     Value: !Ref AWS::StackName
-  InventoryStackVersion:
+
+  Version:
+    Description: Version of this stack's deployment
+    Value: !Ref pVersion
+
+  LambdaPackageFile:
     Value: !Ref pLambdaZipFile
+

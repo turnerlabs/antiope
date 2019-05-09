@@ -54,7 +54,8 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-pull-ip-data \
 			$(FULL_STACK_NAME)-pull-storage-data \
 			$(FULL_STACK_NAME)-pull-app-service-data \
-			$(FULL_STACK_NAME)-create-subscription-report
+			$(FULL_STACK_NAME)-create-subscription-report \
+			$(FULL_STACK_NAME)-new_sub_handler
 
 
 .PHONY: $(FUNCTIONS)
@@ -90,7 +91,7 @@ cfn-validate-manifest: cfn-validate
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) --force
+	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pVersion=$(version) --force
 
 #
 # Lambda Targets
