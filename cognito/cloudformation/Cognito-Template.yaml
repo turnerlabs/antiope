@@ -27,6 +27,10 @@ Parameters:
     Description: The Custom Domain Name you will configure once the API Gateway is created
     Type: String
 
+  pVersion:
+    Description: Version of this stack's deployment
+    Type: String
+
 Conditions:
   CreateCognitoUser: !Not [ !Equals [ !Ref pEmailAddress, "NONE"] ]
 
@@ -335,17 +339,27 @@ Resources:
 
 Outputs:
   StackName:
+    Description: Name of this Stack
     Value: !Ref AWS::StackName
+
+  Version:
+    Description: Version of this stack's deployment
+    Value: !Ref pVersion
+
   CognitoKibanaAuthRole:
     Description: "Role for cognito Kibana auth"
     Value: !GetAtt CognitoKibanaAuthRole.Arn
+
   CognitoUserPoolId:
     Description: "ID for user pool used for auth"
     Value: !Ref CognitoUserPool
+
   CognitoIdentityPoolId:
     Description: "ID for identity pool used for auth"
     Value: !Ref CognitoIDPool
+
   CognitoUserPoolName:
     Value: !GetAtt CognitoUserPool.ProviderName
+
   LoginUrl:
     Value: !Sub "https://${pCustomAPIDomain}/login"

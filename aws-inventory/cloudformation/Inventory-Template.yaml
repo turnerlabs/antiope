@@ -11,6 +11,10 @@ Parameters:
     Description: File Name for the lambdas
     Type: String
 
+  pVersion:
+    Description: Version of this stack's deployment
+    Type: String
+
   pRoleName:
     Description: Default name of the AssumeRole to assume into accounts
     Type: String
@@ -1881,7 +1885,11 @@ Outputs:
     Value: !Ref AWS::StackName
     Description: Just the name of this stack
 
-  InventoryStackVersion:
+  Version:
+    Description: Version of this stack's deployment
+    Value: !Ref pVersion
+
+  LambdaPackageFile:
     Value: !Ref pLambdaZipFile
     Description: Object key to the Lambda package
 
