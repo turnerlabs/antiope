@@ -7,6 +7,10 @@ Parameters:
     Description: Name of the bucket to hold the images
     Type: String
 
+  pVersion:
+    Description: Version of this stack's deployment
+    Type: String
+
   pDomainName:
     Description: Name of the Elasticsearch Domain
     Type: String
@@ -519,25 +523,38 @@ Resources:
 
 Outputs:
   StackName:
+    Description: Name of this Stack
     Value: !Ref AWS::StackName
-  InventoryStackVersion:
+
+  Version:
+    Description: Version of this stack's deployment
+    Value: !Ref pVersion
+
+  LambdaPackageFile:
     Value: !Ref pLambdaZipFile
+
   ClusterEndpoint:
     Value: !GetAtt SearchClusterDomain.DomainEndpoint
+
   ClusterName:
     Value: !Ref SearchClusterDomain
+
   ESCognitoRole:
     Description: "Use this role to enable Cognito authentication in Elasticsearch"
     Value: !Ref ESEnableCognitoRole
+
   ESCognitoRoleArn:
     Description: "Use this role to enable Cognito authentication in Elasticsearch"
     Value: !GetAtt ESEnableCognitoRole.Arn
+
   KibanaURL:
     Description: "The URL to access Kibana."
     Value: !Sub "https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/"
+
   SearchIngestEventQueueArn:
     Description: Arn of the SQS Queue S3 should send new events notifications to
     Value: !GetAtt SearchIngestEventQueue.Arn
+
   SearchIngestEventQueueUrl:
     Description: Arn of the SQS Queue S3 should send new events notifications to
     Value: !Ref SearchIngestEventQueue

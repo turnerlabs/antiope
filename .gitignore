@@ -16,6 +16,7 @@ config.*
 
 aws-inventory/*/lib/
 gcp-inventory/*/gcp_lib/
+azure-inventory/*/azure_lib/
 
 # Build-time crud for the search cluster lambda
 search-cluster/*/*dist-info
@@ -37,7 +38,7 @@ search-cluster/*/elasticsearch/
 lambda_layer/python/
 gcp_lambda_layer/python/
 azure_lambda_layer/python/
-
+azure-lambda-layer/python/
 
 
 # Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
@@ -46,6 +47,8 @@ azure_lambda_layer/python/
 # Test events also contain sensitive datad
 *test-events/*
 
+# Do not want creds in github!
+azure_cred.json
 
 
 

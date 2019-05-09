@@ -111,7 +111,7 @@ cfn-validate-manifest: cfn-validate
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET)  --force
+	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pLambdaZipFile=$(OBJECT_KEY) pBucketName=$(BUCKET) pVersion=$(version) --force
 
 #
 # Lambda Targets

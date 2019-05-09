@@ -59,7 +59,7 @@ cfn-validate: cfn-upload $(STACK_TEMPLATE)
 
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
-	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pBucketName=$(BUCKET) pCustomCognitoDomain=$(STACK_PREFIX)-$(env) --force
+	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pBucketName=$(BUCKET) pCustomCognitoDomain=$(STACK_PREFIX)-$(env) pVersion=$(version) --force
 
 configure-identity-pool:
 	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))

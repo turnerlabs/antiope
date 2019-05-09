@@ -20,6 +20,8 @@ ifndef BUCKET
 $(error BUCKET is not set)
 endif
 
+STACKS=aws-inventory azure-inventory gcp-inventory search-cluster cognito
+
 everything: cognito-deploy inventory-deploy search-deploy
 
 library:
@@ -79,3 +81,8 @@ pep8:
 	pycodestyle gcp-inventory/gcp_lib
 
 
+versions:
+	@for s in $(STACKS) ; do \
+	  /bin/echo -n "$$s " ; \
+	  cft-get-output -s --stack-name $(STACK_PREFIX)-$(env)-$$s --output-key Version --region $(AWS_DEFAULT_REGION) ; \
+	done
