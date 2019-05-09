@@ -66,6 +66,8 @@ def discover_domains(account):
         resource_item['source']                         = "Antiope"
 
         # Get the real juicy details
+        # Throttling/API Limit Info:
+        # https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/DNSLimitations.html#limits-api-requests-route-53
         domain = route53_client.get_domain_detail(DomainName=d['DomainName'])
         del domain['ResponseMetadata']  # Remove response metadata. Not needed
 
@@ -87,6 +89,7 @@ def discover_domains(account):
 
         # Need to make sure the resource name is unique and service identifiable.
         save_resource_to_s3(DOMAIN_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+        time.sleep(1) # To avoid throttling issues
 
 
 def discover_zones(account):
@@ -135,8 +138,9 @@ def discover_zones(account):
         if 'VPCs' in response:
             resource_item['supplementaryConfiguration']['AuthorizedVPCs'] = response['VPCs']
 
-        resource_item['supplementaryConfiguration']['ResourceRecordSets'] = get_resource_records(route53_client, zone['Id'])
-        resource_item['supplementaryConfiguration']['ResourceRecordSetCount'] = len(resource_item['supplementaryConfiguration']['ResourceRecordSets'])
+        # This currently overloads the Route53 API Limits and exceeds Lambda Timeouts.
+        # resource_item['supplementaryConfiguration']['ResourceRecordSets'] = get_resource_records(route53_client, zone['Id'])
+        # resource_item['supplementaryConfiguration']['ResourceRecordSetCount'] = len(resource_item['supplementaryConfiguration']['ResourceRecordSets'])
 
         save_resource_to_s3(ZONE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
