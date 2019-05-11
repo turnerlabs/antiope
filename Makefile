@@ -24,9 +24,15 @@ STACKS=aws-inventory azure-inventory gcp-inventory search-cluster cognito
 
 everything: cognito-deploy inventory-deploy search-deploy
 
-library:
+# Layer Targets
+layer:
 	cd lambda_layer && $(MAKE) layer
 
+gcp-layer:
+	cd gcp_lambda_layer && $(MAKE) layer
+
+
+# Stack Targets
 cognito-deploy:
 	cd cognito && $(MAKE) deploy
 
@@ -70,7 +76,6 @@ enable-inventory:
 	aws events enable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
 
 gcp:
-	cd gcp_lambda_layer && $(MAKE) layer
 	cd gcp-inventory && $(MAKE) deploy
 
 pep8:
@@ -88,6 +93,7 @@ manifests:
 	cd gcp-inventory && $(MAKE) manifest
 # 	cd azure-inventory && $(MAKE) manifest
 
+# Display the version identifiers of all the stacks
 versions:
 	@for s in $(STACKS) ; do \
 	  /bin/echo -n "$$s " ; \
