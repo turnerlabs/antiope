@@ -13,14 +13,7 @@
 1. Deploy a Cross Account role in all payer & child accounts you want to inventory.
     * One is provided in the `cloudformation/SecurityCrossAccountRoleTemplate.yaml` CloudFormation template
 
-## Lambda Layer
-The majority of the python dependencies for the different stacks are managed via a [Lambda Layer](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html). There are separate Layers for AWS, GCP and Azure. To build and upload the AWS layer (which is required for everything), do the following:
-```bash
-make layer env=prod
-```
-Note the output of the layer process. You need to add that to your manifest files below.
-
-## Configuration
+## Config File
 Antiope deploys via Makefiles, cft-deploy and some AWS CLI commands inside the Makefile. Most of the common settings for each of the stacks is kept in a config.${env} file (where ${env} is your environment (ie dev, stage, prod)).
 
 The config file is sourced by the makefiles to construct the stack name and to determine the S3 bucket and region Antiope will use. The file should look like this:
@@ -31,6 +24,14 @@ AWS_DEFAULT_REGION=us-west-2    # I separate my Antiope environments by region t
 ```
 I recommending picking something very unique for `STACK_PREFIX`. yourcompany-antiope is a good choice
 
+## Lambda Layer
+The majority of the python dependencies for the different stacks are managed via a [Lambda Layer](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html). There are separate Layers for AWS, GCP and Azure. To build and upload the AWS layer (which is required for everything), do the following:
+```bash
+make layer env=prod
+```
+Note the output of the layer process. You need to add that to your manifest files below.
+
+## Manifest Files
 In addition to that config file, each Antiope Module needs a [CloudFormation "manifest" file](https://github.com/jchrisfarris/cft-deploy#user-content-manifest-files).
 
 Sample Manifest files can be found in docs/sample-manifests. You can copy the samples and place them in the right directory with the correct name, or autogenerate the manifest with `make manifests env=prod` from the main Antiope directory
@@ -63,6 +64,7 @@ The Manifest files need to be tweaked for your environment.
     2. Cluster Instance Types in the t2 family do not support Cluster Encryption. Your stack will fail to deploy if these two settings don't align
     3. Experience seems to be that it's best to scale `pClusterInstanceCount` out rather than making `pClusterInstanceType` larger.
 
+## AWS Inventory Config json
 Finally, the AWS Inventory needs it's config file created and pushed to S3. The file must be named `PREFIX-ENV-aws-inventory-config.json` and reside in the root of the Antiope Bucket. A sample config file can be found in `aws-inventory/config-SAMPLE.json`. This contains the list of organizational master/payer accounts to inventory in addition to any stepfunction arns the inventory StepFunction should pass off to. If you don't need to chain Step Functions right now, you can remove the `next_function` block. `make deploy` in the `aws-inventory` directory will copy the config file to S3. Copy the sample config to the proper `PREFIX-ENV-aws-inventory-config.json` filename in the aws-inventory subdirectory. It will be pushed to S3 when the stack is deployed.
 
 ## Easy install Instructions
