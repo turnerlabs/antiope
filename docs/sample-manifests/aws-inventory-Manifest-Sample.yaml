@@ -4,7 +4,7 @@
 # These control how and where the cloudformation is executed
 StackName: PREFIX-ENV-aws-inventory
 OnFailure: DO_NOTHING # accepts DO_NOTHING, ROLLBACK, DELETE
-Region: us-west-2
+Region: us-east-1
 TimeOut: 15m
 # You must specifiy LocalTemplate or S3Template but not both.
 # LocalTemplate: cloudformation/Inventory-Template.yaml
@@ -20,50 +20,26 @@ TimeOut: 15m
 # Parameters to the cloudformation stack that are defined manually.
 ###########
 Parameters:
-  # Arn Name of the Role the lambda needs to assume to do cross account Access
-  pAssumeRoleArn: arn:aws:iam::*:role/Security-Audit
 
   # How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
   pExecutionRate: rate(30 minutes)
 
-  # Comma Delimited list of payer accounts to process
-  pPayerAccountList:
-
   # Default name of the AssumeRole to assume into accounts
   pRoleName: Security-Audit
 
-  # DynamoDB Table Read Units
-  pTableReadUnits: 50
+  pIamUserName: antiope_inventory
 
-  # DynamoDB Table Write Units
-  pTableWriteUnits: 50
+  pAWSLambdaLayerPackage: THIS COMES FROM THE cd lambda_layer ; make layer STEP
 
-  # <optional> IAM Username with access to the Inventory Bucket
-  pIamUserName: srv_antiope_inventory_dev
+  pEntSupport: False # Set to true if you have biz support
 
-###########
-# These stacks are needed by the SourcedParameters section
-###########
-DependsOnStacks:
-    # - MyOtherStack
-
-###########
-# Parameters that come from other deployed stacks.
-# Valid Sections are Resources, Outputs Parameters
-#
-# Hint. Get your list of resources this way:
-# aws cloudformation describe-stack-resources --stack-name MSC-DEV-VPC-EAST-1 --output text | awk '{print $2, " ", $3, " " $5}'
-###########
-SourcedParameters:
-  # The Pre-install script needs this to sed into the lambda ARN.
-  # pVPCID: MyOtherStack.Outputs.VPCID
 
 ###########
 # Tags that apply to the stack. Will be inherited by some resources.
 ###########
 Tags:
   Name: PREFIX-ENV-aws-inventory
-
+  INSERT YOUR OWN TAGS HERE
 
 ###########
 # Stack Policies protect resources from accidential deletion or replacement
@@ -79,7 +55,15 @@ StackPolicy:
       - "Update:Modify"
       - "Update:Delete"
       - "Update:Replace"
-
+  - Resource:
+    - LogicalResourceId/AccountDBTable
+    - LogicalResourceId/VpcInventoryDBTable
+    - LogicalResourceId/HistoricalBillingDataTable
+    Effect: Deny
+    Principal: "*"
+    Action:
+      - "Update:Delete"
+      - "Update:Replace"
 
 # Preinstall script will build the zip upload the Lambda code to the S3 bucket
 # Anything inside a {{ }} is a stack parameter (Regular or Sourced)
