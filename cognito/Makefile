@@ -72,3 +72,6 @@ api-deploy:
 	$(eval API_ID := $(shell aws apigateway get-rest-apis --query 'items[?name==`$(FULL_STACK_NAME)`].id' --output text --region $(AWS_DEFAULT_REGION)))
 	aws apigateway create-deployment --rest-api-id $(API_ID) --region $(AWS_DEFAULT_REGION) --stage-name "Reports"
 
+# target to generate a manifest file. Only do this once
+manifest: cfn-upload
+	cft-generate-manifest --s3-url s3://$(BUCKET)/$(TEMPLATE_KEY) -m $(manifest) --stack-name $(FULL_STACK_NAME) --region $(AWS_DEFAULT_REGION)

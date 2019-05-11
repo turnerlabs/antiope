@@ -70,8 +70,8 @@ clean:
 #
 
 # target to generate a manifest file. Only do this once
-manifest:
-	cft-generate-manifest -t $(STACK_TEMPLATE) -m $(manifest) --stack-name $(FULL_STACK_NAME) --region $(AWS_DEFAULT_REGION)
+manifest: cfn-upload
+	cft-generate-manifest --s3-url s3://$(BUCKET)/$(TEMPLATE_KEY) -m $(manifest) --stack-name $(FULL_STACK_NAME) --region $(AWS_DEFAULT_REGION)
 
 # Upload template to S3
 cfn-upload: $(STACK_TEMPLATE)
