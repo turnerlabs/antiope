@@ -80,6 +80,13 @@ pep8:
 	pycodestyle lib
 	pycodestyle gcp-inventory/gcp_lib
 
+# target to generate all the manifests. Only do this once
+manifests:
+	cd cognito && $(MAKE) manifest
+	cd aws-inventory && $(MAKE) manifest
+	cd search-cluster && $(MAKE) manifest
+	cd gcp-inventory && $(MAKE) manifest
+# 	cd azure-inventory && $(MAKE) manifest
 
 versions:
 	@for s in $(STACKS) ; do \
