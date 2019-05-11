@@ -29,7 +29,7 @@ Parameters:
 
   pIamUserName: antiope_inventory
 
-  pAWSLambdaLayerPackage: THIS COMES FROM THE cd lambda_layer ; make layer STEP
+  pAWSLambdaLayerPackage: THIS COMES FROM THE make layer STEP
 
   pEntSupport: False # Set to true if you have biz support
 

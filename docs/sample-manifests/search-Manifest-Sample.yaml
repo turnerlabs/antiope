@@ -1,74 +1,92 @@
-# deploy_stack.rb Manifest file generated from cloudformation/SearchCluster-Template.yaml on Sat Oct 27 18:58:06 EDT 2018
 
+# Manifest Auto-generated at 2019-05-11 09:04:02.245370
+# Template Description: Deploy the Search Cluster Component of Antiope
 
 # These control how and where the cloudformation is executed
 StackName: PREFIX-ENV-search-cluster
-OnFailure: DO_NOTHING # accepts DO_NOTHING, ROLLBACK, DELETE
+
 Region: us-west-2
-TimeOut: 30m
+TimeOut: 15m
+TerminationProtection: false
 
+# Either DisableRollback or OnFailure can be specified, not both.
+OnFailure: DO_NOTHING # accepts DO_NOTHING, ROLLBACK, DELETE
+# DisableRollback: true
 
-# Paramaters:
+# You must specify LocalTemplate or S3Template but not both.
+# S3Template: REMOVE THIS LINE
+
+# Parameters:
 # There are two kinds of parameters, regular and sourced.
 # Regular parameters are static and defined in the Parameters: section of this yaml file
-# Sourced are parameters that cfnDeploy will go and fetch from other Stacks.
-# This simple Serverless app does not depend on any other stacks. However if we start using VPC based
-# Lambdas, or have multiple stacks that need to interact, we will want to use Sourced Parameters
+# Sourced are parameters that cft-deploy will go and fetch from other Stacks that are referenced in the DependentStacks section.
+
 
 ###########
 # Parameters to the cloudformation stack that are defined manually.
 ###########
 Parameters:
 
-  # Default Username for Cognito, leave this out if you only plan to have federated users
-  pEmailAddress: you@yourcompany.com
-
-  # Name of the Identity Pool. Cannot contain non-alphanumeric char
-  pIdentityPoolName: AntiopeIDPool
+  # Name of the bucket to hold the images
+  # pBucketName: REMOVE THIS LINE
 
   # Name of the Elasticsearch Domain
-  pDomainName:
+  pDomainName: SET THIS TO SOMETHING
 
-  # Cluster Instance Count
-  pClusterInstanceCount: 5
+  # File Name for the lambdas
+  # pLambdaZipFile: REMOVE THIS LINE
+
+  # Version of this stack's deployment
+  # pVersion: REMOVE THIS LINE
+
+  # Object Key for the Antiope Python Dependencies Lambda Layer
+  pAWSLambdaLayerPackage: THIS COMES FROM THE make layer STEP
 
   # Size of the ES Cluster
-  pClusterInstanceType: m4.large.elasticsearch
+  pClusterInstanceType: t2.small.elasticsearch
+
+  # Cluster Instance Count
+  pClusterInstanceCount: 1
 
   # Enable Encryption for the Elasticsearch Cluster
-  pClusterEncryption: True
+  pClusterEncryption: false
+
+  # Set this to True to enable greater capacity for ReIndex
+  pReIndexSettings: false
 
 ###########
 # These stacks are needed by the SourcedParameters section
 ###########
-DependsOnStacks:
-    -PREFIX-ENV-cognito
+DependentStacks:
+
+  # Source parameters from the cognito stack for this stack.
+  Cognito: PREFIX-ENV-cognito
 
 ###########
 # Parameters that come from other deployed stacks.
 # Valid Sections are Resources, Outputs Parameters
 #
 # Hint. Get your list of resources this way:
-# aws cloudformation describe-stack-resources --stack-name MSC-DEV-VPC-EAST-1 --output text | awk '{print $2, " ", $3, " " $5}'
-###########
+# aws cloudformation describe-stack-resources --stack-name stack_name_for_other_stack --output text
 SourcedParameters:
+
   # ARN for the Kibana Cognito Auth role (Created by the Cognito Stack)
-  pCognitoKibanaAuthRole:  PREFIX-ENV-dev-cognito.Outputs.CognitoKibanaAuthRole
+  pCognitoKibanaAuthRole:  Cognito.Outputs.CognitoKibanaAuthRole
 
 ###########
 # Tags that apply to the stack. Will be inherited by some resources.
 ###########
 Tags:
   Name: PREFIX-ENV-search-cluster
-
+  INSERT YOUR OWN TAGS HERE
 
 ###########
-# Stack Policies protect resources from accidential deletion or replacement
+# Stack Policies protect resources from accidental deletion or replacement
 # for the definition of stack policies see:
 # see http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/protect-stack-resources.html#stack-policy-reference
 ###########
 StackPolicy:
-    # All other resources should be modifiable.
+    # All resources should be modifiable.
   - Resource: "*"
     Effect: Allow
     Principal: "*"
@@ -76,6 +94,5 @@ StackPolicy:
       - "Update:Modify"
       - "Update:Delete"
       - "Update:Replace"
-
 
 # End of Manifest
