@@ -58,6 +58,7 @@ SourcedParameters:
 ###########
 Tags:
   Name: PREFIX-ENV-cognito
+  INSERT YOUR OWN TAGS HERE
 
 ###########
 # Stack Policies protect resources from accidental deletion or replacement
