@@ -1,19 +1,27 @@
 # Install Instructions
 
+** Note: All of these examples imply you're deploying your prod environment **
+
 ## PreReq
 
 1. Make sure you have the AWS CLI installed
 1. Make sure you have jq installed.
 1. Create an S3 Bucket to act as the inventory bucket
-    **It is important that the bucket be created in the region you intend to run Antiope.**
-1. You'll need cftdeploy python package & scripts
-    ```pip3 install cftdeploy```
+    * **It is important that the bucket be created in the region you intend to run Antiope.**
+1. You'll need cftdeploy python package & scripts:
+    * ```pip3 install cftdeploy```
 1. Deploy a Cross Account role in all payer & child accounts you want to inventory.
     * One is provided in the `cloudformation/SecurityCrossAccountRoleTemplate.yaml` CloudFormation template
 
+## Lambda Layer
+The majority of the python dependencies for the different stacks are managed via a [Lambda Layer](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html). There are separate Layers for AWS, GCP and Azure. To build and upload the AWS layer (which is required for everything), do the following:
+```bash
+make layer env=prod
+```
+Note the output of the layer process. You need to add that to your manifest files below.
 
 ## Configuration
-Antiope deploys via Makefiles, cft-deploy and some AWS CLI commands inside the Makefile. Most of the common settings for each of the stacks is kept in a config.${env} file (where ${env} is your environment (dev, stage, prod)).
+Antiope deploys via Makefiles, cft-deploy and some AWS CLI commands inside the Makefile. Most of the common settings for each of the stacks is kept in a config.${env} file (where ${env} is your environment (ie dev, stage, prod)).
 
 The config file is sourced by the makefiles to construct the stack name and to determine the S3 bucket and region Antiope will use. The file should look like this:
 ```bash
@@ -23,25 +31,39 @@ AWS_DEFAULT_REGION=us-west-2    # I separate my Antiope environments by region t
 ```
 I recommending picking something very unique for `STACK_PREFIX`. yourcompany-antiope is a good choice
 
-
 In addition to that config file, each Antiope Module needs a [CloudFormation "manifest" file](https://github.com/jchrisfarris/cft-deploy#user-content-manifest-files).
 
-Sample Manifest files can be found in docs/sample-manifests. You can copy the samples and place them in the right directory with the correct name.
+Sample Manifest files can be found in docs/sample-manifests. You can copy the samples and place them in the right directory with the correct name, or autogenerate the manifest with `make manifests env=prod` from the main Antiope directory
 
+The Manifest files need to be tweaked for your environment.
 * cognito/cloudformation/${STACK_PREFIX}-${env}-cognito-Manifest.yaml
+    1. Remove the line and comments for `S3Template`, `pBucketName`, `pLambdaZipFile`, and `pVersion`. These are all managed by the makefile.
+    2. Set `pCustomAPIDomain` to the URL you want the Antiope reports to show up as.
+
 * aws-inventory/cloudformation/${STACK_PREFIX}-${env}-aws-inventory-Manifest.yaml
-   1. `pPayerAccountList` is a comma separated list of the payer account IDs for your organization
-   4. If you want an IAM user created with permissions to the bucket, specify the username as `pIamUserName`, otherwise remove the entry.
-   4. Any Tags you want the stack to have can be added in the Tags Section. All tags will propagate to the Lambda Functions and DynamoDB Tables.
+    1. Remove the line and comments for `S3Template`, `pBucketName`, `pLambdaZipFile`, and `pVersion`. These are all managed by the makefile.
+    2. Set the `pAWSLambdaLayerPackage` from the output of the Lambda Layer step above
+    4. If you want an IAM user created with permissions to the bucket, specify the username as `pIamUserName`, otherwise remove the entry or set it to `NONE`.
+    4. Any Tags you want the stack to have can be added in the Tags Section. All tags will propagate to the Lambda Functions and DynamoDB Tables.
+    5. In order to protect the DynamoDB tables from accidental deletion or overwrite by CloudFormation, add the following to the StackPolicy:
+    ```
+        - Resource:
+            - LogicalResourceId/AccountDBTable
+            - LogicalResourceId/VpcInventoryDBTable
+            - LogicalResourceId/HistoricalBillingDataTable
+            Effect: Deny
+            Principal: "*"
+            Action:
+              - "Update:Delete"
+              - "Update:Replace"
+    ```
+
 * search-cluster/cloudformation/${STACK_PREFIX}-${env}-search-cluster-Manifest.yaml
     1. `pDomainName` is the name of the Elastic Search domain to be created.
     2. Cluster Instance Types in the t2 family do not support Cluster Encryption. Your stack will fail to deploy if these two settings don't align
     3. Experience seems to be that it's best to scale `pClusterInstanceCount` out rather than making `pClusterInstanceType` larger.
 
-**FUTURE IMPROVEMENT** - running `make manifests env=prod` from the top level directory will pre-generate the manifest files for all the stacks allowing you to customize them as necessary.
-
-Finally, the AWS Inventory needs it's config file created and pushed to S3. The file must be named `PREFIX-ENV-config.json` and reside in the root of the Antiope Bucket. A sample config file can be found in `aws-inventory/config-SAMPLE.json`. This contains the list of organizational master/payer accounts to inventory in addition to any stepfunction arns the inventory StepFunction should pass off to. If you don't need to chain Step Functions right now, you can remove the `next_function` block. `make deploy` in the `aws-inventory` directory will copy the config file to S3.
-
+Finally, the AWS Inventory needs it's config file created and pushed to S3. The file must be named `PREFIX-ENV-aws-inventory-config.json` and reside in the root of the Antiope Bucket. A sample config file can be found in `aws-inventory/config-SAMPLE.json`. This contains the list of organizational master/payer accounts to inventory in addition to any stepfunction arns the inventory StepFunction should pass off to. If you don't need to chain Step Functions right now, you can remove the `next_function` block. `make deploy` in the `aws-inventory` directory will copy the config file to S3. Copy the sample config to the proper `PREFIX-ENV-aws-inventory-config.json` filename in the aws-inventory subdirectory. It will be pushed to S3 when the stack is deployed.
 
 ## Easy install Instructions
 The top-level make file lists all of the targets you can execute.
@@ -56,6 +78,7 @@ make search-deploy env=prod
 ```
 You can select only the ones you need.
 
+See the GCP-INSTALL.md and Azure-INSTALL.md files for specific instructions for these cloud providers
 
 ## Post-Install
 
