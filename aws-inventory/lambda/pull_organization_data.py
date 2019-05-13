@@ -9,7 +9,7 @@ from lib.common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 
@@ -32,7 +32,8 @@ def handler(event, context):
         logger.info("Processing payer {}".format(payer_id))
         payer_account_list = get_consolidated_billing_subaccounts(payer_creds)
         for a in payer_account_list:
-            a['Payer Id'] = payer_id
+            if 'Payer Id' not in a:
+                a['Payer Id'] = payer_id
 
             # Update the stuff from AWS Organizations
             create_or_update_account(a, account_table)
@@ -95,12 +96,13 @@ def get_consolidated_billing_subaccounts(session_creds):
     #             'JoinedTimestamp': datetime(2015, 1, 1)
     #         },
     #     ],
+    org_client = boto3.client('organizations',
+        aws_access_key_id = session_creds['AccessKeyId'],
+        aws_secret_access_key = session_creds['SecretAccessKey'],
+        aws_session_token = session_creds['SessionToken']
+    )
     try:
-        org_client = boto3.client('organizations',
-            aws_access_key_id = session_creds['AccessKeyId'],
-            aws_secret_access_key = session_creds['SecretAccessKey'],
-            aws_session_token = session_creds['SessionToken']
-        )
+
         output = []
         response = org_client.list_accounts(MaxResults=20)
         while 'NextToken' in response:
@@ -125,7 +127,7 @@ def get_consolidated_billing_subaccounts(session_creds):
                 'Status': "ACTIVE",  # Assume it is active since we could assumerole to it.
                 'Email': "StandAloneAccount"
             }
-
+            logger.debug(f"Account info {account}")
             # If there is an IAM Alias, use that. There is no API to the account/billing portal we can
             # use to get an account name
             iam_client = boto3.client('iam',
@@ -138,8 +140,42 @@ def get_consolidated_billing_subaccounts(session_creds):
                 account['Name'] = response['AccountAliases'][0]
 
             return([account])
+
+        # This is what we get if we're a child in an organization, but not inventorying the payer
+        elif e.response['Error']['Code'] == 'AccessDeniedException':
+            sts_client = boto3.client('sts',
+                aws_access_key_id = session_creds['AccessKeyId'],
+                aws_secret_access_key = session_creds['SecretAccessKey'],
+                aws_session_token = session_creds['SessionToken']
+            )
+            response = sts_client.get_caller_identity()
+            account_id = response['Account']
+            account = {
+                'Id': account_id,
+                'Name': account_id,
+                'Status': "ACTIVE",  # Assume it is active since we could assumerole to it.
+                'Email': "Unknown"
+            }
+
+            # We can get a few details from this....
+            response = org_client.describe_organization()
+            account['Payer Id'] = response['Organization']['MasterAccountId']
+            account['Arn'] = f"{response['Organization']['Arn']}/{account_id}"
+
+            # If there is an IAM Alias, use that for Name. There is no API to the account/billing portal we can
+            # use to get an account name
+            iam_client = boto3.client('iam',
+                aws_access_key_id = session_creds['AccessKeyId'],
+                aws_secret_access_key = session_creds['SecretAccessKey'],
+                aws_session_token = session_creds['SessionToken']
+            )
+            response = iam_client.list_account_aliases()
+            if 'AccountAliases' in response and len(response['AccountAliases']) > 0:
+                account['Name'] = response['AccountAliases'][0]
+
+            return([account])
         else:
-            raise ClientError(e)
+            raise
 
 
 # end get_consolidated_billing_subaccounts()
