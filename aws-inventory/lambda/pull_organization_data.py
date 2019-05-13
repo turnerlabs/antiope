@@ -12,7 +12,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
-
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 # Lambda main routine
 def handler(event, context):
