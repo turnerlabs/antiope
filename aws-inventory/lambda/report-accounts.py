@@ -34,12 +34,18 @@ def handler(event, context):
     # Data to be saved to S3 and used to generate the template report
     json_data = {"accounts": []}
 
+    # account_list.txt file comes from this
+    account_list = []
+
     # Get and then sort the list of accounts by name, case insensitive.
     active_accounts = get_active_accounts()
     active_accounts.sort(key=lambda x: x.account_name.lower())
 
     for a in active_accounts:
         logger.info(a.account_name)
+
+        # Add the account ID to this array
+        account_list.append(str(a.account_id))
 
         # We don't want to save the entire object's attributes.
         j = a.db_record.copy()
@@ -86,6 +92,15 @@ def handler(event, context):
             Bucket=os.environ['INVENTORY_BUCKET'],
             ContentType='text/html',
             Key='Reports/account_inventory.html',
+        )
+
+        # Save a txt file of all the active account IDs
+        response = s3_client.put_object(
+            # ACL='public-read',
+            Body="\n".join(account_list),
+            Bucket=os.environ['INVENTORY_BUCKET'],
+            ContentType='text/plain',
+            Key='Reports/account_list.txt',
         )
 
         # Save the JSON to S3
