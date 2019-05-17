@@ -221,7 +221,6 @@ Resources:
   #
   # State Machine Functions
   #
-
   LoadStepFunctionEventLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
@@ -238,6 +237,7 @@ Resources:
           INVENTORY_STACK_NAME: !Ref AWS::StackName
           INVENTORY_BUCKET: !Ref pBucketName
           STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       Code:
         ZipFile: !Sub |
           from __future__ import print_function
@@ -304,6 +304,7 @@ Resources:
           # Specific to this function
           TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
           STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   TriggerInventoryLambdaFunction:
@@ -331,6 +332,7 @@ Resources:
           # Specific to this function
           TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
           ACCEL_FACTOR: !Ref pStaggerAccelerationFactor
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   InventoryErrorHandlingLambdaFunction:
@@ -349,6 +351,7 @@ Resources:
           INVENTORY_STACK_NAME: !Ref AWS::StackName
           CONFIG_FILE: "config.json"
           INVENTORY_BUCKET: !Ref pBucketName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       Code:
         ZipFile: !Sub |
           from __future__ import print_function
@@ -396,6 +399,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   CreateForeignAccountReportLambdaFunction:
@@ -420,6 +424,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   CreateVPCReportLambdaFunction:
@@ -444,6 +449,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   HandoffToNextStepFunctionLambdaFunction:
@@ -462,6 +468,7 @@ Resources:
           INVENTORY_STACK_NAME: !Ref AWS::StackName
           CONFIG_FILE: "config.json"
           INVENTORY_BUCKET: !Ref pBucketName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       Code:
         ZipFile: !Sub |
           from __future__ import print_function
@@ -510,9 +517,11 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
           # Specific to this function
           ACTIVE_TOPIC: !Ref NewActiveAccountTopic
           FOREIGN_TOPIC: !Ref NewForeignAccountTopic
+
       # Tags inherited from Stack
 
   DataTableStream:
@@ -559,6 +568,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   ENIInventoryLambdaFunction:
@@ -583,6 +593,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   HealthInventoryLambdaFunction:
@@ -607,6 +618,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   CloudFormationInventoryLambdaFunction:
@@ -656,6 +668,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   GetBillingDataLambdaFunction:
@@ -680,6 +693,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
           # Specific to this function
           BILLING_TABLE: !Ref HistoricalBillingDataTable
 
@@ -780,6 +794,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   CloudTrailInventoryLambdaFunction:
@@ -804,6 +819,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   ElasticSearchInventoryLambdaFunction:
@@ -828,6 +844,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   CloudfrontInventoryLambdaFunction:
@@ -852,6 +869,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   SecretsManagerInventoryLambdaFunction:
@@ -876,6 +894,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   ECRInventoryLambdaFunction:
@@ -900,6 +919,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   KMSInventoryLambdaFunction:
@@ -949,6 +969,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   DirectConnectInventoryLambdaFunction:
@@ -973,6 +994,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   AMIInventoryLambdaFunction:
@@ -997,6 +1019,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   SSMInventoryLambdaFunction:
@@ -1021,6 +1044,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   TAInventoryLambdaFunction:
@@ -1046,6 +1070,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   SupportInventoryLambdaFunction:
@@ -1071,6 +1096,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   #
@@ -1645,14 +1671,6 @@ Resources:
       #   FIXME
       VisibilityTimeout: 300
 
-  # ErrorHandlerFunctionMapping:
-  #   Type: AWS::Lambda::EventSourceMapping
-  #   Properties:
-  #     BatchSize: 10 # 10 is Max
-  #     Enabled: True
-  #     EventSourceArn: !GetAtt ErrorHandlerEventQueue.Arn
-  #     FunctionName: !GetAtt ErrorHandlerFunction.Arn
-
   ErrorHandlerEventQueueAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
@@ -1675,7 +1693,6 @@ Resources:
       Threshold: 1
       TreatMissingData: missing
 
-
   #
   # Dashboard
   #
@@ -1690,6 +1707,67 @@ Resources:
               "type": "metric",
               "x": 0,
               "y": 0,
+              "width": 12,
+              "height": 3,
+              "properties": {
+                "view": "singleValue",
+                "metrics": [
+                  [ "AWS/States", "ExecutionsStarted", "StateMachineArn", "${InventoryProcessStateMachine}", { "stat": "Sum", "period": 604800, "label": "Started" } ],
+                  [ ".", "ExecutionsSucceeded", ".", ".", { "stat": "Sum", "period": 604800, "label": "Succeeded" } ],
+                  [ ".", "ExecutionsFailed", ".", ".", { "stat": "Sum", "period": 604800, "label": "Failed" } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "StateMachine Executions",
+                "period": 300
+              }
+            },
+            {
+                "type": "metric",
+                "x": 12,
+                "y": 0,
+                "width": 3,
+                "height": 3,
+                "properties": {
+                    "title": "ErrorQueue",
+                    "annotations": {"alarms": ["${ErrorHandlerEventQueueAlarm.Arn}"] },
+                    "view": "singleValue"
+                }
+            },
+            {
+              "type": "text",
+              "x": 18,
+              "y": 0,
+              "width": 6,
+              "height": 3,
+              "properties": {
+                "markdown": "\n# Tables\n* [Accounts](\nhttps://console.aws.amazon.com/dynamodb/home?region=${AWS::Region}#tables:selected=${AccountDBTable})\n* [VPCs](https://console.aws.amazon.com/dynamodb/home?region=${AWS::Region}#tables:selected=${VpcInventoryDBTable})\n* [BillingData](https://console.aws.amazon.com/dynamodb/home?region=${AWS::Region}#tables:selected=${HistoricalBillingDataTable})\n"
+              }
+            },
+            {
+              "type": "text",
+              "x": 0,
+              "y": 3,
+              "width": 12,
+              "height": 3,
+              "styles": "undefined",
+              "properties": {
+                  "markdown": "\n# Stack Info\n* **Deploy Package**: ${pLambdaZipFile}\n* **Execution Schedule**: ${pExecutionRate} (GMT)\n"
+              }
+            },
+            {
+              "type": "text",
+              "x": 18,
+              "y": 3,
+              "width": 6,
+              "height": 3,
+              "properties": {
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${ErrorHandlerEventQueue};prefix=)\n"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
               "width": 24,
               "height": 9,
               "properties": {
@@ -1733,7 +1811,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 9,
+              "y": 15,
               "width": 24,
               "height": 9,
               "properties": {
@@ -1777,7 +1855,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 18,
+              "y": 24,
               "width": 24,
               "height": 6,
               "properties": {
@@ -1823,42 +1901,6 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 24,
-              "width": 12,
-              "height": 3,
-              "properties": {
-                "view": "singleValue",
-                "metrics": [
-                  [ "AWS/States", "ExecutionsStarted", "StateMachineArn", "${InventoryProcessStateMachine}", { "stat": "Sum", "period": 604800, "label": "Started" } ],
-                  [ ".", "ExecutionsSucceeded", ".", ".", { "stat": "Sum", "period": 604800, "label": "Succeeded" } ],
-                  [ ".", "ExecutionsFailed", ".", ".", { "stat": "Sum", "period": 604800, "label": "Failed" } ]
-                ],
-                "region": "${AWS::Region}",
-                "title": "StateMachine Executions",
-                "period": 300
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 30,
-              "width": 24,
-              "height": 3,
-              "properties": {
-                "view": "timeSeries",
-                "stacked": false,
-                "metrics": [
-                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${AccountDBTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
-                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${VpcInventoryDBTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
-                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${HistoricalBillingDataTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ]
-                ],
-                "region": "${AWS::Region}",
-                "title": "DDB Throttling"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 0,
               "y": 27,
               "width": 12,
               "height": 3,
@@ -1875,6 +1917,24 @@ Resources:
                 "title": "State Machine ExecutionTime",
                 "period": 300,
                 "yAxis": {"left": {"min": 0 } }
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 30,
+              "width": 12,
+              "height": 3,
+              "properties": {
+                "view": "timeSeries",
+                "stacked": false,
+                "metrics": [
+                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${AccountDBTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
+                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${VpcInventoryDBTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ],
+                  [ "AWS/DynamoDB", "ThrottledRequests", "TableName", "${HistoricalBillingDataTable}", "Operation", "UpdateItem", { "stat": "Sum", "period": 300 } ]
+                ],
+                "region": "${AWS::Region}",
+                "title": "DDB Throttling"
               }
             },
             {
@@ -1898,37 +1958,6 @@ Resources:
                 "region": "${AWS::Region}",
                 "title": "DynamoDB Activity",
                 "period": 300
-              }
-            },
-            {
-              "type": "text",
-              "x": 12,
-              "y": 27,
-              "width": 6,
-              "height": 3,
-              "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)"
-              }
-            },
-            {
-              "type": "text",
-              "x": 18,
-              "y": 27,
-              "width": 6,
-              "height": 3,
-              "properties": {
-                "markdown": "\n# Tables\n* [Accounts](\nhttps://console.aws.amazon.com/dynamodb/home?region=${AWS::Region}#tables:selected=${AccountDBTable})\n* [VPCs](https://console.aws.amazon.com/dynamodb/home?region=${AWS::Region}#tables:selected=${VpcInventoryDBTable})\n* [BillingData](https://console.aws.amazon.com/dynamodb/home?region=${AWS::Region}#tables:selected=${HistoricalBillingDataTable})\n"
-              }
-            },
-            {
-              "type": "text",
-              "x": 12,
-              "y": 24,
-              "width": 12,
-              "height": 3,
-              "styles": "undefined",
-              "properties": {
-                  "markdown": "\n# Stack Info\n* **Deploy Package**: ${pLambdaZipFile}\n* **Execution Schedule**: ${pExecutionRate} (GMT)\n"
               }
             },
             {
@@ -1963,7 +1992,6 @@ Resources:
             }
           ]
         }
-
 
 Outputs:
   StackName:
