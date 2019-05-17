@@ -48,12 +48,15 @@ def lambda_handler(event, context):
     except ClientError as e:
         if e.response['Error']['Code'] == "SubscriptionRequiredException":
             logger.error("Premium support is not enabled in {}({})".format(target_account.account_name, target_account.account_id))
+            capture_error(message, context, e, "Premium support is not enabled in {}({})".format(target_account.account_name, target_account.account_id))
             return()
         else:
             logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+            capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
             raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
         raise
 
 
