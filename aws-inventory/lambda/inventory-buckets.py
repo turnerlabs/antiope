@@ -28,20 +28,22 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        discover_buckets(target_account)
+        discover_buckets(target_account, context)
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
+        capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
         raise
 
 
-def discover_buckets(account):
+def discover_buckets(account, context):
     '''
         Gathers all the S3 Buckets and various details about them
     '''
@@ -60,6 +62,9 @@ def discover_buckets(account):
     resource_item['source']                         = "Antiope"
 
     for b in bucket_list:
+
+        if context.get_remaining_time_in_millis() < 5000: # 5 second warning
+            raise LambdaRunningOutOfTime(f"Time remaining: {context.get_remaining_time_in_millis()}")
 
         bucket_name = b['Name']
 

@@ -35,10 +35,12 @@ def lambda_handler(event, context):
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
+        capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
         raise
 
 
@@ -51,10 +53,27 @@ def discover_domains(account):
     # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
     # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
     route53_client = account.get_client('route53domains', region="us-east-1")  # Route53 Domains is only available in us-east-1
-    response = route53_client.list_domains()
+
+    try:
+        response = route53_client.list_domains()
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ThrottlingException':
+            time.sleep(1)
+            response = route53_client.list_domains()
+        else:
+            raise
+
     while 'NextPageMarker' in response:  # Gotta Catch 'em all!
         domains += response['Domains']
-        response = route53_client.list_domains(Marker=response['NextPageMarker'])
+        try:
+            response = route53_client.list_domains(Marker=response['NextPageMarker'])
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ThrottlingException':
+                time.sleep(1)
+                response = route53_client.list_domains(Marker=response['NextPageMarker'])
+            else:
+                raise
+
     domains += response['Domains']
 
     for d in domains:

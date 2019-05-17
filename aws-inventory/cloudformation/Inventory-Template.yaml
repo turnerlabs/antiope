@@ -171,6 +171,17 @@ Resources:
               - !Ref TriggerAccountInventoryFunctionTopic
               - !Ref NewActiveAccountTopic
               - !Ref NewForeignAccountTopic
+      - PolicyName: PublishToSQS
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - sqs:SendMessage
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            Resource:
+              - !GetAtt ErrorHandlerEventQueue.Arn
       - PolicyName: DataTableStream
         PolicyDocument:
           Version: '2012-10-17'
@@ -278,7 +289,7 @@ Resources:
       Layers:
         - !Ref AWSInventoryLambdaLayer
       Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
+      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -620,6 +631,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   InstancesSecurityGroupsInventoryLambdaFunction:
@@ -693,6 +705,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   BucketInventoryLambdaFunction:
@@ -717,6 +730,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   IAMInventoryLambdaFunction:
@@ -728,8 +742,8 @@ Resources:
       Runtime: python3.6
       Layers:
         - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
+      Timeout: 600
+      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -741,6 +755,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   ECSInventoryLambdaFunction:
@@ -909,6 +924,7 @@ Resources:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
   LambdasInventoryLambdaFunction:
@@ -1590,6 +1606,75 @@ Resources:
           KeyType: "HASH"
         - AttributeName: "datetime"
           KeyType: "RANGE"
+
+  #
+  # Spray 'n Pray Error Handling
+  #
+  # ErrorHandlerFunction:
+  #   Type: AWS::Lambda::Function
+  #   Properties:
+  #     FunctionName: !Sub "${AWS::StackName}-error-handler"
+  #     Description: Lambda to process any Spray n Pray errors from this run.
+  #     Handler: sqs-error-handler.handler
+  #     Runtime: python3.6
+  #     Timeout: !If [ ReIndex, 900, 180]
+  #     # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
+  #     ReservedConcurrentExecutions: !If [ ReIndex, 500, 50]
+  #     Role: !GetAtt InventoryLambdaRole.Arn
+  #     Code:
+  #       S3Bucket: !Ref pBucketName
+  #       S3Key: !Sub ${pLambdaZipFile}
+  #     Layers:
+  #       - !Ref AWSInventoryLambdaLayer
+  #     Environment:
+  #       Variables:
+  #         ROLE_SESSION_NAME: !Ref AWS::StackName
+  #         INVENTORY_BUCKET: !Ref pBucketName
+  #         ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
+  #         ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+  #     # Tags inherited from Stack
+
+  ErrorHandlerEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsMasterKeyId: alias/aws/sqs
+      KmsDataKeyReusePeriodSeconds: 86400
+      MessageRetentionPeriod: 86400 # Hold on to errors for a day.
+      ReceiveMessageWaitTimeSeconds: 10
+      # RedrivePolicy:
+      #   FIXME
+      VisibilityTimeout: 300
+
+  # ErrorHandlerFunctionMapping:
+  #   Type: AWS::Lambda::EventSourceMapping
+  #   Properties:
+  #     BatchSize: 10 # 10 is Max
+  #     Enabled: True
+  #     EventSourceArn: !GetAtt ErrorHandlerEventQueue.Arn
+  #     FunctionName: !GetAtt ErrorHandlerFunction.Arn
+
+  ErrorHandlerEventQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      # AlarmActions:
+      #   - String
+      AlarmDescription: "Alert when Error Queue has messages"
+      AlarmName: !Sub "${AWS::StackName}-ErrorQueue"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ErrorHandlerEventQueue.QueueName
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      # OKActions:
+      #   - String
+      Period: 300
+      Statistic: Average
+      Threshold: 1
+      TreatMissingData: missing
+
 
   #
   # Dashboard
