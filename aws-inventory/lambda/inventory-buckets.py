@@ -28,20 +28,22 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        discover_buckets(target_account)
+        discover_buckets(target_account, context)
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+        logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
+        capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
         raise
 
 
-def discover_buckets(account):
+def discover_buckets(account, context):
     '''
         Gathers all the S3 Buckets and various details about them
     '''
@@ -59,7 +61,13 @@ def discover_buckets(account):
     resource_item['resourceType']                   = RESOURCE_TYPE
     resource_item['source']                         = "Antiope"
 
+    count = 0
+
     for b in bucket_list:
+
+        if context.get_remaining_time_in_millis() < 5000: # 5 second warning
+            logger.critical(f"Ran out of time after {count} buckets inventoried")
+            raise LambdaRunningOutOfTime(f"Time remaining: {context.get_remaining_time_in_millis()}")
 
         bucket_name = b['Name']
 
@@ -116,44 +124,45 @@ def discover_buckets(account):
             if e.response['Error']['Code'] != 'NoSuchTagSet':
                 resource_item['errors']['TagSet'] = e
 
-        try:
-            response = s3_client.get_bucket_versioning(Bucket=bucket_name)
-            del response['ResponseMetadata']
-            resource_item['supplementaryConfiguration']['Versioning'] = response
-        except ClientError as e:
-            resource_item['errors']['Versioning'] = e
+        # try:
+        #     response = s3_client.get_bucket_versioning(Bucket=bucket_name)
+        #     del response['ResponseMetadata']
+        #     resource_item['supplementaryConfiguration']['Versioning'] = response
+        # except ClientError as e:
+        #     resource_item['errors']['Versioning'] = e
 
-        try:
-            response = s3_client.get_bucket_request_payment(Bucket=bucket_name)
-            del response['ResponseMetadata']
-            resource_item['supplementaryConfiguration']['RequestPayer'] = response
-        except ClientError as e:
-            resource_item['errors']['RequestPayer'] = e
+        # try:
+        #     response = s3_client.get_bucket_request_payment(Bucket=bucket_name)
+        #     del response['ResponseMetadata']
+        #     resource_item['supplementaryConfiguration']['RequestPayer'] = response
+        # except ClientError as e:
+        #     resource_item['errors']['RequestPayer'] = e
 
-        try:
-            response = s3_client.get_bucket_website(Bucket=bucket_name)
-            del response['ResponseMetadata']
-            resource_item['supplementaryConfiguration']['Website'] = response
-        except ClientError as e:
-            if e.response['Error']['Code'] != 'NoSuchWebsiteConfiguration':
-                resource_item['errors']['Website'] = e
+        # try:
+        #     response = s3_client.get_bucket_website(Bucket=bucket_name)
+        #     del response['ResponseMetadata']
+        #     resource_item['supplementaryConfiguration']['Website'] = response
+        # except ClientError as e:
+        #     if e.response['Error']['Code'] != 'NoSuchWebsiteConfiguration':
+        #         resource_item['errors']['Website'] = e
 
-        try:
-            response = s3_client.get_bucket_logging(Bucket=bucket_name)
-            if 'LoggingEnabled' in response:
-                resource_item['supplementaryConfiguration']['Logging'] = response['LoggingEnabled']
-        except ClientError as e:
-            resource_item['errors']['Logging'] = e
+        # try:
+        #     response = s3_client.get_bucket_logging(Bucket=bucket_name)
+        #     if 'LoggingEnabled' in response:
+        #         resource_item['supplementaryConfiguration']['Logging'] = response['LoggingEnabled']
+        # except ClientError as e:
+        #     resource_item['errors']['Logging'] = e
 
-        try:
-            response = s3_client.get_bucket_cors(Bucket=bucket_name)
-            if 'CORSRules' in response:
-                resource_item['supplementaryConfiguration']['CORSRules'] = response['CORSRules']
-        except ClientError as e:
-            if e.response['Error']['Code'] != 'NoSuchCORSConfiguration':
-                resource_item['errors']['CORSRules'] = e
+        # try:
+        #     response = s3_client.get_bucket_cors(Bucket=bucket_name)
+        #     if 'CORSRules' in response:
+        #         resource_item['supplementaryConfiguration']['CORSRules'] = response['CORSRules']
+        # except ClientError as e:
+        #     if e.response['Error']['Code'] != 'NoSuchCORSConfiguration':
+        #         resource_item['errors']['CORSRules'] = e
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
+        count +=1
 
 
 def json_serial(obj):

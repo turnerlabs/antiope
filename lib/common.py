@@ -85,6 +85,26 @@ def get_account_ids(status=None, table_name=None):
         # Otherwise, don't bother.
     return(output)
 
+def capture_error(event, context, error, message):
+    '''When an exception is thrown, this function will publish a SQS message for later retrival'''
+    sqs_client = boto3.client('sqs')
+
+    queue_url = os.environ['ERROR_QUEUE']
+
+    body = {
+        'event': event,
+        'function_name': context.function_name,
+        'aws_request_id': context.aws_request_id,
+        'log_group_name': context.log_group_name,
+        'log_stream_name': context.log_stream_name,
+        'error': str(error),
+        'message': message
+    }
+
+    logger.info(f"Sending Lambda Exception Message: {body}")
+    response = sqs_client.send_message(QueueUrl=queue_url, MessageBody=json.dumps(body))
+    return(body)
+
 
 def set_debug(event, logger):
     """Given the event, and using the environment, decide if the logger default should be overridden."""
@@ -94,3 +114,7 @@ def set_debug(event, logger):
     if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
         logger.setLevel(logging.DEBUG)
     return(logger)
+
+class LambdaRunningOutOfTime(Exception):
+    '''raised by functions when the timeout is about to be hit'''
+

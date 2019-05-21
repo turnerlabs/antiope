@@ -22,19 +22,29 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
 
-    for record in event['Records']:
-        if record['eventSource'] != "aws:dynamodb":
-            next
-        if record['eventName'] == "INSERT":
-            ddb_record = record['dynamodb']['NewImage']
-            logger.debug(ddb_record)
-            account_id = ddb_record['account_id']['S']
-            account_type = ddb_record['account_status']['S']
-            json_record = deseralize(ddb_record)
-            if account_type == "ACTIVE":
-                send_message(json_record, os.environ['ACTIVE_TOPIC'])
-            elif account_type == "FOREIGN":
-                send_message(json_record, os.environ['FOREIGN_TOPIC'])
+    try:
+        for record in event['Records']:
+            if record['eventSource'] != "aws:dynamodb":
+                next
+            if record['eventName'] == "INSERT":
+                ddb_record = record['dynamodb']['NewImage']
+                logger.debug(ddb_record)
+                account_id = ddb_record['account_id']['S']
+                account_type = ddb_record['account_status']['S']
+                json_record = deseralize(ddb_record)
+                if account_type == "ACTIVE":
+                    send_message(json_record, os.environ['ACTIVE_TOPIC'])
+                elif account_type == "FOREIGN":
+                    send_message(json_record, os.environ['FOREIGN_TOPIC'])
+    except ClientError as e:
+        logger.critical("AWS Error for {}: {}".format(account_id, e))
+        capture_error(event, context, e, f"ClientError for {account_id}")
+        raise
+    except Exception as e:
+        logger.critical("{}\nMessage: {}\nContext: {}".format(e, event, vars(context)))
+        capture_error(event, context, e, f"General Exception for {account_id}")
+        raise
+
 
 
 def send_message(record, topic):

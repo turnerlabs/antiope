@@ -5,7 +5,7 @@ from botocore.exceptions import ClientError
 import json
 import os
 import time
-import datetime
+from datetime import datetime, timezone
 from dateutil import tz
 
 from lib.account import *
@@ -48,12 +48,15 @@ def lambda_handler(event, context):
     except ClientError as e:
         if e.response['Error']['Code'] == "SubscriptionRequiredException":
             logger.error("Premium support is not enabled in {}({})".format(target_account.account_name, target_account.account_id))
+            capture_error(message, context, e, "Premium support is not enabled in {}({})".format(target_account.account_name, target_account.account_id))
             return()
         else:
             logger.critical("AWS Error getting info for {}: {}".format(target_account.account_name, e))
+            capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
             raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
+        capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
         raise
 
 
@@ -83,6 +86,11 @@ def process_ta_check(target_account, client, c):
     if check['status'] == "ok":
         return()
 
+    # Don't save ENIs that already exist. They don't change much.
+    if check_exists(RESOURCE_PATH, check['checkId']):
+        return()
+
+
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
@@ -98,3 +106,17 @@ def process_ta_check(target_account, client, c):
     resource_item['errors']                         = {}
 
     save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}-{check['checkId']}", resource_item)
+
+def check_exists(path, check_id):
+    s3client = boto3.client('s3')
+    try:
+        response = s3client.head_object(
+            Bucket=os.environ['INVENTORY_BUCKET'],
+            Key=f"Resources/{path}/{check_id}.json"
+        )
+        if response['LastModified'] > datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=15):
+            return(True)
+        else:
+            return(False)
+    except ClientError as e: # Object is missing, or othererror
+        return(False)
