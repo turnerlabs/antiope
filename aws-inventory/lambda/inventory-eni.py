@@ -5,7 +5,7 @@ from botocore.exceptions import ClientError
 import json
 import os
 import time
-import datetime
+from datetime import datetime, timezone
 from dateutil import tz
 
 from lib.account import *
@@ -71,6 +71,10 @@ def discover_enis(account, region):
 
     for eni in interfaces:
 
+        # Don't save ENIs that already exist. They don't change much.
+        if eni_exists(RESOURCE_PATH, eni['NetworkInterfaceId'], s3client):
+            continue
+
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = eni
         resource_item['tags']                           = eni['TagSet']
@@ -92,6 +96,20 @@ def discover_enis(account, region):
                 )
             except ClientError as e:
                 logger.error("Unable to save object {}: {}".format(object_key, e))
+
+def eni_exists(path, interface_id, s3client):
+    try:
+        response = s3client.head_object(
+            Bucket=os.environ['INVENTORY_BUCKET'],
+            Key=f"Resources/{path}/{interface_id}.json"
+        )
+        if response['LastModified'] > datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=15):
+            return(True)
+        else:
+            return(False)
+    except ClientError as e: # Object is missing, or othererror
+        return(False)
+
 
 
 def json_serial(obj):
