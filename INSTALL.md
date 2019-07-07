@@ -5,6 +5,7 @@
 ## PreReq
 
 1. Make sure you have the AWS CLI installed
+1. Make sure you have a modern boto3
 1. Make sure you have jq installed.
 1. Create an S3 Bucket to act as the inventory bucket
     * **It is important that the bucket be created in the region you intend to run Antiope.**
