@@ -30,6 +30,7 @@ FILES =	get_billing_data.py \
 		pull_organization_data.py \
 		report-accounts.py \
 		report-foreign.py \
+		report-unified-credential-report.py \
 		report-vpcs.py \
 		trigger_account_actions.py
 

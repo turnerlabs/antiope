@@ -94,6 +94,8 @@ Resources:
           - EncryptionEnabled
           - Ref: SearchClusterKMSKey
           - Ref: AWS::NoValue
+      NodeToNodeEncryptionOptions:
+        Enabled: !Ref pClusterEncryption
       SnapshotOptions:
         AutomatedSnapshotStartHour: "0"
 

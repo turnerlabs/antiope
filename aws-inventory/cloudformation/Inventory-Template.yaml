@@ -405,7 +405,7 @@ Resources:
   CreateForeignAccountReportLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-create-foreign-account-report"
+      FunctionName: !Sub "${AWS::StackName}-foreign-acct-report"
       Description: Create an HTML Report with all the Foreign AWS Accounts
       Handler: report-foreign.handler
       Runtime: python3.6
@@ -433,6 +433,31 @@ Resources:
       FunctionName: !Sub "${AWS::StackName}-create-vpc-report"
       Description: Create an HTML Report with all the AWS VPCs
       Handler: report-vpcs.handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 600
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
+  CreateCredentialReportLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-create-cred-report"
+      Description: Combine all credential reports into single csv file
+      Handler: report-unified-credential-report.handler
       Runtime: python3.6
       Layers:
         - !Ref AWSInventoryLambdaLayer
@@ -1166,6 +1191,7 @@ Resources:
               - !GetAtt CreateAccountReportLambdaFunction.Arn
               - !GetAtt CreateForeignAccountReportLambdaFunction.Arn
               - !GetAtt CreateVPCReportLambdaFunction.Arn
+              - !GetAtt CreateCredentialReportLambdaFunction.Arn
               - !GetAtt HandoffToNextStepFunctionLambdaFunction.Arn
               - !GetAtt InventoryErrorHandlingLambdaFunction.Arn
       - PolicyName: LambdaLogging
@@ -1232,6 +1258,12 @@ Resources:
             "CreateVPCReportLambdaFunction": {
               "Type": "Task",
               "Resource": "${CreateVPCReportLambdaFunction.Arn}",
+              "Next": "CreateCredentialReportLambdaFunction",
+              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
+            },
+            "CreateCredentialReportLambdaFunction": {
+              "Type": "Task",
+              "Resource": "${CreateCredentialReportLambdaFunction.Arn}",
               "Next": "HandoffToNextStepFunctionLambdaFunction",
               "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
             },
@@ -1800,6 +1832,7 @@ Resources:
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
                   [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
+                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
@@ -1844,6 +1877,7 @@ Resources:
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
                   [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
+                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
@@ -1888,6 +1922,7 @@ Resources:
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
                   [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 900, "label": "create-foreign-account-report" } ],
                   [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 900, "label": "create-vpc-report" } ],
+                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 900, "label": "create-cred-report" } ],
                   [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
                 ],

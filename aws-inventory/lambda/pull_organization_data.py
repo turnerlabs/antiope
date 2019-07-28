@@ -3,6 +3,7 @@ from botocore.exceptions import ClientError
 import json
 import os
 import time
+import datetime
 
 from lib.account import *
 from lib.common import *
@@ -13,6 +14,7 @@ logger.setLevel(logging.DEBUG)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
+
 
 # Lambda main routine
 def handler(event, context):
@@ -53,6 +55,9 @@ def handler(event, context):
                     pass
 
     event['account_list'] = account_list
+
+    # We'll use this for reports where we want every file to have the same timestamp suffix.
+    event['timestamp'] = datetime.datetime.utcnow().strftime("%Y-%m-%d-%H-%M")
     return(event)
 
 # end handler()

@@ -34,6 +34,7 @@ def lambda_handler(event, context):
         discover_roles(target_account)
         discover_users(target_account)
         discover_saml_provider(target_account)
+        fetch_credential_report(target_account, message)
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -211,3 +212,47 @@ def discover_saml_provider(account):
         resource_item['errors']                         = {}
 
         save_resource_to_s3(SAML_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+
+
+def fetch_credential_report(account, event):
+    '''
+        Fetches the IAM User Credential Report and saves it to S3
+    '''
+    iam_client = account.get_client('iam')
+    csv_data = get_credential_report(iam_client)
+    object_key = f"CredentialReports/{account.account_id}-{event['timestamp']}.csv"
+
+    s3_client = boto3.client('s3')
+    try:
+        response = s3_client.put_object(
+            # ACL='public-read',
+            Body=csv_data,
+            Bucket=os.environ['INVENTORY_BUCKET'],
+            ContentType='text/csv',
+            Key=object_key,
+        )
+    except ClientError as e:
+        logger.error("ClientError saving report: {}".format(e))
+        raise
+
+
+def get_credential_report(iam_client):
+    '''Fetches the credential report. Uses recursion in case the report isn't available immediatly'''
+    resp1 = iam_client.generate_credential_report()
+    if resp1['State'] == 'COMPLETE':
+        try:
+            response = iam_client.get_credential_report()
+            credential_report_csv = response['Content'].decode('ascii')
+            # # print(credential_report_csv)
+            # reader = csv.DictReader(credential_report_csv.splitlines())
+            # # print(reader)
+            # # print(reader.fieldnames)
+            # credential_report = []
+            # for row in reader:
+            #     credential_report.append(row)
+            return(credential_report_csv)
+        except ClientError as e:
+            print("Unknown error getting Report: " + e.message)
+    else:
+        sleep(2)
+        return get_credential_report(iam_client)
