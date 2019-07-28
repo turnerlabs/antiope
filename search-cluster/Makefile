@@ -169,15 +169,15 @@ expire-logs:
 
 indices:
 	for i in $(INDICES) ; do \
-	  ./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $$i --mapping_dir mappings ; \
+	  ./scripts/create_index.py --domain $(STACK_PREFIX) --index $$i --mapping_dir mappings ; \
 	done
 
 purge-indices:
 	for i in $(INDICES) ; do \
-	  ./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $$i --mapping_dir mappings --delete ; \
+	  ./scripts/create_index.py --domain $(STACK_PREFIX) --index $$i --mapping_dir mappings --delete ; \
 	done
 
 index:
-	./scripts/create_index.py --domain $(STACK_PREFIX)-$(env) --index $(index) --mapping_dir mappings --delete
+	./scripts/create_index.py --domain $(STACK_PREFIX) --index $(index) --mapping_dir mappings --delete
 
 deploy-all: deploy script-deps enable-s3-events indices expire-logs enable-kibana-auth
