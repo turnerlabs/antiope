@@ -270,6 +270,7 @@ class AWSAccount(object):
                     ':r': value,
                 }
             )
+            self.db_record[key] = value
         except ClientError as e:
             raise AccountUpdateError("Failed to update {} to {} in account table: {}".format(key, value, e))
 
