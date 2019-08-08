@@ -63,6 +63,8 @@ def process_detector(client, detector_id, target_account, region):
 
     response = client.get_detector(DetectorId=detector_id)
 
+    del response['ResponseMetadata']  # We don't need this
+
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
