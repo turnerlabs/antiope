@@ -1124,6 +1124,32 @@ Resources:
           ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
 
+  GuarddutyInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-guardduty-inventory"
+      Description: Inventory Support Cases
+      Handler: inventory-guardduty.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pSmallLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
+
   #
   # StateMachine
   #
@@ -1409,7 +1435,7 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
-  ECSnventoryLambdaFunctionPermission:
+  ECSInventoryLambdaFunctionPermission:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !GetAtt ECSInventoryLambdaFunction.Arn
@@ -1605,6 +1631,21 @@ Resources:
     Condition: EnterpriseSupport
     Properties:
       Endpoint: !GetAtt [SupportInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  GuarddutyInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt GuarddutyInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  GuarddutyInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [GuarddutyInventoryLambdaFunction, Arn]
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
@@ -1826,6 +1867,7 @@ Resources:
                   [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
                   [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
+                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
@@ -1871,6 +1913,7 @@ Resources:
                   [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
                   [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
+                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
@@ -1916,6 +1959,7 @@ Resources:
                   [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
                   [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
                   [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
+                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],

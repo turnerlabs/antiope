@@ -15,6 +15,7 @@ FILES =	get_billing_data.py \
 		inventory-ecs.py \
 		inventory-eni.py \
 		inventory-es.py \
+		inventory-guardduty.py \
 		inventory-health-report.py \
 		inventory-iam.py \
 		inventory-instances-sg.py \

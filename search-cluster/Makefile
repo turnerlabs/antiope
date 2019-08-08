@@ -43,6 +43,7 @@ INDICES=resources_cloudformation_stack \
 		resources_iam_role \
 		resources_iam_user \
 		resources_kms_key \
+		resources_guardduty_detector \
 		resources_lambda_function \
 		resources_ssm_instance \
 		resources_support_case \
