@@ -50,15 +50,7 @@ def handler(event, context):
         # We don't want to save the entire object's attributes.
         j = a.db_record.copy()
 
-        try:
-            if str(a.payer_id) in payers:
-                j['payer_name'] = payers[str(a.payer_id)]
-            else:
-                payer = AWSAccount(str(a.payer_id))
-                j['payer_name'] = payer.account_name
-                payers[payer.account_id] = payer.account_name
-        except AccountLookupError:
-            j['payer_name'] = "Not Found"
+        j['payer_name'] = 'Keanu'
 
         # Build the cross account role link
         if hasattr(a, 'cross_account_role') and a.cross_account_role is not None:

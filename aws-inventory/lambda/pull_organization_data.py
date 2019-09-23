@@ -107,13 +107,16 @@ def get_consolidated_billing_subaccounts(session_creds):
         aws_session_token = session_creds['SessionToken']
     )
     try:
+        roots = org_client.list_roots()
+        if not roots['Roots'][0]['Id']:
+            raise Exception('Roots not available')
 
         output = []
-        response = org_client.list_accounts(MaxResults=20)
+        response = org_client.list_accounts_for_parent(MaxResults=20, ParentId=roots['Roots'][0]['Id'])
         while 'NextToken' in response:
             output = output + response['Accounts']
             time.sleep(1)
-            response = org_client.list_accounts(MaxResults=20, NextToken=response['NextToken'])
+            response = org_client.list_accounts_for_parent(MaxResults=20, NextToken=response['NextToken'], ParentId=roots['Roots'][0]['Id'])
 
         output = output + response['Accounts']
         return(output)
