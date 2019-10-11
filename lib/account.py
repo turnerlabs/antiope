@@ -27,8 +27,15 @@ class AWSAccount(object):
         if config is None:
             account_table_name = os.environ['ACCOUNT_TABLE']
             vpc_table_name = os.environ['VPC_TABLE']
-            role_name = os.environ['ROLE_NAME']
-            role_session_name = os.environ['ROLE_SESSION_NAME']
+            if 'ROLE_NAME' not in os.environ:
+                role_name = None
+            else:
+                role_name = os.environ['ROLE_NAME']
+
+            if 'ROLE_SESSION_NAME' not in os.environ:
+                role_session_name = "antiope"
+            else:
+                role_session_name = os.environ['ROLE_SESSION_NAME']
         else:
             try:
                 account_table_name = config['account_table_name']
@@ -43,8 +50,12 @@ class AWSAccount(object):
         self.dynamodb      = boto3.resource('dynamodb')
         self.account_table = self.dynamodb.Table(account_table_name)
         self.vpc_table     = self.dynamodb.Table(vpc_table_name)
-        self.cross_account_role_arn = "arn:aws:iam::{}:role/{}".format(self.account_id, role_name)
         self.default_session_name = role_session_name
+
+        if role_name is None:
+            self.cross_account_role_arn = None
+        else:
+            self.cross_account_role_arn = "arn:aws:iam::{}:role/{}".format(self.account_id, role_name)
 
         response = self.account_table.query(
             KeyConditionExpression=Key('account_id').eq(self.account_id),
