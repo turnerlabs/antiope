@@ -79,6 +79,14 @@ def discover_roles(account):
         resource_item['ARN']                            = role['Arn']
         resource_item['resourceCreationTime']           = role['CreateDate']
         resource_item['errors']                         = {}
+
+        # Fetch the policies attached to this role
+        response = iam_client.list_role_policies(RoleName=role['RoleName']) # FIXME Paganation can occur.
+        resource_item['supplementaryConfiguration']['PolicyNames'] = response['PolicyNames']
+
+        response = iam_client.list_attached_role_policies(RoleName=role['RoleName']) # FIXME Paganation can occur.
+        resource_item['supplementaryConfiguration']['AttachedPolicies'] = response['AttachedPolicies']
+
         save_resource_to_s3(ROLE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
         # Now here is the interesting bit. What other accounts does this role trust, and do we know them?

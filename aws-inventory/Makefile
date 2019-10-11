@@ -69,6 +69,7 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-ssm-inventory \
 			$(FULL_STACK_NAME)-ta-inventory \
 			$(FULL_STACK_NAME)-support-inventory \
+			$(FULL_STACK_NAME)-guardduty-inventory \
 			$(FULL_STACK_NAME)-ami-inventory \
 			$(FULL_STACK_NAME)-cloudformation-inventory \
 			$(FULL_STACK_NAME)-cloudfront-inventory \
