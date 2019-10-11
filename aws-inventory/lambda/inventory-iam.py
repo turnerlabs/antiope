@@ -166,6 +166,10 @@ def discover_users(account):
         if 'MFADevices' in response and len(response['MFADevices']) > 0:
             resource_item['supplementaryConfiguration']['MFADevice'] = response['MFADevices'][0]
 
+        response = iam_client.list_access_keys(UserName=user['UserName'])
+        if 'AccessKeyMetadata' in response and len(response['AccessKeyMetadata']) > 0:
+            resource_item['supplementaryConfiguration']['AccessKeyMetadata'] = response['AccessKeyMetadata']
+
         try:
             response = iam_client.get_login_profile(UserName=user['UserName'])
             if 'LoginProfile' in response:
