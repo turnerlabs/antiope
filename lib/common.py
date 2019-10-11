@@ -85,6 +85,7 @@ def get_account_ids(status=None, table_name=None):
         # Otherwise, don't bother.
     return(output)
 
+
 def capture_error(event, context, error, message):
     '''When an exception is thrown, this function will publish a SQS message for later retrival'''
     sqs_client = boto3.client('sqs')
@@ -114,6 +115,7 @@ def set_debug(event, logger):
     if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
         logger.setLevel(logging.DEBUG)
     return(logger)
+
 
 class LambdaRunningOutOfTime(Exception):
     '''raised by functions when the timeout is about to be hit'''
