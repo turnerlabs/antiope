@@ -120,48 +120,74 @@ def discover_zones(account):
     # Not all Public IPs are attached to instances. So we use ec2 describe_network_interfaces()
     # All results are saved to S3. Public IPs and metadata go to DDB (based on the the presense of PublicIp in the Association)
     route53_client = account.get_client('route53')
-    response = route53_client.list_hosted_zones()
+
+    # Route53 Describe calls have a very low API limit
+    try:
+        response = route53_client.list_hosted_zones()
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ThrottlingException':
+            time.sleep(1)
+            response = route53_client.list_hosted_zones()
+        else:
+            raise
+
     while 'IsTruncated' in response and response['IsTruncated'] is True:  # Gotta Catch 'em all!
-        zones += response['HostedZones']
-        response = route53_client.list_hosted_zones(Marker=response['NextMarker'])
-    zones += response['HostedZones']
 
-    for zone in zones:
+        # Process this batch
+        for zone in response['HostedZones']:
+            process_zone(zone, account, route53_client)
 
-        resource_item = {}
-        resource_item['awsAccountId']                   = account.account_id
-        resource_item['awsAccountName']                 = account.account_name
-        resource_item['resourceType']                   = "AWS::Route53::HostedZone"
-        resource_item['source']                         = "Antiope"
+        # Try and get some more
+        try:
+            response = route53_client.list_hosted_zones(Marker=response['NextMarker'])
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ThrottlingException':
+                time.sleep(1)
+                response = route53_client.list_hosted_zones(Marker=response['NextMarker'])
+            else:
+                raise
 
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
-        resource_item['configuration']                  = zone
-        # resource_item['tags']                           = FIXME
-        resource_item['supplementaryConfiguration']     = {}
-        # Need to make sure the resource name is unique and service identifiable.
-        # Zone Ids look like "/hostedzone/Z2UFNORDFDSFTZ"
-        resource_item['resourceId']                     = zone['Id'].split("/")[2]
-        resource_item['resourceName']                   = zone['Name']
-        resource_item['errors']                         = {}
+    # Finish Up
+    for zone in response['HostedZones']:
+        process_zone(zone, account, route53_client)
 
-        # # Not sure why Route53 product team makes me do a special call for tags.
-        # response = route53_client.list_tags_for_resource(
-        #     ResourceType='hostedzone',
-        #     ResourceId=zone['Id']
-        # )
-        # if 'ResourceTagSet' in response and 'Tags' in response['ResourceTagSet']:
-        #     zone['Tags'] = response['ResourceTagSet']['Tags']
 
-        # This also looks interesting from a data-leakage perspective
-        response = route53_client.list_vpc_association_authorizations(HostedZoneId=zone['Id'])
-        if 'VPCs' in response:
-            resource_item['supplementaryConfiguration']['AuthorizedVPCs'] = response['VPCs']
+def process_zone(zone, account, route53_client):
 
-        # This currently overloads the Route53 API Limits and exceeds Lambda Timeouts.
-        # resource_item['supplementaryConfiguration']['ResourceRecordSets'] = get_resource_records(route53_client, zone['Id'])
-        # resource_item['supplementaryConfiguration']['ResourceRecordSetCount'] = len(resource_item['supplementaryConfiguration']['ResourceRecordSets'])
+    resource_item = {}
+    resource_item['awsAccountId']                   = account.account_id
+    resource_item['awsAccountName']                 = account.account_name
+    resource_item['resourceType']                   = "AWS::Route53::HostedZone"
+    resource_item['source']                         = "Antiope"
 
-        save_resource_to_s3(ZONE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+    resource_item['configuration']                  = zone
+    # resource_item['tags']                           = FIXME
+    resource_item['supplementaryConfiguration']     = {}
+    # Need to make sure the resource name is unique and service identifiable.
+    # Zone Ids look like "/hostedzone/Z2UFNORDFDSFTZ"
+    resource_item['resourceId']                     = zone['Id'].split("/")[2]
+    resource_item['resourceName']                   = zone['Name']
+    resource_item['errors']                         = {}
+
+    # # Not sure why Route53 product team makes me do a special call for tags.
+    # response = route53_client.list_tags_for_resource(
+    #     ResourceType='hostedzone',
+    #     ResourceId=zone['Id']
+    # )
+    # if 'ResourceTagSet' in response and 'Tags' in response['ResourceTagSet']:
+    #     zone['Tags'] = response['ResourceTagSet']['Tags']
+
+    # This also looks interesting from a data-leakage perspective
+    response = route53_client.list_vpc_association_authorizations(HostedZoneId=zone['Id'])
+    if 'VPCs' in response:
+        resource_item['supplementaryConfiguration']['AuthorizedVPCs'] = response['VPCs']
+
+    # This currently overloads the Route53 API Limits and exceeds Lambda Timeouts.
+    # resource_item['supplementaryConfiguration']['ResourceRecordSets'] = get_resource_records(route53_client, zone['Id'])
+    # resource_item['supplementaryConfiguration']['ResourceRecordSetCount'] = len(resource_item['supplementaryConfiguration']['ResourceRecordSets'])
+
+    save_resource_to_s3(ZONE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
 def get_resource_records(route53_client, hostedzone_id):

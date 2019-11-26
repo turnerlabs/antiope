@@ -209,7 +209,10 @@ def get_all_dx_gw_associations(dx_client, dxgw_id):
     # all I need are the VGWs
     output = {}
     for a in associations:
-        output[a['virtualGatewayId']] = a
+        if 'virtualGatewayId' not in a:
+            logger.error(f"No virtualGatewayId for DX GW Association: {a}")
+        else:
+            output[a['virtualGatewayId']] = a
     return(output)
 
 
