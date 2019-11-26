@@ -105,3 +105,8 @@ upload-config:
 
 fetch-config:
 	aws s3 cp s3://$(BUCKET)/deploy-packages/config.$(env) config.$(env)
+
+get-inventory-errors:
+	$(eval QUEUE := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`ErrorQueue`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	./bin/pull_errors.py --queue $(QUEUE) --filename $(STACK_PREFIX)-$(env)-aws-inventory-Errors.html --delete
+	open $(STACK_PREFIX)-$(env)-aws-inventory-Errors.html

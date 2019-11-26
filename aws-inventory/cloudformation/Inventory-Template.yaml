@@ -1130,7 +1130,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub "${AWS::StackName}-guardduty-inventory"
-      Description: Inventory Support Cases
+      Description: Inventory GuardDuty Detectors
       Handler: inventory-guardduty.lambda_handler
       Runtime: python3.6
       Layers:
@@ -1711,29 +1711,7 @@ Resources:
   #
   # Spray 'n Pray Error Handling
   #
-  # ErrorHandlerFunction:
-  #   Type: AWS::Lambda::Function
-  #   Properties:
-  #     FunctionName: !Sub "${AWS::StackName}-error-handler"
-  #     Description: Lambda to process any Spray n Pray errors from this run.
-  #     Handler: sqs-error-handler.handler
-  #     Runtime: python3.6
-  #     Timeout: !If [ ReIndex, 900, 180]
-  #     # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
-  #     ReservedConcurrentExecutions: !If [ ReIndex, 500, 50]
-  #     Role: !GetAtt InventoryLambdaRole.Arn
-  #     Code:
-  #       S3Bucket: !Ref pBucketName
-  #       S3Key: !Sub ${pLambdaZipFile}
-  #     Layers:
-  #       - !Ref AWSInventoryLambdaLayer
-  #     Environment:
-  #       Variables:
-  #         ROLE_SESSION_NAME: !Ref AWS::StackName
-  #         INVENTORY_BUCKET: !Ref pBucketName
-  #         ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
-  #         ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-  #     # Tags inherited from Stack
+
 
   ErrorHandlerEventQueue:
     Type: AWS::SQS::Queue
@@ -2107,4 +2085,6 @@ Outputs:
     Value: !Ref pBucketName
     Description: Name of S3 Bucket where all files are stored
 
-
+ErrorQueue:
+    Value: !GetAtt ErrorHandlerEventQueue.QueueName
+    Description: Name of the SQS Queue where lambda errors are sent
