@@ -99,3 +99,9 @@ versions:
 	  /bin/echo -n "$$s " ; \
 	  cft-get-output -s --stack-name $(STACK_PREFIX)-$(env)-$$s --output-key Version --region $(AWS_DEFAULT_REGION) ; \
 	done
+
+upload-config:
+	aws s3 cp config.$(env) s3://$(BUCKET)/deploy-packages/config.$(env)
+
+fetch-config:
+	aws s3 cp s3://$(BUCKET)/deploy-packages/config.$(env) config.$(env)
