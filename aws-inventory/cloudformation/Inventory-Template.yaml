@@ -2085,6 +2085,6 @@ Outputs:
     Value: !Ref pBucketName
     Description: Name of S3 Bucket where all files are stored
 
-ErrorQueue:
+  ErrorQueue:
     Value: !GetAtt ErrorHandlerEventQueue.QueueName
     Description: Name of the SQS Queue where lambda errors are sent
