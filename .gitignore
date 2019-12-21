@@ -52,7 +52,8 @@ azure-lambda-layer/python/
 # Do not want creds in github!
 azure_cred.json
 
-
+# Don't commit error reports
+*-Errors.html
 
 # Created by https://www.gitignore.io/api/osx,python
 

@@ -38,6 +38,7 @@ export manifest=cloudformation/$(FULL_STACK_NAME)-Manifest.yaml
 
 # For uploading CFT to S3
 export TEMPLATE_KEY ?= deploy-packages/$(STACK_NAME)-Template-$(version).yaml
+export MANIFEST_KEY ?= deploy-packages/$(FULL_STACK_NAME)-Manifest.yaml
 export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 
 .PHONY: $(FUNCTIONS)
@@ -52,6 +53,7 @@ deploy: cfn-deploy configure-identity-pool templates api-deploy
 # Upload template to S3
 cfn-upload: $(STACK_TEMPLATE)
 	aws s3 cp $(STACK_TEMPLATE) s3://$(BUCKET)/$(TEMPLATE_KEY)
+	aws s3 cp $(manifest) s3://$(BUCKET)/$(MANIFEST_KEY)
 
 # Validate the template
 cfn-validate: cfn-upload $(STACK_TEMPLATE)
@@ -60,6 +62,9 @@ cfn-validate: cfn-upload $(STACK_TEMPLATE)
 # Deploy the stack
 cfn-deploy: cfn-validate $(manifest)
 	cft-deploy -m $(manifest) --template-url $(TEMPLATE_URL) pBucketName=$(BUCKET) pCustomCognitoDomain=$(STACK_PREFIX)-$(env) pVersion=$(version) --force
+
+fetch-manifest:
+	aws s3 cp s3://$(BUCKET)/$(MANIFEST_KEY) $(manifest)
 
 configure-identity-pool:
 	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))

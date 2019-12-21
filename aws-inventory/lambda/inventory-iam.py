@@ -266,5 +266,5 @@ def get_credential_report(iam_client):
         except ClientError as e:
             print("Unknown error getting Report: " + e.message)
     else:
-        sleep(2)
+        time.sleep(2)
         return get_credential_report(iam_client)
