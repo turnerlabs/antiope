@@ -39,8 +39,8 @@ def lambda_handler(event, context):
             client = target_account.get_client('accessanalyzer', region=r)
             analyzer = get_analyzer(target_account, client, r)
             if analyzer is None:
-                logger.error(f"No Analyzers configured for {target_account.account_name}({target_account.account_id}) in {region}")
-                return(event)
+                logger.error(f"No Analyzers configured for {target_account.account_name}({target_account.account_id}) in {r}")
+                continue
             get_findings(target_account, client, r, analyzer)
 
     except AntiopeAssumeRoleError as e:
