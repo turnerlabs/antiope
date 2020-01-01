@@ -67,7 +67,7 @@ def lambda_handler(event, context):
 def list_distributions(cf_client, target_account):
     distributions = []
     response = cf_client.list_distributions()
-    while 'NextMarker' in response['DistributionList']:
+    while 'NextMarker' in response['DistributionList'] and response['IsTruncated'] is True:
         for i in response['DistributionList']['Items']:
             distributions.append(i)
         response = cf_client.list_distributions(Marker=response['NextMarker'])
