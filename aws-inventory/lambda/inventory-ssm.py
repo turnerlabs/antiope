@@ -33,8 +33,16 @@ def lambda_handler(event, context):
 
         # describe ec2 instances
         for r in regions:
-            client = target_account.get_client('ssm', region=r)
-            process_instances(target_account, client, r)
+            try:
+                client = target_account.get_client('ssm', region=r)
+                process_instances(target_account, client, r)
+            except ClientError as e:
+                # Move onto next region if we get access denied. This is probably SCPs
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.error(f"AccessDeniedException for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id})")
+                    continue
+                else:
+                    raise  # pass on to the next handlier
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

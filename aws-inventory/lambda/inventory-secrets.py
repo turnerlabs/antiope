@@ -28,7 +28,15 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
-            discover_secrets(target_account, r)
+            try:
+                discover_secrets(target_account, r)
+            except ClientError as e:
+                # Move onto next region if we get access denied. This is probably SCPs
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.error(f"AccessDeniedException for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id})")
+                    continue
+                else:
+                    raise  # pass on to the next handlier
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

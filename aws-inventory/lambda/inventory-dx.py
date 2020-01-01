@@ -40,8 +40,16 @@ def lambda_handler(event, context):
         dx_gws = discover_gateways(target_account)
 
         for r in target_account.get_regions():
-            discover_connections(target_account, r)
-            dx_gws = discover_vifs(target_account, r, dx_gws)
+            try:
+                discover_connections(target_account, r)
+                dx_gws = discover_vifs(target_account, r, dx_gws)
+            except ClientError as e:
+                # Move onto next region if we get access denied. This is probably SCPs
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.error(f"AccessDeniedException for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id})")
+                    continue
+                else:
+                    raise  # pass on to the next handlier
 
         # Now save the gateways
         for gwid, resource_item in dx_gws.items():
