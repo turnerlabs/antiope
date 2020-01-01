@@ -18,6 +18,7 @@ FILES =	get_billing_data.py \
 		inventory-guardduty.py \
 		inventory-health-report.py \
 		inventory-iam.py \
+		inventory-iam-analyzer.py \
 		inventory-instances-sg.py \
 		inventory-kms.py \
 		inventory-lambdas.py \
