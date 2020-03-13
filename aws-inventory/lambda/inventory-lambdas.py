@@ -64,6 +64,8 @@ def discover_lambdas(target_account, region):
         response = client.list_functions(Marker=response['NextMarker'])
     lambdas += response['Functions']
 
+    logger.debug(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
+
     for l in lambdas:
         process_lambda(client, l, target_account, region)
 
