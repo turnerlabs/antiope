@@ -106,7 +106,7 @@ def discover_vifs(target_account, region, dx_gws):
     resource_item['awsRegion']                      = region
 
     for vif in response['virtualInterfaces']:
-        print("Found VIF {}".format(vif['virtualInterfaceId']))
+        logger.debug("Found VIF {}".format(vif['virtualInterfaceId']))
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = vif
         resource_item['supplementaryConfiguration']     = {}
