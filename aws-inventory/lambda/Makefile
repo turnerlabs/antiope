@@ -11,10 +11,13 @@ FILES =	get_billing_data.py \
 		inventory-cloudfront.py \
 		inventory-cloudtrail.py \
 		inventory-dx.py \
+		inventory-ebs.py \
 		inventory-ecr.py \
 		inventory-ecs.py \
+		inventory-elb.py \
 		inventory-eni.py \
 		inventory-es.py \
+		inventory-firehose.py \
 		inventory-guardduty.py \
 		inventory-health-report.py \
 		inventory-iam.py \
@@ -22,8 +25,12 @@ FILES =	get_billing_data.py \
 		inventory-instances-sg.py \
 		inventory-kms.py \
 		inventory-lambdas.py \
+		inventory-redshift.py \
+		inventory-rds.py \
 		inventory-route53.py \
+		inventory-sagemaker.py \
 		inventory-secrets.py \
+		inventory-sqs.py \
 		inventory-ssm.py \
 		inventory-support-cases.py \
 		inventory-trusted-advisor.py \

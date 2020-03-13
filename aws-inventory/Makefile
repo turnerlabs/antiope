@@ -50,31 +50,35 @@ export TEMPLATE_URL ?= https://s3.amazonaws.com/$(BUCKET)/$(TEMPLATE_KEY)
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
-			$(FULL_STACK_NAME)-trigger-inventory \
-			$(FULL_STACK_NAME)-get-billing-data \
-			$(FULL_STACK_NAME)-instances-sg-inventory \
-			$(FULL_STACK_NAME)-eni-inventory \
-			$(FULL_STACK_NAME)-vpc-inventory \
-			$(FULL_STACK_NAME)-route53-inventory \
-			$(FULL_STACK_NAME)-bucket-inventory \
-			$(FULL_STACK_NAME)-iam-inventory \
-			$(FULL_STACK_NAME)-ecs-inventory \
-			$(FULL_STACK_NAME)-es-inventory \
-			$(FULL_STACK_NAME)-cloudtrail-inventory \
-			$(FULL_STACK_NAME)-secrets-inventory \
-			$(FULL_STACK_NAME)-health-inventory \
-			$(FULL_STACK_NAME)-ecr-inventory \
-			$(FULL_STACK_NAME)-lambdas-inventory \
-			$(FULL_STACK_NAME)-kms-inventory \
-			$(FULL_STACK_NAME)-dx-inventory \
-			$(FULL_STACK_NAME)-ssm-inventory \
-			$(FULL_STACK_NAME)-ta-inventory \
-			$(FULL_STACK_NAME)-support-inventory \
-			$(FULL_STACK_NAME)-guardduty-inventory \
-			$(FULL_STACK_NAME)-iam-analyzer-inventory \
 			$(FULL_STACK_NAME)-ami-inventory \
+			$(FULL_STACK_NAME)-bucket-inventory \
 			$(FULL_STACK_NAME)-cloudformation-inventory \
 			$(FULL_STACK_NAME)-cloudfront-inventory \
+			$(FULL_STACK_NAME)-cloudtrail-inventory \
+			$(FULL_STACK_NAME)-dx-inventory \
+			$(FULL_STACK_NAME)-ebs-inventory \
+			$(FULL_STACK_NAME)-ecr-inventory \
+			$(FULL_STACK_NAME)-ecs-inventory \
+			$(FULL_STACK_NAME)-elb-inventory \
+			$(FULL_STACK_NAME)-eni-inventory \
+			$(FULL_STACK_NAME)-es-inventory \
+			$(FULL_STACK_NAME)-guardduty-inventory \
+			$(FULL_STACK_NAME)-health-inventory \
+			$(FULL_STACK_NAME)-iam-analyzer-inventory \
+			$(FULL_STACK_NAME)-iam-inventory \
+			$(FULL_STACK_NAME)-instances-sg-inventory \
+			$(FULL_STACK_NAME)-kms-inventory \
+			$(FULL_STACK_NAME)-lambdas-inventory \
+			$(FULL_STACK_NAME)-rds-inventory \
+			$(FULL_STACK_NAME)-route53-inventory \
+			$(FULL_STACK_NAME)-secrets-inventory \
+			$(FULL_STACK_NAME)-ssm-inventory \
+			$(FULL_STACK_NAME)-sqs-inventory \
+			$(FULL_STACK_NAME)-support-inventory \
+			$(FULL_STACK_NAME)-ta-inventory \
+			$(FULL_STACK_NAME)-vpc-inventory \
+			$(FULL_STACK_NAME)-trigger-inventory \
+			$(FULL_STACK_NAME)-get-billing-data \
 			$(FULL_STACK_NAME)-create-account-report \
 			$(FULL_STACK_NAME)-create-cred-report \
 			$(FULL_STACK_NAME)-create-foreign-account-report \
