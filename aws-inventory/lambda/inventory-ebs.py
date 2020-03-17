@@ -109,8 +109,8 @@ def discover_snapshots(account, region):
         if 'Tags' in snap:
             resource_item['tags']                       = parse_tags(snap['Tags'])
         resource_item['supplementaryConfiguration']     = {}
-        resource_item['resourceId']                     = snap['VolumeId']
-        resource_item['resourceName']                   = snap['VolumeId']
+        resource_item['resourceId']                     = snap['SnapshotId']
+        resource_item['resourceName']                   = snap['SnapshotId']
         resource_item['errors']                         = {}
         save_resource_to_s3(SNAPSHOT_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
