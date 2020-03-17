@@ -143,5 +143,8 @@ if __name__ == '__main__':
         logger.error("AWS_DEFAULT_REGION Not set. Aborting...")
         exit(1)
 
-    main(args, logger)
+    try:
+        main(args, logger)
+    except KeyboardInterrupt:
+        exit(1)
 
