@@ -33,10 +33,6 @@ INDICES=resources_accessanalyzer_analyzer \
 		resources_ec2_instance \
 		resources_ec2_securitygroup \
 		resources_ec2_snapshot \
-		resources_ec2_snapshot \
-		resources_ec2_snapshot \
-		resources_ec2_volume \
-		resources_ec2_volume \
 		resources_ec2_volume \
 		resources_ec2_vpc \
 		resources_ecr_repository \
@@ -187,8 +183,9 @@ indices:
 	done
 
 purge-indices:
+	$(eval DOMAIN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ClusterName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	for i in $(INDICES) ; do \
-	  ./scripts/create_index.py --domain $(STACK_PREFIX) --index $$i --mapping_dir mappings --delete ; \
+	  ./scripts/create_index.py --domain $(DOMAIN) --index $$i --mapping_dir mappings --delete ; \
 	done
 
 index:
