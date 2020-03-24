@@ -11,7 +11,8 @@ FILES =	get_billing_data.py \
 		inventory-cloudfront.py \
 		inventory-cloudtrail.py \
 		inventory-dx.py \
-		inventory-ebs.py \
+		inventory-ebs-snapshot.py \
+		inventory-ebs-volume.py \
 		inventory-ecr.py \
 		inventory-ecs.py \
 		inventory-elb.py \

@@ -56,7 +56,8 @@ FUNCTIONS = $(FULL_STACK_NAME)-pull-organization-data \
 			$(FULL_STACK_NAME)-cloudfront-inventory \
 			$(FULL_STACK_NAME)-cloudtrail-inventory \
 			$(FULL_STACK_NAME)-dx-inventory \
-			$(FULL_STACK_NAME)-ebs-inventory \
+			$(FULL_STACK_NAME)-ebs-snap-inventory \
+			$(FULL_STACK_NAME)-ebs-vol-inventory \
 			$(FULL_STACK_NAME)-ecr-inventory \
 			$(FULL_STACK_NAME)-ecs-inventory \
 			$(FULL_STACK_NAME)-elb-inventory \
