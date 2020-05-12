@@ -57,9 +57,20 @@ Parameters:
       - True
       - False
 
+  pEBSInventory:
+    Type: String
+    Description: Set this to True if you want Inventory EBS and Snapshots
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+
+
 Conditions:
   CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
   EnterpriseSupport: !Equals [ !Ref pEntSupport, True]
+  EBSInventory: !Equals [ !Ref pEBSInventory, True]
 
 Resources:
 
@@ -1178,6 +1189,7 @@ Resources:
 
   EBSVolInventoryLambdaFunction:
     Type: AWS::Lambda::Function
+    Condition: EBSInventory
     Properties:
       FunctionName: !Sub "${AWS::StackName}-ebs-vol-inventory"
       Description: Inventory EBS Volumes & Snapshots
@@ -1203,6 +1215,7 @@ Resources:
 
   EBSSnapInventoryLambdaFunction:
     Type: AWS::Lambda::Function
+    Condition: EBSInventory
     Properties:
       FunctionName: !Sub "${AWS::StackName}-ebs-snap-inventory"
       Description: Inventory EBS Volumes & Snapshots
@@ -1843,6 +1856,7 @@ Resources:
 
   EBSVolInventoryLambdaFunctionPermission:
     Type: AWS::Lambda::Permission
+    Condition: EBSInventory
     Properties:
       FunctionName: !GetAtt EBSVolInventoryLambdaFunction.Arn
       Principal: sns.amazonaws.com
@@ -1851,6 +1865,7 @@ Resources:
 
   EBSVolInventoryTopicToLambdaSubscription:
     Type: AWS::SNS::Subscription
+    Condition: EBSInventory
     Properties:
       Endpoint: !GetAtt [EBSVolInventoryLambdaFunction, Arn]
       Protocol: lambda
@@ -1858,6 +1873,7 @@ Resources:
 
   EBSSnapInventoryLambdaFunctionPermission:
     Type: AWS::Lambda::Permission
+    Condition: EBSInventory
     Properties:
       FunctionName: !GetAtt EBSSnapInventoryLambdaFunction.Arn
       Principal: sns.amazonaws.com
@@ -1866,6 +1882,7 @@ Resources:
 
   EBSSnapInventoryTopicToLambdaSubscription:
     Type: AWS::SNS::Subscription
+    Condition: EBSInventory
     Properties:
       Endpoint: !GetAtt [EBSSnapInventoryLambdaFunction, Arn]
       Protocol: lambda
