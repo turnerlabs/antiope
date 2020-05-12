@@ -24,34 +24,38 @@ endif
 
 
 # Indicies should be singular!
-INDICES=resources_cloudformation_stack \
+INDICES=resources_accessanalyzer_analyzer \
+		resources_cloudformation_stack \
 		resources_cloudfront_distribution \
 		resources_cloudtrail_trail \
-		resources_dx_connection \
-		resources_dx_gw \
-		resources_dx_vif \
 		resources_ec2_ami \
 		resources_ec2_eni \
 		resources_ec2_instance \
 		resources_ec2_securitygroup \
+		resources_ec2_snapshot \
+		resources_ec2_volume \
 		resources_ec2_vpc \
 		resources_ecr_repository \
 		resources_ecs_cluster \
 		resources_ecs_task \
+		resources_elb_loadbalancer \
+		resources_elbv2_loadbalancer \
 		resources_es_domain \
-		resources_iam_saml \
+		resources_guardduty_detector \
 		resources_iam_role \
+		resources_iam_saml \
 		resources_iam_user \
 		resources_kms_key \
-		resources_guardduty_detector \
-		resources_lambda_function \
-		resources_ssm_instance \
-		resources_support_case \
-		resources_lambda_layer \
+		resources_rds_dbcluster \
+		resources_rds_dbinstance \
+		resources_redshift_clusters \
 		resources_route53_domain \
 		resources_route53_hostedzone \
 		resources_s3_bucket \
+		resources_sagemaker_notebook \
 		resources_secretsmanager_secret \
+		resources_ssm_managedinstance \
+		resources_support_case \
 		resources_support_trustedadvisorcheckresult
 
 ifndef version
@@ -179,8 +183,9 @@ indices:
 	done
 
 purge-indices:
+	$(eval DOMAIN := $(shell aws cloudformation describe-stacks --stack-name $(FULL_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ClusterName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	for i in $(INDICES) ; do \
-	  ./scripts/create_index.py --domain $(STACK_PREFIX) --index $$i --mapping_dir mappings --delete ; \
+	  ./scripts/create_index.py --domain $(DOMAIN) --index $$i --mapping_dir mappings --delete ; \
 	done
 
 index:

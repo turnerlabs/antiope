@@ -57,9 +57,20 @@ Parameters:
       - True
       - False
 
+  pEBSInventory:
+    Type: String
+    Description: Set this to True if you want Inventory EBS and Snapshots
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+
+
 Conditions:
   CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
   EnterpriseSupport: !Equals [ !Ref pEntSupport, True]
+  EBSInventory: !Equals [ !Ref pEBSInventory, True]
 
 Resources:
 
@@ -759,7 +770,7 @@ Resources:
       Layers:
         - !Ref AWSInventoryLambdaLayer
       Timeout: 600
-      MemorySize: 1024
+      MemorySize: 1536
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
         S3Bucket: !Ref pBucketName
@@ -983,7 +994,7 @@ Resources:
       Runtime: python3.6
       Layers:
         - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
+      Timeout: 600
       MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
       Code:
@@ -1175,6 +1186,159 @@ Resources:
           ROLE_NAME: !Ref pRoleName
           ERROR_QUEUE: !Ref ErrorHandlerEventQueue
       # Tags inherited from Stack
+
+  EBSVolInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Condition: EBSInventory
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ebs-vol-inventory"
+      Description: Inventory EBS Volumes & Snapshots
+      Handler: inventory-ebs-volume.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
+  EBSSnapInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Condition: EBSInventory
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-ebs-snap-inventory"
+      Description: Inventory EBS Volumes & Snapshots
+      Handler: inventory-ebs-snapshot.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
+  ELBInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-elb-inventory"
+      Description: Inventory V1 and V2 LoadBalancers
+      Handler: inventory-elb.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
+  RDSInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-rds-inventory"
+      Description: Inventory RDS and Aurora Databases
+      Handler: inventory-rds.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
+  SageMakerInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-sagemaker-inventory"
+      Description: Inventory RDS and Aurora Databases
+      Handler: inventory-sagemaker.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
+  RedshiftInventoryLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-redshift-inventory"
+      Description: Inventory Redshift Clusters
+      Handler: inventory-redshift.lambda_handler
+      Runtime: python3.6
+      Layers:
+        - !Ref AWSInventoryLambdaLayer
+      Timeout: 300
+      MemorySize: !Ref pLargeLambdaSize
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Code:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Sub ${pLambdaZipFile}
+      Environment:
+        Variables:
+          ROLE_SESSION_NAME: !Ref AWS::StackName
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
+      # Tags inherited from Stack
+
 
   #
   # StateMachine
@@ -1690,6 +1854,100 @@ Resources:
       Protocol: lambda
       TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
 
+  EBSVolInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Condition: EBSInventory
+    Properties:
+      FunctionName: !GetAtt EBSVolInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  EBSVolInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: EBSInventory
+    Properties:
+      Endpoint: !GetAtt [EBSVolInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  EBSSnapInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Condition: EBSInventory
+    Properties:
+      FunctionName: !GetAtt EBSSnapInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  EBSSnapInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: EBSInventory
+    Properties:
+      Endpoint: !GetAtt [EBSSnapInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  RDSInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt RDSInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  RDSInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [RDSInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  ELBInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ELBInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  ELBInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [ELBInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  SageMakerInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SageMakerInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  SageMakerInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [SageMakerInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
+  RedshiftInventoryLambdaFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt RedshiftInventoryLambdaFunction.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
+      Action: lambda:invokeFunction
+
+  RedshiftInventoryTopicToLambdaSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt [RedshiftInventoryLambdaFunction, Arn]
+      Protocol: lambda
+      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+
 
   #
   # DynamoDB Tables
@@ -1844,7 +2102,7 @@ Resources:
               "height": 3,
               "styles": "undefined",
               "properties": {
-                  "markdown": "\n# Stack Info\n* **Deploy Package**: ${pLambdaZipFile}\n* **Execution Schedule**: ${pExecutionRate} (GMT)\n"
+                  "markdown": "\n# Stack Info\n* **Deploy Package**: ${pLambdaZipFile}\n* **Execution Schedule**: ${pExecutionRate} (GMT)\n* **Region**: ${AWS::Region}\n"
               }
             },
             {
@@ -1867,36 +2125,42 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
-                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
-                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
-                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
-                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
-                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
-                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
-                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
-                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
-                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
-                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
-                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
-                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
-                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
-                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
+                  [ "...", "${AWS::StackName}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
+                  [ "...", "${AWS::StackName}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
+                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
+                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
+                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
+                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
+                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
+                  [ "...", "${AWS::StackName}-redshift-inventory", { "stat": "Sum", "period": 604800, "label": "redshift-inventory" } ],
+                  [ "...", "${AWS::StackName}-rds-inventory", { "stat": "Sum", "period": 604800, "label": "rds-inventory" } ],
+                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
+                  [ "...", "${AWS::StackName}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
+                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
+                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
+                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
+                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
                   [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
                   [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
-                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -1914,36 +2178,42 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
-                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
-                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
-                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
-                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
-                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
-                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
-                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
-                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
-                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
-                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
-                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
-                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
-                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
-                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
+                  [ "...", "${AWS::StackName}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
+                  [ "...", "${AWS::StackName}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
+                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
+                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
+                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
+                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
+                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
+                  [ "...", "${AWS::StackName}-redshift-inventory", { "stat": "Sum", "period": 604800, "label": "redshift-inventory" } ],
+                  [ "...", "${AWS::StackName}-rds-inventory", { "stat": "Sum", "period": 604800, "label": "rds-inventory" } ],
+                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
+                  [ "...", "${AWS::StackName}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
+                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
+                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
+                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
+                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
                   [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
                   [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
-                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
@@ -1961,36 +2231,42 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
-                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
-                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
-                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
-                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
-                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
-                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 900, "label": "bucket-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 900, "label": "ecs-inventory" } ],
-                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
-                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 900, "label": "ecr-inventory" } ],
-                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 900, "label": "lambdas-inventory" } ],
-                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
-                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
                   [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
-                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
-                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
-                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
-                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "iam-analyzer-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 900, "label": "bucket-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
                   [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
+                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
+                  [ "...", "${AWS::StackName}-ebs-vol-inventory", { "stat": "Sum", "period": 900, "label": "ebs-vol-inventory" } ],
+                  [ "...", "${AWS::StackName}-ebs-snap-inventory", { "stat": "Sum", "period": 900, "label": "ebs-snap-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 900, "label": "ecr-inventory" } ],
+                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 900, "label": "ecs-inventory" } ],
+                  [ "...", "${AWS::StackName}-elb-inventory", { "stat": "Sum", "period": 900, "label": "elb-inventory" } ],
+                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
+                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
+                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
+                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
+                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
+                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
+                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 900, "label": "lambdas-inventory" } ],
+                  [ "...", "${AWS::StackName}-redshift-inventory", { "stat": "Sum", "period": 900, "label": "redshift-inventory" } ],
+                  [ "...", "${AWS::StackName}-rds-inventory", { "stat": "Sum", "period": 900, "label": "rds-inventory" } ],
+                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
+                  [ "...", "${AWS::StackName}-sagemaker-inventory", { "stat": "Sum", "period": 900, "label": "sagemaker-inventory" } ],
+                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
+                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
+                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
+                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
+                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
+                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
+                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
+                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
+                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 900, "label": "create-cred-report" } ],
                   [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 900, "label": "create-foreign-account-report" } ],
                   [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 900, "label": "create-vpc-report" } ],
-                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 900, "label": "create-cred-report" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
                   [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",

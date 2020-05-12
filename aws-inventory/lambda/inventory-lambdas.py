@@ -44,6 +44,9 @@ def lambda_handler(event, context):
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
+        if e.response['Error']['Code'] == 'UnauthorizedOperation':
+            logger.error("Antiope doesn't have proper permissions to this account")
+            return(event)
         logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
         capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
@@ -63,6 +66,8 @@ def discover_lambdas(target_account, region):
         lambdas += response['Functions']
         response = client.list_functions(Marker=response['NextMarker'])
     lambdas += response['Functions']
+
+    logger.debug(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
 
     for l in lambdas:
         process_lambda(client, l, target_account, region)
