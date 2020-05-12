@@ -265,22 +265,30 @@ def get_credential_report(iam_client):
         else:
             raise  # Whatever happened here we didn't expect
 
-    # No report - go request one get generated
-    resp1 = iam_client.generate_credential_report()
-    if resp1['State'] == 'COMPLETE':
-        try:
-            response = iam_client.get_credential_report()
-            credential_report_csv = response['Content'].decode('ascii')
-            # # print(credential_report_csv)
-            # reader = csv.DictReader(credential_report_csv.splitlines())
-            # # print(reader)
-            # # print(reader.fieldnames)
-            # credential_report = []
-            # for row in reader:
-            #     credential_report.append(row)
-            return(credential_report_csv)
-        except ClientError as e:
-            print("Unknown error getting Report: " + e.message)
-    else:
-        time.sleep(2)
-        return get_credential_report(iam_client)
+    try:
+        # No report - go request one get generated
+        resp1 = iam_client.generate_credential_report()
+        if resp1['State'] == 'COMPLETE':
+            try:
+                response = iam_client.get_credential_report()
+                credential_report_csv = response['Content'].decode('ascii')
+                # # print(credential_report_csv)
+                # reader = csv.DictReader(credential_report_csv.splitlines())
+                # # print(reader)
+                # # print(reader.fieldnames)
+                # credential_report = []
+                # for row in reader:
+                #     credential_report.append(row)
+                return(credential_report_csv)
+            except ClientError as e:
+                print("Unknown error getting Report: " + e.message)
+        else:
+            time.sleep(2)
+            return get_credential_report(iam_client)
+    except ClientError as e:
+        if e.response['Error']['Code'] == "Throttling":
+            time.sleep(2)
+            return get_credential_report(iam_client)
+        else:
+            raise
+
