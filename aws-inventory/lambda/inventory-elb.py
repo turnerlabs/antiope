@@ -40,6 +40,9 @@ def lambda_handler(event, context):
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
+        if e.response['Error']['Code'] == 'UnauthorizedOperation':
+            logger.error("Antiope doesn't have proper permissions to this account")
+            return(event)
         logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
         capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
@@ -78,11 +81,12 @@ def discover_elbv1(account, region):
         resource_item['resourceCreationTime']           = elb['CreatedTime']
         resource_item['errors']                         = {}
 
-        policies = elb_client.describe_load_balancer_policies(LoadBalancerName=name)
-        resource_item['supplementaryConfiguration']['PolicyDescriptions'] = policies['PolicyDescriptions']
+        # To Fix - throttling occurs here
+        # policies = elb_client.describe_load_balancer_policies(LoadBalancerName=name)
+        # resource_item['supplementaryConfiguration']['PolicyDescriptions'] = policies['PolicyDescriptions']
 
-        attrib = elb_client.describe_load_balancer_attributes(LoadBalancerName=name)
-        resource_item['supplementaryConfiguration']['LoadBalancerAttributes'] = attrib['LoadBalancerAttributes']
+        # attrib = elb_client.describe_load_balancer_attributes(LoadBalancerName=name)
+        # resource_item['supplementaryConfiguration']['LoadBalancerAttributes'] = attrib['LoadBalancerAttributes']
 
         try:
             tags = elb_client.describe_tags(LoadBalancerNames=[name])
@@ -123,8 +127,9 @@ def discover_elbv2(account, region):
         resource_item['resourceCreationTime']           = elb['CreatedTime']
         resource_item['errors']                         = {}
 
-        attrib = elb_client.describe_load_balancer_attributes(LoadBalancerArn=arn)
-        resource_item['supplementaryConfiguration']['Attributes'] = attrib['Attributes']
+        # To Fix - throttling occurs here
+        # attrib = elb_client.describe_load_balancer_attributes(LoadBalancerArn=arn)
+        # resource_item['supplementaryConfiguration']['Attributes'] = attrib['Attributes']
 
         try:
             tags = elb_client.describe_tags(ResourceArns=[arn])
