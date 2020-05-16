@@ -1,5 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploy the Search Cluster Component of Antiope
+Transform: AWS::Serverless-2016-10-31
+
 
 Parameters:
 
@@ -7,18 +9,10 @@ Parameters:
     Description: Name of the bucket to hold the images
     Type: String
 
-  pVersion:
-    Description: Version of this stack's deployment
-    Type: String
-
   pDomainName:
     Description: Name of the Elasticsearch Domain
     Type: String
     MaxLength: 28
-
-  pLambdaZipFile:
-    Description: File Name for the lambdas
-    Type: String
 
   pAWSLambdaLayerPackage:
     Description: Object Key for the Antiope Python Dependencies Lambda Layer
@@ -54,6 +48,10 @@ Parameters:
     AllowedValues:
       - True
       - False
+
+  pResourcePrefix:
+    Type: String
+    Description: Resource Prefix (should relate to parent stack)
 
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
@@ -103,7 +101,7 @@ Resources:
     Type: AWS::KMS::Key
     Condition: EncryptionEnabled
     Properties:
-      Description: !Ref AWS::StackName
+      Description: !Sub ${pResourcePrefix} KMS Key in ${AWS::StackName}
       Enabled: True
       EnableKeyRotation: True
       KeyPolicy:
@@ -133,7 +131,7 @@ Resources:
     Type: AWS::KMS::Alias
     Condition: EncryptionEnabled
     Properties:
-      AliasName: !Sub "alias/${AWS::StackName}"
+      AliasName: !Sub "alias/${pResourcePrefix}-kmskey"
       TargetKeyId: !Ref SearchClusterKMSKey
 
   #
@@ -215,15 +213,16 @@ Resources:
       Content:
         S3Bucket: !Ref pBucketName
         S3Key: !Ref pAWSLambdaLayerPackage
-      Description: !Sub "${AWS::StackName}-AWS-Inventory-Libraries"
+      Description: !Sub "${pResourcePrefix}-AWS-Inventory-Libraries"
 
   #
   # Ingestion Function Functions
   #
   SearchIngestS3Function:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ingest-s3"
+      CodeUri: ../lambda
+      FunctionName: !Sub "${pResourcePrefix}-ingest-s3"
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
@@ -231,18 +230,16 @@ Resources:
       # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
       ReservedConcurrentExecutions: !If [ ReIndex, 500, 50]
       Role: !GetAtt IngestLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
       Layers:
         - !Ref AWSInventoryLambdaLayer
       Environment:
         Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
+          ROLE_SESSION_NAME: !Ref pResourcePrefix
           INVENTORY_BUCKET: !Ref pBucketName
           ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
           SQS_QUEUE_URL: !Ref SearchIngestEventQueue
       # Tags inherited from Stack
+
 
   SearchIngestEventQueue:
     Type: AWS::SQS::Queue
@@ -297,7 +294,7 @@ Resources:
       # AlarmActions:
       #   - String
       AlarmDescription: "Alert when Queue doesn't properly drain"
-      AlarmName: !Sub "${AWS::StackName}-SearchQueueFull"
+      AlarmName: !Sub "${pResourcePrefix}-SearchQueueFull"
       ComparisonOperator: GreaterThanOrEqualToThreshold
       Dimensions:
         - Name: QueueName
@@ -332,7 +329,7 @@ Resources:
   Dashboard:
     Type: "AWS::CloudWatch::Dashboard"
     Properties:
-      DashboardName: !Ref AWS::StackName
+      DashboardName: !Ref pResourcePrefix
       DashboardBody: !Sub |-
         {
             "widgets": [
@@ -344,7 +341,7 @@ Resources:
                     "height": 3,
                     "properties": {
                         "metrics": [
-                            [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-ingest-s3", { "stat": "Sum", "period": 604800 } ],
+                            [ "AWS/Lambda", "Invocations", "FunctionName", "${pResourcePrefix}-ingest-s3", { "stat": "Sum", "period": 604800 } ],
                             [ ".", "Errors", ".", ".", { "stat": "Sum", "period": 604800 } ],
                             [ ".", "Throttles", ".", ".", { "stat": "Sum", "period": 604800 } ],
                             [ ".", "Duration", ".", ".", { "stat": "Average", "period": 604800 } ]
@@ -361,7 +358,7 @@ Resources:
                     "width": 3,
                     "height": 3,
                     "properties": {
-                        "markdown": "# QuickLinks\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* [Lambda](https://console.aws.amazon.com/lambda/home?region=${AWS::Region}#/functions/${AWS::StackName}-ingest-s3?tab=monitoring)\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)\n* [Stack](https://console.aws.amazon.com/cloudformation/home?region=${AWS::Region}#/stack/detail?stackId=${AWS::StackId})"
+                        "markdown": "# QuickLinks\n* [Kibana](https://${SearchClusterDomain.DomainEndpoint}/_plugin/kibana/)\n* [Lambda](https://console.aws.amazon.com/lambda/home?region=${AWS::Region}#/functions/${pResourcePrefix}-ingest-s3?tab=monitoring)\n* [Cluster Health](https://console.aws.amazon.com/es/home?region=${AWS::Region}#domain:resource=${SearchClusterDomain};action=dashboard)\n* [SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${SearchIngestEventQueue};prefix=)\n* [Stack](https://console.aws.amazon.com/cloudformation/home?region=${AWS::Region}#/stack/detail?stackId=${AWS::StackId})"
                     }
                 },
                 {
@@ -439,7 +436,7 @@ Resources:
                     "height": 6,
                     "properties": {
                         "metrics": [
-                            [ "AWS/Lambda", "Throttles", "FunctionName", "${AWS::StackName}-ingest-s3", { "stat": "Sum" } ],
+                            [ "AWS/Lambda", "Throttles", "FunctionName", "${pResourcePrefix}-ingest-s3", { "stat": "Sum" } ],
                             [ ".", "Duration", ".", ".", { "stat": "Maximum", "yAxis": "right", "label": "Duration Max" } ],
                             [ ".", "Duration", ".", ".", { "stat": "Average", "yAxis": "right", "label": "Duration Avg" } ],
                             [ ".", "Invocations", ".", ".", { "stat": "Sum" } ],
@@ -504,7 +501,7 @@ Resources:
                     "width": 9,
                     "height": 6,
                     "properties": {
-                        "markdown": "# Stack Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* Cluster Size: ${pClusterInstanceType} x ${pClusterInstanceCount} Nodes / Encryption: ${pClusterEncryption}\n* ReIndex: ${pReIndexSettings}\n\n# Logs\n* [Lambda Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/lambda/${AWS::StackName}-ingest-s3;streamFilter=typeLogStreamPrefix)\n* [ES App Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/application-logs;streamFilter=typeLogStreamPrefix)\n* [ES Slow Index Logs](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/index-logs;streamFilter=typeLogStreamPrefix)\n"
+                        "markdown": "# Stack Info\n* StackName: ${AWS::StackName}\n* Lambda Package: ${pLambdaZipFile}\n* Cluster Size: ${pClusterInstanceType} x ${pClusterInstanceCount} Nodes / Encryption: ${pClusterEncryption}\n* ReIndex: ${pReIndexSettings}\n\n# Logs\n* [Lambda Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/lambda/${pResourcePrefix}-ingest-s3;streamFilter=typeLogStreamPrefix)\n* [ES App Logs](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/application-logs;streamFilter=typeLogStreamPrefix)\n* [ES Slow Index Logs](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#logStream:group=/aws/aes/domains/${SearchClusterDomain}/index-logs;streamFilter=typeLogStreamPrefix)\n"
                     }
                 },
                 {
@@ -514,9 +511,9 @@ Resources:
                     "width": 15,
                     "height": 6,
                     "properties": {
-                        "query": "SOURCE '/aws/lambda/${AWS::StackName}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Bulk ingest of * documents request took 0:00:0* sec and processing took * ms\" as doc_count, elapsed, took\n| parse @message \"[ERROR]\" as error\n| parse @message \"[WARNING]\" as warning\n| stats  avg(elapsed * 1000 ), avg(took), max(elapsed*1000), max(took), avg(elapsed*1000 - took), count(warning), count(error) by bin(5m)\n\n\n",
+                        "query": "SOURCE '/aws/lambda/${pResourcePrefix}-ingest-s3' | fields @timestamp, @message\n| parse @message \"Bulk ingest of * documents request took 0:00:0* sec and processing took * ms\" as doc_count, elapsed, took\n| parse @message \"[ERROR]\" as error\n| parse @message \"[WARNING]\" as warning\n| stats  avg(elapsed * 1000 ), avg(took), max(elapsed*1000), max(took), avg(elapsed*1000 - took), count(warning), count(error) by bin(5m)\n\n\n",
                         "region": "${AWS::Region}",
-                        "title": "Log group: /aws/lambda/${AWS::StackName}-ingest-s3"
+                        "title": "Log group: /aws/lambda/${pResourcePrefix}-ingest-s3"
                     }
                 }
             ]
@@ -527,13 +524,6 @@ Outputs:
   StackName:
     Description: Name of this Stack
     Value: !Ref AWS::StackName
-
-  Version:
-    Description: Version of this stack's deployment
-    Value: !Ref pVersion
-
-  LambdaPackageFile:
-    Value: !Ref pLambdaZipFile
 
   ClusterEndpoint:
     Value: !GetAtt SearchClusterDomain.DomainEndpoint
