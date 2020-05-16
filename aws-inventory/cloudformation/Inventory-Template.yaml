@@ -265,7 +265,7 @@ Resources:
               else:
                   return(False)
 
-          # Used To tell the Step Function to wait 30 and try again
+          # Used To tell the Step Function to wait 300 and try again
           class ScorecardRunningException(Exception): pass
           ### End of Function
 
@@ -279,8 +279,7 @@ Resources:
       CodeUri: ../lambda
       Environment:
         Variables: # Specific to this function
-          TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
-          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${pResourcePrefix}-statemachine"
+          TRIGGER_PAYER_INVENTORY_ARN: !Ref TriggerPayerInventoryFunctionTopic
       # Tags inherited from Stack
 
   TriggerInventoryLambdaFunction:
@@ -454,8 +453,9 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: !Sub "Notifications for discovery of a foreign AWS Account"
+
   #
-  # Parallel Execution Functions
+  # Parallel Execution Functions (on each account)
   #
   VpcInventoryLambdaFunction:
     Type: AWS::Serverless::Function
@@ -855,6 +855,11 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  #
+  # Parallel Execution Functions (on each PAYER)
+  #
+
+
 
   #
   # StateMachine
@@ -943,68 +948,90 @@ Resources:
       StateMachineName: !Sub "${pResourcePrefix}-statemachine"
       DefinitionString: !Sub |-
         {
-          "Comment": "(${pResourcePrefix}) State Machine to Gather Account Inventory Information",
+          "Comment": "(${pResourcePrefix}) State Machine to Gather AWS Account Inventory Information",
           "StartAt": "LoadStepFunctionEventLambdaFunction",
           "States": {
-            "ErrorHandlerState": {
-              "Type": "Task",
-              "Resource": "${InventoryErrorHandlingLambdaFunction.Arn}" ,
-              "End": true
-            },
             "LoadStepFunctionEventLambdaFunction": {
               "Type": "Task",
               "Resource": "${LoadStepFunctionEventLambdaFunction.Arn}",
               "Next": "PullOrganizationDataLambdaFunction",
               "Catch": [
-                {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"},
-                {"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}
+                {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"}
               ]
             },
             "PullOrganizationDataLambdaFunction": {
               "Type": "Task",
               "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
-              "Next": "TriggerInventoryLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"} ] },
+              "Next": "WaitForPayerInventoryLambdaExecutionsToComplete"
+            },
+            "WaitForPayerInventoryLambdaExecutionsToComplete": {
+              "Type": "Wait",
+              "Seconds": 300,
+              "Next": "TriggerInventoryLambdaFunction"
+            },
             "TriggerInventoryLambdaFunction": {
               "Type": "Task",
               "Resource": "${TriggerInventoryLambdaFunction.Arn}",
-              "Next": "WaitForLambdaExecutionsToComplete",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
+              "Next": "WaitForAccountInventoryLambdaExecutionsToComplete"
             },
-            "WaitForLambdaExecutionsToComplete": {
+            "WaitForAccountInventoryLambdaExecutionsToComplete": {
               "Type": "Wait",
               "Seconds": 300,
-              "Next": "CreateAccountReportLambdaFunction"
+              "Next": "CreateAWSReports"
             },
-            "CreateAccountReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateAccountReportLambdaFunction.Arn}",
-              "Next": "CreateForeignAccountReportLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "CreateForeignAccountReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateForeignAccountReportLambdaFunction.Arn}",
-              "Next": "CreateVPCReportLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "CreateVPCReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateVPCReportLambdaFunction.Arn}",
-              "Next": "CreateCredentialReportLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "CreateCredentialReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateCredentialReportLambdaFunction.Arn}",
+
+            "CreateAWSReports": {
+              "Type": "Parallel",
               "Next": "HandoffToNextStepFunctionLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
+              "ResultPath": null,
+              "Branches": [
+                {
+                  "StartAt": "CreateAccountReportLambdaFunction",
+                  "States": {
+                    "CreateAccountReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateAccountReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "CreateForeignAccountReportLambdaFunction",
+                  "States": {
+                    "CreateForeignAccountReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateForeignAccountReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "CreateVPCReportLambdaFunction",
+                  "States": {
+                    "CreateVPCReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateVPCReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "CreateCredentialReportLambdaFunction",
+                  "States": {
+                    "CreateCredentialReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateCredentialReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                }
+              ]
             },
+
             "HandoffToNextStepFunctionLambdaFunction": {
               "Type": "Task",
               "Resource": "${HandoffToNextStepFunctionLambdaFunction.Arn}",
-              "End": true,
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
+              "End": true
             },
             "WaitForStepFunctionToFinish": {
               "Type" : "Wait",
@@ -1021,6 +1048,11 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: !Sub "Triggers the Inventory of each Account for ${pResourcePrefix}"
+
+  TriggerPayerInventoryFunctionTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Triggers the Inventory of each Payer for ${pResourcePrefix}"
 
   #
   # DynamoDB Tables
@@ -1448,6 +1480,10 @@ Outputs:
   StackName:
     Value: !Ref AWS::StackName
     Description: Just the name of this stack
+
+  InventoryProcessStateMachine:
+    Description:
+    Value: !Ref InventoryProcessStateMachine
 
   InventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
