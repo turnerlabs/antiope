@@ -54,6 +54,14 @@ def handler(event, context):
                     logger.error("Unable to assume role into {}({})".format(a['Name'], a['Id']))
                     pass
 
+        # Trigger the Payer-Level Functions
+        message = event.copy()
+        message['payer_id'] = payer_id  # Which account to process
+        response = client.publish(
+            TopicArn=os.environ['TRIGGER_ACCOUNT_INVENTORY_ARN'],
+            Message=json.dumps(message)
+        )
+
     event['account_list'] = account_list
 
     # We'll use this for reports where we want every file to have the same timestamp suffix.
