@@ -45,7 +45,7 @@ test:
 
 # Stack Targets
 
-deploy: package cft-deploy push-config
+deploy: cft-validate package cft-deploy push-config
 
 package:
 	@aws cloudformation package --template-file $(MAIN_TEMPLATE) --s3-bucket $(BUCKET) --s3-prefix $(DEPLOY_PREFIX)/transform --output-template-file cloudformation/$(OUTPUT_TEMPLATE)  --metadata build_ver=$(version)
@@ -73,10 +73,11 @@ endif
 
 # Validate all the CFTs. Inventory is so large it can only be validated from S3
 cft-validate:
+	cft-validate -t cloudformation/antiope-Template.yaml
 	cft-validate -t cognito/cloudformation/Cognito-Template.yaml
 	cft-validate -t search-cluster/cloudformation/SearchCluster-Template.yaml
 	@aws s3 cp aws-inventory/cloudformation/Inventory-Template.yaml s3://$(BUCKET)/$(DEPLOY_PREFIX)/validate/Inventory-Template.yaml
-	cft-validate --region $(AWS_DEFAULT_REGION) --s3-url s3://$(BUCKET)/$(DEPLOY_PREFIX)/validate/Inventory-Template.yaml
+	aws cloudformation validate-template --template-url https://s3.amazonaws.com/$(BUCKET)/$(DEPLOY_PREFIX)/validate/Inventory-Template.yaml > /dev/null
 # 	@aws s3 rm s3://$(BUCKET)/$(DEPLOY_PREFIX)/validate/Inventory-Template.yaml
 
 # Clean up dev artifacts
@@ -108,7 +109,9 @@ sync-deploy-package:
 purge-deploy-package:
 	aws s3 rm s3://$(BUCKET)/$(DEPLOY_PREFIX)/ --recursive
 
-
+post-deploy:
+	cd aws-inventory && $(MAKE) post-deploy
+	cd cognito && $(MAKE) post-deploy
 
 pep8:
 	cd aws-inventory/lambda && $(MAKE) pep8
@@ -117,17 +120,17 @@ pep8:
 
 
 trigger-inventory:
-	./bin/trigger_inventory.sh $(STACK_PREFIX)-$(env)-aws-inventory
+	@./bin/trigger_inventory.sh $(MAIN_STACK_NAME)
 
 disable-inventory:
-	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(MAIN_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	aws events disable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
 
 enable-inventory:
-	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	$(eval EVENT := $(shell aws cloudformation describe-stacks --stack-name $(MAIN_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`TriggerEventName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	aws events enable-rule --name $(EVENT) --output text --region $(AWS_DEFAULT_REGION)
 
 get-inventory-errors:
-	$(eval QUEUE := $(shell aws cloudformation describe-stacks --stack-name $(STACK_PREFIX)-$(env)-aws-inventory --query 'Stacks[0].Outputs[?OutputKey==`ErrorQueue`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
-	./bin/pull_errors.py --queue $(QUEUE) --filename $(STACK_PREFIX)-$(env)-aws-inventory-Errors.html --delete
-	open $(STACK_PREFIX)-$(env)-aws-inventory-Errors.html
+	$(eval QUEUE := $(shell aws cloudformation describe-stacks --stack-name $(MAIN_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ErrorQueue`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
+	./bin/pull_errors.py --queue $(QUEUE) --filename $(MAIN_STACK_NAME)-Errors.html --delete
+	open $(MAIN_STACK_NAME)-Errors.html
