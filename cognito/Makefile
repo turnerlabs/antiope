@@ -18,7 +18,7 @@ endif
 .PHONY: $(FUNCTIONS)
 
 # Do everything
-post-install: configure-identity-pool templates api-deploy
+post-deploy: configure-identity-pool templates api-deploy
 
 #
 # Cloudformation Targets

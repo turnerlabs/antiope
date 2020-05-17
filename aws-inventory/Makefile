@@ -91,10 +91,8 @@ fupdate: zipfile
 	aws lambda update-function-code --region $(AWS_DEFAULT_REGION) --function-name $(function) --zip-file fileb://lambda/$(LAMBDA_PACKAGE) ; \
 
 #
-# Management Targets
+# Purging Targets
 #
-
-# This will prompt for confirmation
 purge-tables:
 	purge_ddb_table.py --table $(RESOURCE_PREFIX)-accounts --key_attribute account_id --force
 	purge_ddb_table.py --table $(RESOURCE_PREFIX)-billing-data --key_attribute account_id --force
@@ -104,6 +102,12 @@ purge-logs:
 	for f in $(FUNCTIONS) ; do \
 	  aws logs delete-log-group --log-group-name /aws/lambda/$$f ; \
 	done
+
+#
+# Post Install Targets
+#
+
+post-deploy: expire-logs
 
 expire-logs:
 	for f in $(FUNCTIONS) ; do \
