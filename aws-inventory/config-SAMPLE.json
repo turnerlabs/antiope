@@ -1,6 +1,0 @@
-{
-    "payer": [ INSERT YOUR PAYER ACCOUNT IDS HERE ],
-    "next_function": {
-        "PREFIX-ENV-aws-inventory": CUSTOM_STACK_STEPFUNCTION_ARN
-    }
-}
