@@ -2,7 +2,6 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploy the AWS Inventory Component of Antiope
 Transform: AWS::Serverless-2016-10-31
 
-
 Parameters:
 
   pBucketName:
@@ -13,11 +12,6 @@ Parameters:
     Description: Default name of the AssumeRole to assume into accounts
     Type: String
     Default: Security-Audit
-
-  pExecutionRate:
-    Description: How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
-    Type: String
-    Default: rate(30 minutes)
 
   pStaggerAccelerationFactor:
     Description: Factor by which the delay between SNS Publish is shrunk. The larger the number, the more frequent the publish.
@@ -48,11 +42,17 @@ Parameters:
     Type: String
     Description: Function Prefix (should relate to parent stack)
 
+  pErrorHandlerEventQueue:
+    Description: Antiope Spray-n-pray Error Queue
+    Type: String
+
+  pErrorHandlerEventQueueAlarmArn:
+    Description: Alarm for the Antiope Spray-n-pray Error Queue
+    Type: String
 
 Conditions:
   EnterpriseSupport: !Equals [ !Ref pEntSupport, True]
   EBSInventory: !Equals [ !Ref pEBSInventory, True]
-
 
 Globals:
   Function:
@@ -69,8 +69,7 @@ Globals:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-
+          ERROR_QUEUE: !Ref pErrorHandlerEventQueue
 
 Resources:
 
@@ -169,7 +168,7 @@ Resources:
             - sqs:ReceiveMessage
             - sqs:DeleteMessage
             Resource:
-              - !GetAtt ErrorHandlerEventQueue.Arn
+              - !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${pErrorHandlerEventQueue}"
       - PolicyName: DataTableStream
         PolicyDocument:
           Version: '2012-10-17'
@@ -187,14 +186,6 @@ Resources:
               - dynamodb:UpdateItem
             Resource:
               - !GetAtt AccountDBTable.StreamArn
-      - PolicyName: ListExecutions
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: "Allow"
-            Action:
-            - states:ListExecutions
-            Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${pResourcePrefix}-statemachine"
 
   AWSInventoryLambdaLayer:
     Type: "AWS::Lambda::LayerVersion"
@@ -209,65 +200,6 @@ Resources:
   #
   # State Machine Functions
   #
-  LoadStepFunctionEventLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${pResourcePrefix}-load-sf-event"
-      Description: Load the StepFunction Event from S3
-      Handler: index.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Environment:
-        Variables:
-          INVENTORY_STACK_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${pResourcePrefix}-statemachine"
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      Code:
-        ZipFile: !Sub |
-          from __future__ import print_function
-          import boto3
-          import json
-          import logging
-          import os
-          from botocore.exceptions import ClientError
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-          logging.getLogger('botocore').setLevel(logging.WARNING)
-          logging.getLogger('boto3').setLevel(logging.WARNING)
-
-          # Lambda main routine
-          def handler(event, context):
-              logger.info("Received event: " + json.dumps(event, sort_keys=True))
-              if statemachine_already_running(os.environ['STEPFUNCTION_ARN']):
-                  logger.error("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
-                  raise ScorecardRunningException("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
-              client = boto3.client('s3')
-              response = client.get_object(
-                Bucket=os.environ['INVENTORY_BUCKET'],
-                Key=event['event_file']
-              )
-              loaded_event = json.loads(response['Body'].read())
-              event.update(loaded_event)
-              return(event)
-
-          def statemachine_already_running(stepfunction_arn):
-              client = boto3.client('stepfunctions')
-              response = client.list_executions(stateMachineArn=stepfunction_arn, statusFilter='RUNNING')
-              if len(response['executions']) > 2:
-                  raise Exception("Too many StepFunction Executions")
-              elif len(response['executions']) > 1:
-                  return(True)
-              else:
-                  return(False)
-
-          # Used To tell the Step Function to wait 300 and try again
-          class ScorecardRunningException(Exception): pass
-          ### End of Function
 
   PullOrganizationDataLambdaFunction:
     Type: AWS::Serverless::Function
@@ -280,7 +212,6 @@ Resources:
       Environment:
         Variables: # Specific to this function
           TRIGGER_PAYER_INVENTORY_ARN: !Ref TriggerPayerInventoryFunctionTopic
-      # Tags inherited from Stack
 
   TriggerInventoryLambdaFunction:
     Type: AWS::Serverless::Function
@@ -290,54 +221,12 @@ Resources:
       Handler: trigger_account_actions.handler
       Timeout: 900 # This should be the max!
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Environment:
         Variables: # Specific to this function
           TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
           ACCEL_FACTOR: !Ref pStaggerAccelerationFactor
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
-
-  InventoryErrorHandlingLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${pResourcePrefix}-error-handler"
-      Description: Handle Errors generated by the aws-inventory system
-      Handler: index.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Environment:
-        Variables:
-          INVENTORY_STACK_NAME: !Ref AWS::StackName
-          CONFIG_FILE: "config.json"
-          INVENTORY_BUCKET: !Ref pBucketName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      Code:
-        ZipFile: !Sub |
-          from __future__ import print_function
-          import boto3
-          import json
-          import logging
-          import os
-          from botocore.exceptions import ClientError
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          # Lambda main routine
-          def handler(event, context):
-              logger.info("Received event: " + json.dumps(event, sort_keys=True))
-
-              sns_client = boto3.client('sns')
-              sns_client.publish (
-                TopicArn=os.environ['ALARM_TOPIC'],
-                Message=json.dumps(event, sort_keys=True),
-                Subject="{} Lambda Error".format(os.environ['INVENTORY_STACK_NAME'])
-                )
-              raise Exception(event['Cause'])
-          ### End of Function
+          ERROR_QUEUE: !Ref pErrorHandlerEventQueue
 
   CreateAccountReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -346,7 +235,7 @@ Resources:
       Description: Create an HTML Report with all the AWS Accounts
       Handler: report-accounts.handler
       Role: !GetAtt InventoryLambdaRole.Arn
-      # Tags inherited from Stack
+      CodeUri: ../lambda
 
   CreateForeignAccountReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -355,7 +244,7 @@ Resources:
       Description: Create an HTML Report with all the Foreign AWS Accounts
       Handler: report-foreign.handler
       Role: !GetAtt InventoryLambdaRole.Arn
-      # Tags inherited from Stack
+      CodeUri: ../lambda
 
   CreateVPCReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -365,7 +254,7 @@ Resources:
       Handler: report-vpcs.handler
       Timeout: 600
       Role: !GetAtt InventoryLambdaRole.Arn
-      # Tags inherited from Stack
+      CodeUri: ../lambda
 
   CreateCredentialReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -375,47 +264,7 @@ Resources:
       Handler: report-unified-credential-report.handler
       Timeout: 600
       Role: !GetAtt InventoryLambdaRole.Arn
-      # Tags inherited from Stack
-
-  HandoffToNextStepFunctionLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${pResourcePrefix}-next-func-handler"
-      Description: Handoff to the next StepFunction (if specified)
-      Handler: index.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Environment:
-        Variables:
-          INVENTORY_STACK_NAME: !Ref AWS::StackName
-          CONFIG_FILE: "config.json"
-          INVENTORY_BUCKET: !Ref pBucketName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      Code:
-        ZipFile: !Sub |
-          from __future__ import print_function
-          import boto3
-          import json
-          import logging
-          import os
-          from botocore.exceptions import ClientError
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          # Lambda main routine
-          def handler(event, context):
-              logger.info("Received event: " + json.dumps(event, sort_keys=True))
-              if 'next_function' in event and '${AWS::StackName}' in event['next_function']:
-                client = boto3.client('stepfunctions')
-                response = client.start_execution(
-                  stateMachineArn=event['next_function']['${AWS::StackName}'],
-                  input=json.dumps(event, sort_keys=True)
-                )
-          ### End of Function
+      CodeUri: ../lambda
 
   #
   # New Account Handling
@@ -427,6 +276,7 @@ Resources:
       Description: Function to Handle the discovery of new Accounts written to the Accounts DDB Table
       Handler: new_account_handler.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Environment:
         Variables: # Specific to this function
           ACTIVE_TOPIC: !Ref NewActiveAccountTopic
@@ -859,47 +709,9 @@ Resources:
   # Parallel Execution Functions (on each PAYER)
   #
 
-
-
   #
   # StateMachine
   #
-  TriggerStateMachineRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - events.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      Path: /
-      Policies:
-      - PolicyName: ExecuteStateMachine
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Action:
-            - states:StartExecution
-            Effect: Allow
-            Resource:
-              - !Ref InventoryProcessStateMachine
-
-  TriggerStateMachine:
-    Type: "AWS::Events::Rule"
-    Properties:
-      Description: "Trigger the state machine to gather inventory data"
-      ScheduleExpression: !Ref pExecutionRate
-      State: DISABLED  # Always deploy disabled, and re-enable by hand
-      Targets:
-      - Arn: !Ref InventoryProcessStateMachine
-        RoleArn: !GetAtt TriggerStateMachineRole.Arn
-        Id: TargetFunctionV1
-        Input: !Sub |
-          {"event_file": "${AWS::StackName}-config.json" }
 
   StateMachineExecutionRole:
     Type: AWS::IAM::Role
@@ -923,15 +735,12 @@ Resources:
             - lambda:InvokeFunction
             Effect: Allow
             Resource:
-              - !GetAtt LoadStepFunctionEventLambdaFunction.Arn
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
               - !GetAtt TriggerInventoryLambdaFunction.Arn
               - !GetAtt CreateAccountReportLambdaFunction.Arn
               - !GetAtt CreateForeignAccountReportLambdaFunction.Arn
               - !GetAtt CreateVPCReportLambdaFunction.Arn
               - !GetAtt CreateCredentialReportLambdaFunction.Arn
-              - !GetAtt HandoffToNextStepFunctionLambdaFunction.Arn
-              - !GetAtt InventoryErrorHandlingLambdaFunction.Arn
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -949,16 +758,8 @@ Resources:
       DefinitionString: !Sub |-
         {
           "Comment": "(${pResourcePrefix}) State Machine to Gather AWS Account Inventory Information",
-          "StartAt": "LoadStepFunctionEventLambdaFunction",
+          "StartAt": "PullOrganizationDataLambdaFunction",
           "States": {
-            "LoadStepFunctionEventLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${LoadStepFunctionEventLambdaFunction.Arn}",
-              "Next": "PullOrganizationDataLambdaFunction",
-              "Catch": [
-                {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"}
-              ]
-            },
             "PullOrganizationDataLambdaFunction": {
               "Type": "Task",
               "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
@@ -982,7 +783,7 @@ Resources:
 
             "CreateAWSReports": {
               "Type": "Parallel",
-              "Next": "HandoffToNextStepFunctionLambdaFunction",
+              "End": true,
               "ResultPath": null,
               "Branches": [
                 {
@@ -1026,17 +827,6 @@ Resources:
                   }
                 }
               ]
-            },
-
-            "HandoffToNextStepFunctionLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${HandoffToNextStepFunctionLambdaFunction.Arn}",
-              "End": true
-            },
-            "WaitForStepFunctionToFinish": {
-              "Type" : "Wait",
-              "Seconds" : 300,
-              "Next": "LoadStepFunctionEventLambdaFunction"
             }
           }
         }
@@ -1111,43 +901,6 @@ Resources:
         - AttributeName: "datetime"
           KeyType: "RANGE"
 
-  #
-  # Spray 'n Pray Error Handling
-  #
-
-
-  ErrorHandlerEventQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      KmsMasterKeyId: alias/aws/sqs
-      KmsDataKeyReusePeriodSeconds: 86400
-      MessageRetentionPeriod: 86400 # Hold on to errors for a day.
-      ReceiveMessageWaitTimeSeconds: 10
-      # RedrivePolicy:
-      #   FIXME
-      VisibilityTimeout: 300
-
-  ErrorHandlerEventQueueAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      ActionsEnabled: True
-      # AlarmActions:
-      #   - String
-      AlarmDescription: "Alert when Error Queue has messages"
-      AlarmName: !Sub "${pResourcePrefix}-ErrorQueue"
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt ErrorHandlerEventQueue.QueueName
-      EvaluationPeriods: 1
-      MetricName: ApproximateNumberOfMessagesVisible
-      Namespace: AWS/SQS
-      # OKActions:
-      #   - String
-      Period: 300
-      Statistic: Average
-      Threshold: 1
-      TreatMissingData: missing
 
   #
   # Dashboard
@@ -1185,7 +938,7 @@ Resources:
                 "height": 3,
                 "properties": {
                     "title": "ErrorQueue",
-                    "annotations": {"alarms": ["${ErrorHandlerEventQueueAlarm.Arn}"] },
+                    "annotations": {"alarms": ["${pErrorHandlerEventQueueAlarmArn}"] },
                     "view": "singleValue"
                 }
             },
@@ -1207,7 +960,7 @@ Resources:
               "height": 3,
               "styles": "undefined",
               "properties": {
-                  "markdown": "\n# Stack Info\n* **StackName**: ${AWS::StackName}\n* **Execution Schedule**: ${pExecutionRate} (GMT)\n* **Region**: ${AWS::Region}\n"
+                  "markdown": "\n# Stack Info\n* **StackName**: ${AWS::StackName}\n* **Execution Schedule**: ${!pExecutionRate} (GMT)\n* **Region**: ${AWS::Region}\n"
               }
             },
             {
@@ -1217,7 +970,7 @@ Resources:
               "width": 6,
               "height": 3,
               "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${ErrorHandlerEventQueue};prefix=)\n"
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${!TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueue};prefix=)\n"
               }
             },
             {
@@ -1482,7 +1235,7 @@ Outputs:
     Description: Just the name of this stack
 
   InventoryProcessStateMachine:
-    Description:
+    Description: Arn of the AWS Inventory State Machine
     Value: !Ref InventoryProcessStateMachine
 
   InventoryTriggerTopic:
@@ -1497,14 +1250,6 @@ Outputs:
     Value: !Ref NewForeignAccountTopic
     Description: The discovery of new foreign (ie discovered in AMI or AssumeRole Policies) are sent to this topic
 
-  TriggerEventName:
-    Value: !Ref TriggerStateMachine
-    Description: Name of the Trigger Event (used by the make file to enable to disable the inventory state machine)
-
   BucketName:
     Value: !Ref pBucketName
     Description: Name of S3 Bucket where all files are stored
-
-  ErrorQueue:
-    Value: !GetAtt ErrorHandlerEventQueue.QueueName
-    Description: Name of the SQS Queue where lambda errors are sent
