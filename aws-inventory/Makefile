@@ -7,9 +7,9 @@ endif
 include ../config.$(env)
 export
 
-# STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
-ifndef STACK_PREFIX
-	$(error STACK_PREFIX is not set)
+# MAIN_STACK_NAME is custom to your deployment and should be the same for all Antiope Stacks
+ifndef MAIN_STACK_NAME
+	$(error MAIN_STACK_NAME is not set)
 endif
 
 ifndef BUCKET
@@ -20,7 +20,7 @@ ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
 endif
 
-RESOURCE_PREFIX=$(STACK_PREFIX)-antiope-aws-inventory
+RESOURCE_PREFIX=$(MAIN_STACK_NAME)-aws-inventory
 
 # Name of the Zip file with all the function code and dependencies
 export LAMBDA_PACKAGE=$(RESOURCE_PREFIX)-lambda-$(version).zip

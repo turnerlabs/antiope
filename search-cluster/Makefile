@@ -8,9 +8,8 @@ endif
 include ../config.$(env)
 export
 
-# STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
-ifndef STACK_PREFIX
-	$(error STACK_PREFIX is not set)
+ifndef MAIN_STACK_NAME
+	$(error MAIN_STACK_NAME is not set)
 endif
 
 ifndef BUCKET
@@ -57,12 +56,10 @@ INDICES=resources_accessanalyzer_analyzer \
 		resources_support_trustedadvisorcheckresult
 
 # Specific to this stack
-RESOURCE_PREFIX=$(STACK_PREFIX)-antiope-search-cluster
+RESOURCE_PREFIX=$(MAIN_STACK_NAME)-search-cluster
 
 # Name of the Zip file with all the function code and dependencies
 export LAMBDA_PACKAGE ?= $(RESOURCE_PREFIX)-lambda-$(version).zip
-
-export MAIN_STACK_NAME=$(STACK_PREFIX)-antiope
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(RESOURCE_PREFIX)-ingest-s3
@@ -78,7 +75,7 @@ test:
 clean:
 	cd lambda && $(MAKE) clean
 	cd scripts && $(MAKE) clean
-	rm -f notification_template-$(STACK_PREFIX).json
+	rm -f notification_template-$(MAIN_STACK_NAME).json
 
 package:
 	cd lambda && $(MAKE) package
@@ -101,9 +98,9 @@ post-deploy: enable-s3-events indices expire-logs enable-kibana-auth
 enable-s3-events:
 	$(eval SEARCH_STACK_NAME := $(shell aws cloudformation describe-stacks --stack-name $(MAIN_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchClusterStackName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	$(eval QUEUEARN := $(shell aws --region $(AWS_DEFAULT_REGION) cloudformation describe-stacks --stack-name $(SEARCH_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchIngestEventQueueArn`].OutputValue' --output text))
-	cat notification_template.json | jq '.QueueConfigurations[0].QueueArn = "$(QUEUEARN)"' > notification_template-$(STACK_PREFIX).json
-	aws --region $(AWS_DEFAULT_REGION) s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(STACK_PREFIX).json
-	rm notification_template-$(STACK_PREFIX).json
+	cat notification_template.json | jq '.QueueConfigurations[0].QueueArn = "$(QUEUEARN)"' > notification_template-$(MAIN_STACK_NAME).json
+	aws --region $(AWS_DEFAULT_REGION) s3api put-bucket-notification-configuration --bucket $(BUCKET) --notification-configuration file://notification_template-$(MAIN_STACK_NAME).json
+	rm notification_template-$(MAIN_STACK_NAME).json
 
 enable-kibana-auth:
 	$(eval SEARCH_STACK_NAME := $(shell aws cloudformation describe-stacks --stack-name $(MAIN_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`SearchClusterStackName`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
@@ -124,11 +121,11 @@ expire-logs:
 
 indices: script-deps
 	for i in $(INDICES) ; do \
-	  ./scripts/create_index.py --domain $(STACK_PREFIX) --index $$i --mapping_dir mappings ; \
+	  ./scripts/create_index.py --domain $(MAIN_STACK_NAME) --index $$i --mapping_dir mappings ; \
 	done
 
 index: script-deps
-	./scripts/create_index.py --domain $(STACK_PREFIX) --index $(index) --mapping_dir mappings --delete
+	./scripts/create_index.py --domain $(MAIN_STACK_NAME) --index $(index) --mapping_dir mappings --delete
 
 
 #
