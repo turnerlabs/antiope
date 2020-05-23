@@ -29,6 +29,16 @@ Parameters:
     Type: Number
     Default: 2
 
+  pDefaultLambdaSize:
+    Description: Size to assign to all Lambda
+    Type: Number
+    Default: 1046
+
+  pMaxLambdaDuration:
+    Description: How long to let the Lambda Run
+    Type: Number
+    Default: 300
+
   pAWSEntSupport:
     Type: String
     Description: Set this to True if you have Business or Enterprise Support and can access support API
@@ -106,12 +116,6 @@ Parameters:
       - True
       - False
 
-  pElasticSearchDomainName:
-    Description: Name of the Elasticsearch Domain (leave blank to match Antiope Stack Name)
-    Type: String
-    MaxLength: 28
-    Default: BLANK
-
   pEmailAddress:
     Type: String
     Description: Default Username for Cognito
@@ -146,6 +150,11 @@ Parameters:
   pEventJson:
     Description: JSON Event sent to the Master StepFunction
     Type: String
+
+  pTemplateURL:
+    Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
+    Type: String
+
 
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
@@ -207,6 +216,8 @@ Resources:
           pResourcePrefix: !Sub "${AWS::StackName}-aws-inventory"
           pRoleName: !Ref pAWSRoleName
           pStaggerAccelerationFactor: !Ref pStaggerAccelerationFactor
+          pMaxLambdaDuration: !Ref pMaxLambdaDuration
+          pDefaultLambdaSize: !Ref pDefaultLambdaSize
       TemplateURL: ../aws-inventory/cloudformation/Inventory-Template.yaml
       TimeoutInMinutes: 30
 
@@ -221,7 +232,7 @@ Resources:
           pClusterInstanceCount: !Ref pClusterInstanceCount
           pClusterInstanceType: !Ref pClusterInstanceType
           pCognitoKibanaAuthRole: !GetAtt CognitoStack.Outputs.CognitoKibanaAuthRole
-          pDomainName: !Ref pElasticSearchDomainName
+          pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
@@ -587,6 +598,10 @@ Outputs:
   StackName:
     Value: !Ref AWS::StackName
     Description: Just the name of this stack
+
+  TemplateURL:
+    Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
+    Value: !Ref pTemplateURL
 
   BucketName:
     Value: !Ref pBucketName
