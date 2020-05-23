@@ -8,8 +8,8 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 
-from lib.account import *
-from lib.foreign_account import *
+from antiope.aws_account import *
+from antiope.foreign_aws_account import *
 
 
 def parse_tags(tagset):

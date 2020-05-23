@@ -4,7 +4,8 @@
 PYTHON=python3
 PIP=pip3
 
-FILES =	get_billing_data.py \
+FILES =	common.py\
+		get_billing_data.py \
 		inventory-ami.py \
 		inventory-buckets.py \
 		inventory-cft.py \
@@ -42,7 +43,7 @@ FILES =	get_billing_data.py \
 		report-vpcs.py \
 		trigger_account_actions.py
 
-DEPENDENCIES=lib
+DEPENDENCIES=antiope
 
 package: test clean deps zipfile
 
@@ -55,7 +56,7 @@ clean:
 
 # # Create the package Zip. Assumes all tests were done
 zipfile:  $(FILES) $(DEPENDENCIES)
-	cp -a ../../lib .
+	cp -a ../../antiope-aws-module/antiope .
 	zip -r $(LAMBDA_PACKAGE) $^
 
 test: $(FILES)
@@ -63,7 +64,8 @@ test: $(FILES)
 
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
-	cp -a ../../lib .
+	cp -a ../../antiope-aws-module/antiope .
+
 
 pep8: $(FILES)
 	pycodestyle $^
