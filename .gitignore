@@ -12,7 +12,7 @@ Notes.md
 # Deploy specific env vars passed to makefile. Not to be shared.
 config.*
 
-aws-inventory/*/lib/
+aws-inventory/lambda/antiope/*
 
 
 # Build-time crud for the search cluster lambda
