@@ -50,6 +50,16 @@ Parameters:
     Description: Alarm for the Antiope Spray-n-pray Error Queue
     Type: String
 
+  pDefaultLambdaSize:
+    Description: Size to assign to all Lambda
+    Type: Number
+    Default: 1046
+
+  pMaxLambdaDuration:
+    Description: How long to let the Lambda Run
+    Type: Number
+    Default: 300
+
 Conditions:
   EnterpriseSupport: !Equals [ !Ref pEntSupport, True]
   EBSInventory: !Equals [ !Ref pEBSInventory, True]
@@ -57,8 +67,8 @@ Conditions:
 Globals:
   Function:
     Runtime: python3.6
-    MemorySize: 1024
-    Timeout: 5  # In minutes
+    MemorySize: !Ref pDefaultLambdaSize
+    Timeout: !Ref pMaxLambdaDuration
     Layers:
         - !Ref AWSInventoryLambdaLayer
     CodeUri: ../lambda
@@ -70,6 +80,7 @@ Globals:
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
           ERROR_QUEUE: !Ref pErrorHandlerEventQueue
+          LOG_LEVEL: 'INFO'
 
 Resources:
 
@@ -156,6 +167,7 @@ Resources:
             - sns:publish
             Resource:
               - !Ref TriggerAccountInventoryFunctionTopic
+              - !Ref TriggerPayerInventoryFunctionTopic
               - !Ref NewActiveAccountTopic
               - !Ref NewForeignAccountTopic
       - PolicyName: PublishToSQS
@@ -314,6 +326,7 @@ Resources:
       Description: AWS Lamdba to populate a table with info on all VPCs
       Handler: inventory-vpc.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -327,6 +340,7 @@ Resources:
       Description: AWS Lamdba to to inventory all public IPs & ENIs in an account
       Handler: inventory-eni.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -340,6 +354,7 @@ Resources:
       Description: AWS Lamdba to to inventory Health Dashboard results
       Handler: inventory-health-report.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -353,6 +368,7 @@ Resources:
       Description: Inventory the CF Stacks for the specific account
       Handler: inventory-cft.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -366,6 +382,7 @@ Resources:
       Description: Inventory instances and security groups to a JSON file in S3
       Handler: inventory-instances-sg.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -379,6 +396,7 @@ Resources:
       Description: Pull the spend from the AWS account
       Handler: get_billing_data.handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -396,6 +414,7 @@ Resources:
       Description: Inventory Route 53 Domains & Zones
       Handler: inventory-route53.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -409,6 +428,7 @@ Resources:
       Description: Inventory S3 Buckets and their attributes
       Handler: inventory-buckets.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -422,6 +442,7 @@ Resources:
       Description: Inventory IAM Roles & Users
       Handler: inventory-iam.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -435,6 +456,7 @@ Resources:
       Description: Inventory ECS Clusters & Tasks
       Handler: inventory-ecs.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -448,6 +470,7 @@ Resources:
       Description: Inventory CloudTrails
       Handler: inventory-cloudtrail.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -461,6 +484,7 @@ Resources:
       Description: Inventory ElasticSearch Service Domains
       Handler: inventory-es.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -474,6 +498,7 @@ Resources:
       Description: Inventory CloudFront Distributions
       Handler: inventory-cloudfront.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -487,6 +512,7 @@ Resources:
       Description: Inventory Secrets Manager Secrets
       Handler: inventory-secrets.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -500,6 +526,7 @@ Resources:
       Description: Inventory ECR Repos and Images
       Handler: inventory-ecr.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -513,6 +540,7 @@ Resources:
       Description: Inventory Key Management Service
       Handler: inventory-kms.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -526,6 +554,7 @@ Resources:
       Description: Inventory Lambdas Functions
       Handler: inventory-lambdas.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -539,6 +568,7 @@ Resources:
       Description: Inventory DirectConnect
       Handler: inventory-dx.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -552,6 +582,7 @@ Resources:
       Description: Inventory AMIs in use
       Handler: inventory-ami.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -565,6 +596,7 @@ Resources:
       Description: Inventory Instances reporting into SSM
       Handler: inventory-ssm.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -579,6 +611,7 @@ Resources:
       Description: Inventory Trusted Advisor Checks
       Handler: inventory-trusted-advisor.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -593,6 +626,7 @@ Resources:
       Description: Inventory Support Cases
       Handler: inventory-support-cases.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -606,6 +640,7 @@ Resources:
       Description: Inventory GuardDuty Detectors
       Handler: inventory-guardduty.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -619,6 +654,7 @@ Resources:
       Description: Inventory IAM Access Analyzer Findings
       Handler: inventory-iam-analyzer.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -633,6 +669,7 @@ Resources:
       Description: Inventory EBS Volumes & Snapshots
       Handler: inventory-ebs-volume.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -647,6 +684,7 @@ Resources:
       Description: Inventory EBS Volumes & Snapshots
       Handler: inventory-ebs-snapshot.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -660,6 +698,7 @@ Resources:
       Description: Inventory V1 and V2 LoadBalancers
       Handler: inventory-elb.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -673,6 +712,7 @@ Resources:
       Description: Inventory RDS and Aurora Databases
       Handler: inventory-rds.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -686,6 +726,7 @@ Resources:
       Description: Inventory RDS and Aurora Databases
       Handler: inventory-sagemaker.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -699,6 +740,7 @@ Resources:
       Description: Inventory Redshift Clusters
       Handler: inventory-redshift.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -767,7 +809,7 @@ Resources:
             },
             "WaitForPayerInventoryLambdaExecutionsToComplete": {
               "Type": "Wait",
-              "Seconds": 300,
+              "Seconds": ${pMaxLambdaDuration},
               "Next": "TriggerInventoryLambdaFunction"
             },
             "TriggerInventoryLambdaFunction": {
@@ -777,7 +819,7 @@ Resources:
             },
             "WaitForAccountInventoryLambdaExecutionsToComplete": {
               "Type": "Wait",
-              "Seconds": 300,
+              "Seconds": ${pMaxLambdaDuration},
               "Next": "CreateAWSReports"
             },
 
