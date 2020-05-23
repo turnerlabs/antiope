@@ -5,12 +5,12 @@ import os
 import time
 import datetime
 
-from lib.account import *
-from lib.common import *
+from antiope.aws_account import *
+from common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
@@ -23,9 +23,12 @@ def handler(event, context):
     dynamodb = boto3.resource('dynamodb')
     account_table = dynamodb.Table(os.environ['ACCOUNT_TABLE'])
 
-    account_list = []  # The list of accounts that will be processed by this StepFunction execution
+    client = boto3.client('sns')
 
-    for payer_id in event['payer']:
+    account_list = []  # The list of accounts that will be processed by this StepFunction execution
+    new_event = event['Payload']['AWS-Inventory']
+
+    for payer_id in new_event['payer']:
         payer_creds = get_account_creds(payer_id)
         if payer_creds is False:
             logger.error("Unable to assume role in payer {}".format(payer_id))
@@ -55,18 +58,18 @@ def handler(event, context):
                     pass
 
         # Trigger the Payer-Level Functions
-        message = event.copy()
+        message = new_event.copy()
         message['payer_id'] = payer_id  # Which account to process
         response = client.publish(
-            TopicArn=os.environ['TRIGGER_ACCOUNT_INVENTORY_ARN'],
+            TopicArn=os.environ['TRIGGER_PAYER_INVENTORY_ARN'],
             Message=json.dumps(message)
         )
 
-    event['account_list'] = account_list
+    new_event['account_list'] = account_list
 
     # We'll use this for reports where we want every file to have the same timestamp suffix.
-    event['timestamp'] = datetime.datetime.utcnow().strftime("%Y-%m-%d-%H-%M")
-    return(event)
+    new_event['timestamp'] = datetime.datetime.utcnow().strftime("%Y-%m-%d-%H-%M")
+    return(new_event)
 
 # end handler()
 
