@@ -607,8 +607,12 @@ Outputs:
     Value: !Ref pBucketName
     Description: Name of S3 Bucket where all files are stored
 
-  AWSInventoryTriggerTopic:
-    Value: !GetAtt AWSInventoryStack.Outputs.InventoryTriggerTopic
+  AWSAccountInventoryTriggerTopic:
+    Value: !GetAtt AWSInventoryStack.Outputs.AccountInventoryTriggerTopic
+    Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
+
+  AWSPayerInventoryTriggerTopic:
+    Value: !GetAtt AWSInventoryStack.Outputs.PayerInventoryTriggerTopic
     Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
 
   AWSNewAccountNotificationTopic:
@@ -650,6 +654,10 @@ Outputs:
   ErrorQueue:
     Value: !GetAtt ErrorHandlerEventQueue.QueueName
     Description: Name of the SQS Queue where lambda errors are sent
+
+  ErrorQueueURL:
+    Value: !Ref ErrorHandlerEventQueue
+    Description: URL of the SQS Queue where lambda errors are sent
 
   SearchClusterStackName:
     Condition: cDeployElasticSearch

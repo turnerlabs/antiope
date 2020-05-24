@@ -1280,9 +1280,13 @@ Outputs:
     Description: Arn of the AWS Inventory State Machine
     Value: !Ref InventoryProcessStateMachine
 
-  InventoryTriggerTopic:
+  AccountInventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
     Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
+
+  PayerInventoryTriggerTopic:
+    Value: !Ref TriggerPayerInventoryFunctionTopic
+    Description: Topic that triggers the per-payer inventory lambda. You can subscribe custom lambda to this topic
 
   NewAccountNotificationTopic:
     Value: !Ref NewActiveAccountTopic
