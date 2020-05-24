@@ -227,6 +227,7 @@ Resources:
       Handler: ingest_s3.lambda_handler
       Runtime: python3.6
       Timeout: !If [ ReIndex, 900, 180]
+      MemorySize: 768
       # ES queue is 200, BatchSize is 10, so 20 concurrent lambda would max the queue.
       ReservedConcurrentExecutions: !If [ ReIndex, 500, 50]
       Role: !GetAtt IngestLambdaRole.Arn
