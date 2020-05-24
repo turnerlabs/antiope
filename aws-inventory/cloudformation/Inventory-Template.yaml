@@ -1002,7 +1002,7 @@ Resources:
               "height": 3,
               "styles": "undefined",
               "properties": {
-                  "markdown": "\n# Stack Info\n* **StackName**: ${AWS::StackName}\n* **Execution Schedule**: ${!pExecutionRate} (GMT)\n* **Region**: ${AWS::Region}\n"
+                  "markdown": "\n# Stack Info\n* **StackName**: ${AWS::StackName}\n* **Region**: ${AWS::Region}\n* *[CloudFormation Stacks](https://console.aws.amazon.com/cloudformation/home?region=${AWS::Region}#/stacks?filteringText=${pResourcePrefix}&filteringStatus=active&viewNested=true&hideStacks=true)\n"
               }
             },
             {
