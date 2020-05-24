@@ -82,6 +82,10 @@ def main(args, logger):
     try:
         response = es.indices.create(index=args.index, body=json.loads(mapping_text))
         logger.info(f"Created Index {args.index}")
+        exit(0)
+    except RequestError as e:
+        logger.info(f"Index {args.index} already Exists, skipping...")
+        exit(0)
     except ElasticsearchException as e:
         logger.error(f"Failed to create index {args.index}: {e}")
         exit(1)

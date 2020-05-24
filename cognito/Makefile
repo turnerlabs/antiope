@@ -3,29 +3,24 @@ include ../config.$(env)
 export
 
 ifndef MAIN_STACK_NAME
-	$(error MAIN_STACK_NAME is not set)
+$(error MAIN_STACK_NAME is not set)
 endif
 
 ifndef BUCKET
-	$(error BUCKET is not set)
-endif
-
-ifndef COGNITO_STACK_NAME
-	$(error COGNITO_STACK_NAME is not set)
+$(error BUCKET is not set)
 endif
 
 .PHONY: $(FUNCTIONS)
 
 # Do everything
-post-deploy: configure-identity-pool templates api-deploy
+post-deploy:
+	./post-deploy.sh
 
 #
 # Cloudformation Targets
 #
 
-configure-identity-pool:
-	$(eval ID := $(shell aws cloudformation describe-stacks --stack-name $(COGNITO_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`CognitoUserPoolId`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
-	-aws --region $(AWS_DEFAULT_REGION) cognito-idp create-user-pool-domain --user-pool-id $(ID) --domain $(MAIN_STACK_NAME)
+
 
 templates:
 	aws s3 sync public s3://$(BUCKET)/public

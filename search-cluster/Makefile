@@ -31,6 +31,9 @@ FUNCTIONS = $(RESOURCE_PREFIX)-ingest-s3
 
 .PHONY: $(FUNCTIONS)
 
+post-deploy:
+	./scripts/post-deploy.sh
+
 #
 # Lambda Targets
 #

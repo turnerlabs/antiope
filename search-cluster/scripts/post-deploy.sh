@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source ../config.dev
-
 if [ -z $MAIN_STACK_NAME ] ; then
   echo "MAIN_STACK_NAME is not in the environment, is this being executed from makefile or with env config.ENV"
   exit 1
@@ -27,6 +25,7 @@ INDICES="	resources_accessanalyzer_analyzer \
 			resources_cloudformation_stack \
 			resources_cloudfront_distribution \
 			resources_cloudtrail_trail \
+			resources_dx_connection \
 			resources_dx_gw \
 			resources_dx_vif \
 			resources_ec2_ami \
