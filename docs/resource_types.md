@@ -25,12 +25,12 @@ In order to eventually support either Lambda or Config Service collection of dat
 * AWS::EC2::Subnet (not yet inventoried by Antiope)
 * AWS::EC2::VPC
 * AWS::EC2::VPNGateway
-* AWS::EC2::Volume (not yet inventoried by Antiope)
+* AWS::EC2::Volume
 * AWS::ElasticBeanstalk::Application (not yet inventoried by Antiope)
 * AWS::ElasticBeanstalk::ApplicationVersion (not yet inventoried by Antiope)
 * AWS::ElasticBeanstalk::Environment (not yet inventoried by Antiope)
-* AWS::ElasticLoadBalancing::LoadBalancer (not yet inventoried by Antiope)
-* AWS::ElasticLoadBalancingV2::LoadBalancer (not yet inventoried by Antiope)
+* AWS::ElasticLoadBalancing::LoadBalancer
+* AWS::ElasticLoadBalancingV2::LoadBalancer
 * AWS::IAM::Group (not yet inventoried by Antiope)
 * AWS::IAM::Policy (not yet inventoried by Antiope)
 * AWS::IAM::Role
