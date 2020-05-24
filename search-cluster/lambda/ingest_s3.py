@@ -12,15 +12,14 @@ from urllib.parse import unquote
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 
 # Lambda execution starts here
 def lambda_handler(event, context):
-    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
-        logger.setLevel(logging.DEBUG)
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
 
     region = os.environ['AWS_REGION']
@@ -37,9 +36,11 @@ def lambda_handler(event, context):
 
     for record in event['Records']:
         message = json.loads(record['body'])
-        logger.debug("records: {} message: {}".format(len(message['Records']), json.dumps(message, sort_keys=True)))
         if 'Records' not in message:
+            logger.error(f"Got Message with no records: {json.dumps(message, indent=2, sort_keys=True)}")
             continue
+        logger.debug("records: {} message: {}".format(len(message['Records']), json.dumps(message, sort_keys=True)))
+
 
         for s3_record in message['Records']:
             bucket = s3_record['s3']['bucket']['name']

@@ -239,6 +239,7 @@ Resources:
           INVENTORY_BUCKET: !Ref pBucketName
           ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
           SQS_QUEUE_URL: !Ref SearchIngestEventQueue
+          LOG_LEVEL: INFO
       # Tags inherited from Stack
 
 
