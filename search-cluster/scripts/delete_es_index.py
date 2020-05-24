@@ -1,32 +1,27 @@
 #!/usr/bin/env python3
 
-import boto3
-import re
-import requests
+from dateutil import tz
+from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException, RequestError, NotFoundError
 from requests_aws4auth import AWS4Auth
-from elasticsearch import Elasticsearch, RequestsHttpConnection
-
-
+import boto3
+import datetime
 import json
 import os
+import re
+import requests
 import time
-import datetime
-from dateutil import tz
-
-from lib.account import *
-from lib.common import *
-
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('elasticsearch').setLevel(logging.WARNING)
 
 
 # Lambda execution starts here
 def main(args, logger):
-    logger.info("Purging index {} in {}".format(args.index, args.domain))
+    logger.debug("Purging index {} in {}".format(args.index, args.domain))
 
     host = get_endpoint(args.domain, args.region)
     if host is None:
@@ -49,10 +44,19 @@ def main(args, logger):
         logger.debug(es.info())
 
     es_idx=es.indices
+    if args.index:
+        logger.info(f"Deleting {args.index}")
+        es_idx.delete(index=args.index)
+    else:
+        ans = input(f"You are about to delete all the indices in {args.domain}. Are you sure? (type 'yes' to proceed) ").lower().strip()
+        if ans != "yes":
+            print("Probably a good choice. Aborting now....")
+            exit(0)
 
-    es_idx.delete(index=args.index)
-
-
+        # They said yes. The fools
+        for i in es.indices.get('*'):
+            logger.info(f"Deleting {i}")
+            es_idx.delete(index=i)
 
 
 def get_endpoint(domain, region):
@@ -68,8 +72,6 @@ def get_endpoint(domain, region):
     return(None)
 
 
-
-
 def do_args():
     import argparse
     parser = argparse.ArgumentParser()
@@ -79,7 +81,7 @@ def do_args():
     # parser.add_argument("--env_file", help="Environment File to source", default="config.env")
 
     parser.add_argument("--domain", help="Elastic Search Domain", required=True)
-    parser.add_argument("--index", help="Index to purge", required=True)
+    parser.add_argument("--index", help="Index to purge")
     parser.add_argument("--region", help="AWS Region")
 
     args = parser.parse_args()
@@ -93,14 +95,16 @@ if __name__ == '__main__':
     # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
     # create console handler and set level to debug
     ch = logging.StreamHandler()
-    if args.debug:
-        ch.setLevel(logging.DEBUG)
+    if args.error:
+        logger.setLevel(logging.ERROR)
+    elif args.debug:
+        logger.setLevel(logging.DEBUG)
     else:
-        ch.setLevel(logging.ERROR)
+        logger.setLevel(logging.INFO)
 
     # create formatter
     # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
     # add formatter to ch
     ch.setFormatter(formatter)
     # add ch to logger
