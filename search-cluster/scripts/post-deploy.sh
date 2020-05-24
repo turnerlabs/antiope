@@ -71,6 +71,11 @@ INDICES="	resources_accessanalyzer_analyzer \
 # Get some vars we'll need later
 #
 export SEARCH_STACK_NAME=`aws cloudformation describe-stacks --stack-name $MAIN_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`SearchClusterStackName\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
+if [ -z $SEARCH_STACK_NAME ] ; then
+	echo "Cannot find a Search Stack deployed with Antiope. Aborting...."
+	exit 0
+fi
+
 echo "Discovered Search Stack is $SEARCH_STACK_NAME"
 scripts_dir=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 # echo "Scripts are located in $scripts_dir"
