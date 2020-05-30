@@ -204,7 +204,6 @@ Resources:
             - kms:Decrypt
             Effect: Allow
 
-
   AWSInventoryLambdaLayer:
     Type: "AWS::Lambda::LayerVersion"
     Properties:
@@ -241,7 +240,6 @@ Resources:
           SQS_QUEUE_URL: !Ref SearchIngestEventQueue
           LOG_LEVEL: INFO
       # Tags inherited from Stack
-
 
   SearchIngestEventQueue:
     Type: AWS::SQS::Queue
@@ -325,6 +323,36 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonESCognitoAccess
 
+  ESSnapshotRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:ListBucket
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${pBucketName}/*"
+              - !Sub "arn:aws:s3:::${pBucketName}"
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
   #
   # Dashboard
   #
@@ -536,6 +564,10 @@ Outputs:
   ESCognitoRole:
     Description: "Use this role to enable Cognito authentication in Elasticsearch"
     Value: !Ref ESEnableCognitoRole
+
+  ESSnapshotRole:
+    Description: "Use this role to enable Cognito authentication in Elasticsearch"
+    Value: !GetAtt ESSnapshotRole.Arn
 
   ESCognitoRoleArn:
     Description: "Use this role to enable Cognito authentication in Elasticsearch"
