@@ -435,105 +435,76 @@ Resources:
           }
         }
 
+
   MasterStateMachine:
-    Type: AWS::StepFunctions::StateMachine
+    Type: AWS::Serverless::StateMachine
     Properties:
-      RoleArn: !GetAtt StateMachineExecutionRole.Arn
-      StateMachineName: !Sub "${AWS::StackName}-master-statemachine"
-      DefinitionString: !Sub
-        - |
-          {
-            "Comment": "(${AWS::StackName}) Master State Machine for All of Antiope",
-            "StartAt": "LoadStepFunctionEventLambdaFunction",
-            "States": {
-              "LoadStepFunctionEventLambdaFunction": {
-                "Type": "Task",
-                "Resource": "${LoadStepFunctionEventLambdaFunction.Arn}",
-                "Next": "ExecuteCloudInventoryStepFunctions",
-                "Catch": [
-                  {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"}
-                ]
-              },
-              "ExecuteCloudInventoryStepFunctions": {
-                "Type": "Parallel",
-                "Next": "ExecuteCustomStepFunction",
-                "ResultPath": null,
-                "Branches": [
-                  {
-                    "StartAt": "ExecuteAWSInventory",
-                    "States": {
-                      "ExecuteAWSInventory": {
-                        "Type": "Task",
-                        "Resource": "arn:aws:states:::states:startExecution.sync",
-                          "Parameters": {
-                            "StateMachineArn": "${AWSInventoryStack.Outputs.InventoryProcessStateMachine}",
-                            "Input": {
-                              "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
-                              "Payload.$": "$"
-                            }
-                          },
-                        "End": true
-                      }
-                    }
-                  },
-                  {
-                    "StartAt": "ExecuteAzureInventory",
-                    "States": {
-                      "ExecuteAzureInventory": {
-                        "Type": "Task",
-                        "Resource": "arn:aws:states:::states:startExecution.sync",
-                          "Parameters": {
-                            "StateMachineArn": "${AzureInventoryStateMachine}",
-                            "Input": {
-                              "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
-                              "Payload.$": "$"
-                            }
-                          },
-                        "End": true
-                      }
-                    }
-                  },
-                  {
-                    "StartAt": "ExecuteGCPInventory",
-                    "States": {
-                      "ExecuteGCPInventory": {
-                        "Type": "Task",
-                        "Resource": "arn:aws:states:::states:startExecution.sync",
-                          "Parameters": {
-                            "StateMachineArn": "${GCPInventoryStateMachine}",
-                            "Input": {
-                              "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
-                              "Payload.$": "$"
-                            }
-                          },
-                        "End": true
-                      }
-                    }
-                  }
-                ]
-              },
-              "ExecuteCustomStepFunction": {
-                "Type": "Task",
-                "Resource": "arn:aws:states:::states:startExecution.sync",
-                "Parameters": {
-                  "StateMachineArn": "${CustomStateMachine}",
-                  "Input": {
-                    "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id",
-                    "Payload.$": "$"
-                  }
-                },
-                "End": true
-              },
-              "WaitForStepFunctionToFinish": {
-                "Type" : "Wait",
-                "Seconds" : 300,
-                "Next": "LoadStepFunctionEventLambdaFunction"
-              }
-            }
-          }
-        - AzureInventoryStateMachine: !If [cDeployAzureStack, !GetAtt AzureInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
-          GCPInventoryStateMachine: !If [cDeployGCPStack, !GetAtt GCPInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
-          CustomStateMachine: !If [cDeployCustomStack, !Ref pDeployCustomStackStateMachineArn, !Ref NoOpStateMachine ]
+      Name: !Sub "${AWS::StackName}-master-statemachine"
+      Role: !GetAtt StateMachineExecutionRole.Arn
+      Definition:
+        Comment: !Sub "($AWS::StackName) Master State Machine for All of Antiope"
+        StartAt: LoadStepFunctionEventLambdaFunction
+        States:
+          LoadStepFunctionEventLambdaFunction:
+            Type: Task
+            Resource: !GetAtt LoadStepFunctionEventLambdaFunction.Arn
+            Next: ExecuteCloudInventoryStepFunctions
+            Catch:
+              - ErrorEquals:
+                - ScorecardRunningException
+                Next: WaitForStepFunctionToFinish
+                ResultPath: $.error-info
+          ExecuteCloudInventoryStepFunctions:
+            Type: Parallel
+            Next: ExecuteCustomStepFunction
+            ResultPath: null
+            Branches:
+              - StartAt: ExecuteAWSInventory
+                States:
+                  ExecuteAWSInventory:
+                    Type: Task
+                    Resource: arn:aws:states:::states:startExecution.sync
+                    Parameters:
+                      StateMachineArn: !GetAtt AWSInventoryStack.Outputs.InventoryProcessStateMachine
+                      Input:
+                        AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                        Payload.$: $
+                    End: true
+              - StartAt: ExecuteAzureInventory
+                States:
+                  ExecuteAzureInventory:
+                    Type: Task
+                    Resource: arn:aws:states:::states:startExecution.sync
+                    Parameters:
+                      StateMachineArn: !If [cDeployAzureStack, !GetAtt AzureInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
+                      Input:
+                        AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                        Payload.$: $
+                    End: true
+              - StartAt: ExecuteGCPInventory
+                States:
+                  ExecuteGCPInventory:
+                    Type: Task
+                    Resource: arn:aws:states:::states:startExecution.sync
+                    Parameters:
+                      StateMachineArn: !If [cDeployGCPStack, !GetAtt GCPInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
+                      Input:
+                        AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                        Payload.$: $
+                    End: true
+          ExecuteCustomStepFunction:
+            Type: Task
+            Resource: arn:aws:states:::states:startExecution.sync
+            Parameters:
+              StateMachineArn: !If [cDeployCustomStack, !Ref pDeployCustomStackStateMachineArn, !Ref NoOpStateMachine ]
+              Input:
+                AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                Payload.$: $
+            End: true
+          WaitForStepFunctionToFinish:
+            Type : Wait
+            Seconds : 300
+            Next: LoadStepFunctionEventLambdaFunction
 
   #
   # Error Handling Stuff
