@@ -24,7 +24,7 @@ export MAIN_STACK_NAME=yourcompany-antiope
 export BUCKET=antiope-bucket # (created above)
 export AWS_DEFAULT_REGION=us-east-1
 export MANIFEST=ENV-Manifest.yaml
-export MAIN_STACK_NAME=warnermedia-antiope-dev
+export MAIN_STACK_NAME=yourcompany-antiope-dev
 export CUSTOM_MANIFEST=dev-custom-Manifest.yaml
 ```
 I recommending picking something very unique for `MAIN_STACK_NAME`. yourcompany-antiope is a good choice

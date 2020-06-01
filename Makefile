@@ -85,7 +85,7 @@ post-deploy:
 
 # promote an existing stack to a new environment
 # Assumes cross-account access to the lower environment's DEPLOY_PREFIX
-promote: cft-promote push-config post-deploy
+promote: cft-promote push-config
 
 # Run cft-deploy with a different manifest on a previously uploaded code bundle and transformed template
 cft-promote:
