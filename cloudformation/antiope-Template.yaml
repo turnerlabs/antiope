@@ -211,7 +211,8 @@ Resources:
           pBucketName: !Ref pBucketName
           pEBSInventory: !Ref pAWSEBSInventory
           pEntSupport: !Ref pAWSEntSupport
-          pErrorHandlerEventQueue: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
           pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
           pResourcePrefix: !Sub "${AWS::StackName}-aws-inventory"
           pRoleName: !Ref pAWSRoleName
@@ -244,7 +245,8 @@ Resources:
       Parameters:
           pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
           pBucketName: !Ref pBucketName
-          pErrorHandlerEventQueue: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
           pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
           pResourcePrefix: !Sub "${AWS::StackName}-azure-inventory"
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
@@ -257,7 +259,8 @@ Resources:
       Parameters:
           pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
           pBucketName: !Ref pBucketName
-          pErrorHandlerEventQueue: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
           pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
           pResourcePrefix: !Sub "${AWS::StackName}-gcp-inventory"
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml

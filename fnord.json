@@ -1,0 +1,135 @@
+{
+    "Rules": [
+        {
+            "Name": "StepFunctionsGetEventsForStepFunctionsExecutionRule",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+            "EventPattern": "{\n  \"source\": [\n    \"aws.states\"\n  ],\n  \"detail-type\": [\n    \"Step Functions Execution Status Change\"\n  ],\n  \"detail\": {\n    \"status\": [\n      \"FAILED\",\n      \"SUCCEEDED\",\n      \"TIMED_OUT\",\n      \"ABORTED\"\n    ]\n  }\n}",
+            "State": "ENABLED",
+            "Description": "This rule is used to notify Step Functions regarding integrated workflow executions",
+            "ManagedBy": "states.amazonaws.com",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "aws-admin-IAMActivitiesToRequireMFA",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/aws-admin-IAMActivitiesToRequireMFA",
+            "EventPattern": "{\"detail-type\":[\"AWS API Call via CloudTrail\"],\"detail\":{\"eventSource\":[\"iam.amazonaws.com\"],\"eventName\":[\"EnableMFADevice\",\"CreateLoginProfile\",\"DeactivateMFADevice\"]}}",
+            "State": "ENABLED",
+            "Description": "Send IAM Activity to RequireMFA Lambda",
+            "RoleArn": "arn:aws:iam::980451846322:role/aws-admin-RequireMFA-RequireMFALambdaInvocationRol-J2YW6YGUAAJK",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "warnermedia-antiope-prod-aws-i-TriggerStateMachine-1A3IG5R9K5XVI",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/warnermedia-antiope-prod-aws-i-TriggerStateMachine-1A3IG5R9K5XVI",
+            "State": "ENABLED",
+            "Description": "Trigger the state machine to gather inventory data",
+            "ScheduleExpression": "cron(0 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wm-scorecard-istreamplanet-TriggerStateMachine-1UB2LRCNMFYHK",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wm-scorecard-istreamplanet-TriggerStateMachine-1UB2LRCNMFYHK",
+            "State": "DISABLED",
+            "Description": "Trigger the Antiope Scorecard StepFunction",
+            "ScheduleExpression": "cron(30 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wm-scorecard-mailer-warne-TriggerMailerStateMachin-ZASQDI3VM4UC",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wm-scorecard-mailer-warne-TriggerMailerStateMachin-ZASQDI3VM4UC",
+            "State": "DISABLED",
+            "Description": "Trigger the state machine to mail scorecards",
+            "ScheduleExpression": "cron(0 19 ? * Mon *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wm-scorecard-mailer-wmto-TriggerMailerStateMachine-5LQZYNUOHO9U",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wm-scorecard-mailer-wmto-TriggerMailerStateMachine-5LQZYNUOHO9U",
+            "State": "ENABLED",
+            "Description": "Trigger the state machine to mail scorecards",
+            "ScheduleExpression": "cron(0 19 ? * Mon *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wm-scorecard-uat-TriggerStateMachine-18W98X485XM36",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wm-scorecard-uat-TriggerStateMachine-18W98X485XM36",
+            "State": "DISABLED",
+            "Description": "Trigger the Antiope Scorecard StepFunction",
+            "ScheduleExpression": "cron(30 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wm-scorecard-warnerbros-TriggerStateMachine-PE33880LZ023",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wm-scorecard-warnerbros-TriggerStateMachine-PE33880LZ023",
+            "State": "ENABLED",
+            "Description": "Trigger the Antiope Scorecard StepFunction",
+            "ScheduleExpression": "cron(30 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wm-scorecard-wmto-TriggerStateMachine-V6Q2SVADJQGK",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wm-scorecard-wmto-TriggerStateMachine-V6Q2SVADJQGK",
+            "State": "ENABLED",
+            "Description": "Trigger the Antiope Scorecard StepFunction",
+            "ScheduleExpression": "cron(30 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wm-statemachine-marshal-TriggerStateMachine-PMEH2FW3LM9D",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wm-statemachine-marshal-TriggerStateMachine-PMEH2FW3LM9D",
+            "State": "ENABLED",
+            "Description": "Trigger the state machine to query for failed StateMachine executions",
+            "ScheduleExpression": "cron(0/5 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wmcso-GuardDuty2Splunk-wm-GuardDutyCloudWatchEvent-1L7F2OT805PMB",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wmcso-GuardDuty2Splunk-wm-GuardDutyCloudWatchEvent-1L7F2OT805PMB",
+            "EventPattern": "{\"source\":[\"aws.guardduty\"]}",
+            "State": "ENABLED",
+            "Description": "GuardDutyRuleForSplunk",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wmcso-bcs-astra-cloud-inspect-TriggerStateMachine-103RT71LY3HU3",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wmcso-bcs-astra-cloud-inspect-TriggerStateMachine-103RT71LY3HU3",
+            "State": "ENABLED",
+            "Description": "Trigger the state machine dump brinqa data",
+            "ScheduleExpression": "rate(30 minutes)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wmcso-bcs-scorecards-aws-prod-TriggerStateMachine-QTCW6FU3JYF0",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wmcso-bcs-scorecards-aws-prod-TriggerStateMachine-QTCW6FU3JYF0",
+            "State": "ENABLED",
+            "Description": "Trigger the state machine dump brinqa data",
+            "ScheduleExpression": "cron(55 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wmcso-bcs-scorecards-aws-uat-TriggerStateMachine-1GAKHJIY5YH70",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wmcso-bcs-scorecards-aws-uat-TriggerStateMachine-1GAKHJIY5YH70",
+            "State": "ENABLED",
+            "Description": "Trigger the state machine dump brinqa data",
+            "ScheduleExpression": "cron(55 * * * ? *)",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wmcso-cloud-artifacts-BucketPolicyGenerationLambda-1HIB1XTRDRIX2",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wmcso-cloud-artifacts-BucketPolicyGenerationLambda-1HIB1XTRDRIX2",
+            "State": "ENABLED",
+            "Description": "Execute the artifact bucket policy lambda on a scheduled basis",
+            "ScheduleExpression": "rate(1 hour)",
+            "RoleArn": "arn:aws:iam::980451846322:role/wmcso-cloud-artifacts-BucketPolicyGenerationLambda-1G2T7K8ABVCQW",
+            "EventBusName": "default"
+        },
+        {
+            "Name": "wmcso-snow-export-cmdb-prod",
+            "Arn": "arn:aws:events:us-east-1:980451846322:rule/wmcso-snow-export-cmdb-prod",
+            "State": "ENABLED",
+            "Description": "Cloud account dump from Service Now API",
+            "ScheduleExpression": "cron(10 * * * ? *)",
+            "EventBusName": "default"
+        }
+    ]
+}

@@ -14,6 +14,11 @@
     * ```pip3 install cftdeploy```
 1. Deploy a Cross Account role in all payer & child accounts you want to inventory.
     * One is provided in the `cloudformation/SecurityCrossAccountRoleTemplate.yaml` CloudFormation template
+1. Clone child repos
+    * git clone https://github.com/WarnerMedia/antiope-aws-module.git
+    * git clone https://github.com/WarnerMedia/antiope-hunt-scripts
+
+
 
 ## Config File
 Antiope deploys via SAM, Makefiles, cft-deploy and some AWS CLI commands inside the Makefile. Most of the common settings for each of the stacks is kept in a config.${env} file (where ${env} is your environment (ie dev, stage, prod)).

@@ -42,8 +42,12 @@ Parameters:
     Type: String
     Description: Function Prefix (should relate to parent stack)
 
-  pErrorHandlerEventQueue:
-    Description: Antiope Spray-n-pray Error Queue
+  pErrorHandlerEventQueueURL:
+    Description: Antiope Spray-n-pray Error Queue Endpoint
+    Type: String
+
+  pErrorHandlerEventQueueArn:
+    Description: Antiope Spray-n-pray Error Queue ARN
     Type: String
 
   pErrorHandlerEventQueueAlarmArn:
@@ -79,7 +83,7 @@ Globals:
           ACCOUNT_TABLE: !Ref AccountDBTable
           VPC_TABLE: !Ref VpcInventoryDBTable
           ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref pErrorHandlerEventQueue
+          ERROR_QUEUE: !Ref pErrorHandlerEventQueueURL
           LOG_LEVEL: 'INFO'
 
 Resources:
@@ -180,7 +184,7 @@ Resources:
             - sqs:ReceiveMessage
             - sqs:DeleteMessage
             Resource:
-              - !Sub "arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:${pErrorHandlerEventQueue}"
+              - !Ref pErrorHandlerEventQueueArn
       - PolicyName: DataTableStream
         PolicyDocument:
           Version: '2012-10-17'
@@ -238,7 +242,7 @@ Resources:
         Variables: # Specific to this function
           TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
           ACCEL_FACTOR: !Ref pStaggerAccelerationFactor
-          ERROR_QUEUE: !Ref pErrorHandlerEventQueue
+          ERROR_QUEUE: !Ref pErrorHandlerEventQueueURL
 
   CreateAccountReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -248,6 +252,7 @@ Resources:
       Handler: report-accounts.handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   CreateForeignAccountReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -257,6 +262,7 @@ Resources:
       Handler: report-foreign.handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   CreateVPCReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -267,6 +273,7 @@ Resources:
       Timeout: 600
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   CreateCredentialReportLambdaFunction:
     Type: AWS::Serverless::Function
@@ -277,6 +284,7 @@ Resources:
       Timeout: 600
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   #
   # New Account Handling
@@ -1012,7 +1020,7 @@ Resources:
               "width": 6,
               "height": 3,
               "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${!TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueue};prefix=)\n"
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${!TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueueURL};prefix=)\n"
               }
             },
             {
