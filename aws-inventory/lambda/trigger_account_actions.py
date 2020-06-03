@@ -21,12 +21,6 @@ accel_factor = int(os.environ['ACCEL_FACTOR'])
 
 # Lambda main routine
 def handler(event, context):
-    if 'debug' in event and event['debug']:
-        logger.setLevel(logging.DEBUG)
-
-    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
-        logger.setLevel(logging.DEBUG)
-
     logger.info("Received event: " + json.dumps(event, sort_keys=True))
 
     client = boto3.client('sns')
