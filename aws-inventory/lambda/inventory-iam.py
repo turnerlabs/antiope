@@ -63,44 +63,58 @@ def discover_roles(account):
         response = iam_client.list_roles(Marker=response['Marker'])  # I love how the AWS API is so inconsistent with how they do pagination.
     roles += response['Roles']
 
+    for role in roles:
+        try:
+            process_role(role, account, iam_client)
+        except ClientError as e:
+            if e.response['Error']['Code'] == "Throttling":
+                logger.error(f"Hit a Throttling Exception {e}")
+                time.sleep(1)
+                process_role(role, account, iam_client)
+            else:
+                raise
+
+
+def process_role(role, account, iam_client):
+
     resource_item = {}
     resource_item['awsAccountId']                   = account.account_id
     resource_item['awsAccountName']                 = account.account_name
     resource_item['resourceType']                   = "AWS::IAM::Role"
     resource_item['source']                         = "Antiope"
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+    resource_item['configuration']                  = role
+    if 'Tags' in role:
+        resource_item['tags']                           = parse_tags(role['Tags'])
+    resource_item['supplementaryConfiguration']     = {}
+    resource_item['resourceId']                     = role['RoleId']
+    resource_item['resourceName']                   = role['RoleName']
+    resource_item['ARN']                            = role['Arn']
+    resource_item['resourceCreationTime']           = role['CreateDate']
+    resource_item['errors']                         = {}
 
-    for role in roles:
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
-        resource_item['configuration']                  = role
-        if 'Tags' in role:
-            resource_item['tags']                           = parse_tags(role['Tags'])
-        resource_item['supplementaryConfiguration']     = {}
-        resource_item['resourceId']                     = role['RoleId']
-        resource_item['resourceName']                   = role['RoleName']
-        resource_item['ARN']                            = role['Arn']
-        resource_item['resourceCreationTime']           = role['CreateDate']
-        resource_item['errors']                         = {}
+    # Fetch the policies attached to this role
+    response = iam_client.list_role_policies(RoleName=role['RoleName']) # FIXME Paganation can occur.
+    resource_item['supplementaryConfiguration']['PolicyNames'] = response['PolicyNames']
 
-        # Fetch the policies attached to this role
-        response = iam_client.list_role_policies(RoleName=role['RoleName']) # FIXME Paganation can occur.
-        resource_item['supplementaryConfiguration']['PolicyNames'] = response['PolicyNames']
+    response = iam_client.list_attached_role_policies(RoleName=role['RoleName']) # FIXME Paganation can occur.
+    resource_item['supplementaryConfiguration']['AttachedPolicies'] = response['AttachedPolicies']
 
-        response = iam_client.list_attached_role_policies(RoleName=role['RoleName']) # FIXME Paganation can occur.
-        resource_item['supplementaryConfiguration']['AttachedPolicies'] = response['AttachedPolicies']
+    save_resource_to_s3(ROLE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
-        save_resource_to_s3(ROLE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
-
-        # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
-        for s in role['AssumeRolePolicyDocument']['Statement']:
-            if s['Principal'] == "*":  # Dear mother of god, you're p0wned
-                logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
-                raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role['Arn']))
-            elif 'AWS' in s['Principal']:  # This means it's trusting an AWS Account and not an AWS Service.
-                if type(s['Principal']['AWS']) is list:
-                    for p in s['Principal']['AWS']:
-                        process_trusted_account(p, role['Arn'])
-                else:
-                    process_trusted_account(s['Principal']['AWS'], role['Arn'])
+    # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
+    for s in role['AssumeRolePolicyDocument']['Statement']:
+        if s['Principal'] == "*":  # Dear mother of god, you're p0wned
+            logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
+            # raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role['Arn']))
+            # Put this into the resource under a specific key so we can search on these later
+            response['CriticalFinding'] == f"Found an assume role policy that trusts everything!!!: {role['Arn']}"
+        elif 'AWS' in s['Principal']:  # This means it's trusting an AWS Account and not an AWS Service.
+            if type(s['Principal']['AWS']) is list:
+                for p in s['Principal']['AWS']:
+                    process_trusted_account(p, role['Arn'])
+            else:
+                process_trusted_account(s['Principal']['AWS'], role['Arn'])
 
 
 def process_trusted_account(principal, role_arn):
