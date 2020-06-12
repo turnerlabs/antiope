@@ -155,6 +155,13 @@ Parameters:
     Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
     Type: String
 
+  pAzureLambdaLayerPackage:
+    Description: Azure Inventory Lambda Layer Package Object Key
+    Type: String
+
+  pAzureServiceSecretName:
+    Description: Name of the Secret to use for Azure Service Principals
+    Type: String
 
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
@@ -243,13 +250,22 @@ Resources:
     Condition: cDeployAzureStack
     Properties:
       Parameters:
-          pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
-          pBucketName: !Ref pBucketName
           pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
           pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
           pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
           pResourcePrefix: !Sub "${AWS::StackName}-azure-inventory"
-      TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
+          pAzureLambdaLayerPackage: !Ref pAzureLambdaLayerPackage
+          pAzureServiceSecretName: !Ref pAzureServiceSecretName
+          pBucketName: !Ref pBucketName
+          pDefaultLambdaSize: !Ref pDefaultLambdaSize
+          # pLambdaSNSDelay: use default for now
+          # pNumberOfSubsPerGroup: use default for now
+          pMaxLambdaDuration: Ref pMaxLambdaDuration
+          pExecutionRate: REMOVED
+          pLambdaZipFile: REMOVED
+          pRunStateMachine: REMOVED
+          pVersion: REMOVED
+      TemplateURL: ../antiope-azure/cloudformation/Azure-Inventory-Template.yaml
       TimeoutInMinutes: 30
 
   GCPInventoryStack:
