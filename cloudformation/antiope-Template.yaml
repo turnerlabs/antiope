@@ -252,7 +252,6 @@ Resources:
       Parameters:
           pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
           pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
-          pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
           pResourcePrefix: !Sub "${AWS::StackName}-azure-inventory"
           pAzureLambdaLayerPackage: !Ref pAzureLambdaLayerPackage
           pAzureServiceSecretName: !Ref pAzureServiceSecretName
@@ -260,11 +259,8 @@ Resources:
           pDefaultLambdaSize: !Ref pDefaultLambdaSize
           # pLambdaSNSDelay: use default for now
           # pNumberOfSubsPerGroup: use default for now
-          pMaxLambdaDuration: Ref pMaxLambdaDuration
-          pExecutionRate: REMOVED
+          pMaxLambdaDuration: !Ref pMaxLambdaDuration
           pLambdaZipFile: REMOVED
-          pRunStateMachine: REMOVED
-          pVersion: REMOVED
       TemplateURL: ../antiope-azure/cloudformation/Azure-Inventory-Template.yaml
       TimeoutInMinutes: 30
 
