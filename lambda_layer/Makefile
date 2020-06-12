@@ -1,4 +1,8 @@
 
+ifndef pythonver
+# $(error env is not set)
+    pythonver ?= python3.6
+endif
 
 ifndef env
 # $(error env is not set)
@@ -24,8 +28,6 @@ export OBJECT_KEY=$(DEPLOY_PREFIX)/$(LAYER_PACKAGE)
 # Static, not sure if needed??
 PYTHON=python3
 PIP=pip3
-
-DEPENDENCIES=yaml semver.py mako markupsafe bin boto3 botocore jmespath dateutil s3transfer six.py urllib3
 
 layer: clean deps zipfile upload
 
