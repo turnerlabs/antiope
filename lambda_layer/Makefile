@@ -1,22 +1,17 @@
 
+ifndef pythonver
+# $(error env is not set)
+    pythonver ?= python3.6
+endif
 
 ifndef env
 # $(error env is not set)
 	env ?= dev
 endif
 
-ifdef CONFIG
-	include ../$(CONFIG)
-	export
-else
-	include ../config.$(env)
-	export
-endif
+include ../config.$(env)
+export
 
-# STACK_PREFIX is custom to your deployment and should be the same for all Antiope Stacks
-ifndef STACK_PREFIX
-	$(error STACK_PREFIX is not set)
-endif
 
 ifndef BUCKET
 	$(error BUCKET is not set)
@@ -26,15 +21,13 @@ ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
 endif
 
-export LAYER_PACKAGE=Antiope-$(env)-aws_lambda_layer-$(version).zip
-export OBJECT_KEY=deploy-packages/$(LAYER_PACKAGE)
+export LAYER_PACKAGE=Antiope-$(env)-aws-lambda-layer-$(version).zip
+export OBJECT_KEY=$(DEPLOY_PREFIX)/$(LAYER_PACKAGE)
 
 
 # Static, not sure if needed??
 PYTHON=python3
 PIP=pip3
-
-DEPENDENCIES=yaml semver.py mako markupsafe bin boto3 botocore jmespath dateutil s3transfer six.py urllib3
 
 layer: clean deps zipfile upload
 
@@ -54,7 +47,7 @@ deps:
 
 upload:
 	aws s3 cp $(LAYER_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
-	@echo "Add \tpAWSLambdaLayerPackage: $(OBJECT_KEY) to your Manifest files"
+	@echo "LAYER_URL=$(OBJECT_KEY)" >> ../config.$(env)
 
 pep8: $(FILES)
 	pycodestyle $^

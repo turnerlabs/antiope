@@ -1,6 +1,11 @@
 #!/bin/bash
 
-RESOURCEID="InventoryProcessStateMachine"
+RESOURCEID="MasterStateMachine"
+
+# if [ ! -x jq ] ; then
+#     echo "jq not installed or not in path"
+#     exit 1
+# fi
 
 STACKNAME=$1
 EVENT=$2
@@ -12,12 +17,12 @@ fi
 # If the user didn't pass in an event file, then get the payer list via the stack's parameters (using this ugly jq command)
 if [ -z $EVENT ] ; then
     EVENT="${STACKNAME}-test-event.json" # file to save the event as
-    # PAYERLIST=`aws cloudformation describe-stacks --stack-name ${STACKNAME} | jq -r '.Stacks[].Parameters[]|select(.ParameterKey=="pPayerAccountList").ParameterValue'`
-    # if [ -z "$PAYERLIST" ] ; then
-    #     echo "Didn't find the payerlist in stack ${STACKNAME}. Aborting..."
-    #     exit 1
-    # fi
-    echo "{\"event_file\": \"${STACKNAME}-config.json\" }" > $EVENT
+    EVENTJSON=`aws cloudformation describe-stacks --stack-name ${STACKNAME} | jq -r '.Stacks[].Parameters[]|select(.ParameterKey=="pEventJson").ParameterValue'`
+    if [ -z "$EVENTJSON" ] ; then
+        echo "Didn't find the payerlist in stack ${STACKNAME}. Aborting..."
+        exit 1
+    fi
+    echo "$EVENTJSON" > $EVENT
 elif [ ! -f $EVENT ] ; then
     echo "Cannot find file $EVENT. Aborting..."
     exit 1

@@ -1,27 +1,23 @@
 #!/usr/bin/env python3
 
-import boto3
-import re
-import requests
-from requests_aws4auth import AWS4Auth
+from dateutil import tz
 from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException
-
-
+from requests_aws4auth import AWS4Auth
+import boto3
+import datetime
 import json
 import os
+import re
+import requests
 import time
-import datetime
-from dateutil import tz
-
-# from lib.account import *
-# from lib.common import *
-
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('elasticsearch').setLevel(logging.ERROR)
+
 
 # This number will bang into the Lambda Timeout, so adjust with care.
 BATCH_SIZE = 50
@@ -120,8 +116,6 @@ def do_args():
     parser.add_argument("--debug", help="print debugging info", action='store_true')
     parser.add_argument("--error", help="print error info only", action='store_true')
 
-    # parser.add_argument("--env_file", help="Environment File to source", default="config.env")
-
     parser.add_argument("--stackname", help="CF Stack with Bucket & SQS", required=True)
     parser.add_argument("--prefix", help="Re-Index resources with this prefix", required=True)
 
@@ -136,10 +130,12 @@ if __name__ == '__main__':
     # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
     # create console handler and set level to debug
     ch = logging.StreamHandler()
-    if args.debug:
-        ch.setLevel(logging.DEBUG)
+    if args.error:
+        logger.setLevel(logging.ERROR)
+    elif args.debug:
+        logger.setLevel(logging.DEBUG)
     else:
-        ch.setLevel(logging.ERROR)
+        logger.setLevel(logging.INFO)
 
     # create formatter
     # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')

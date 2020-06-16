@@ -1,15 +1,15 @@
 import boto3
 from botocore.exceptions import ClientError
-
 import json
 import os
 import time
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 hurry_up = 800.00  # after this number of seconds, stop delaying between publish and just send the rest. We want to finish before we expire.
 # TODO - have this function return unfinished work to the step function for another pass.
@@ -21,12 +21,6 @@ accel_factor = int(os.environ['ACCEL_FACTOR'])
 
 # Lambda main routine
 def handler(event, context):
-    if 'debug' in event and event['debug']:
-        logger.setLevel(logging.DEBUG)
-
-    if 'DEBUG' in os.environ and os.environ['DEBUG'] == "True":
-        logger.setLevel(logging.DEBUG)
-
     logger.info("Received event: " + json.dumps(event, sort_keys=True))
 
     client = boto3.client('sns')

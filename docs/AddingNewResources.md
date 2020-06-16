@@ -3,12 +3,12 @@
 ## Overview
 
 1. Add the code to the aws-inventory/lambda directory
-2. Add the function code, Function Permission and SNS Subscription to CFT
+2. Add the serverless function to CFT
 2. Add the function to the Dashboard in the CFT
 3. Add the filename to the FILES= list in the aws-inventory/lambda/Makefile
 4. Add the function name to the FUNCTIONS= list in the aws-inventory/Makefile
 5. If any special Elastic Search mapping is needed, create the mapping in search-cluster/mappings
-6. Add any new resource type created to INDICES= in search-cluster/Makefile
+6. Add any new resource type created to INDICES= in search-cluster/scripts/post-deploy.sh
 7. Create the index(es) in ES before deploying the function (otherwise the custom or default Antiope mapping won't be present when the first document is indexed)
 
 
@@ -30,7 +30,7 @@
     * For ec2 instances (i-djfafds) and for s3 buckets this is not a problem
     * for IAM Roles or Lambda functions, the name is scoped to an AWS Account or an AWS Account and region (respectively). The ResourceId should contain the account and region if needed to disambiguate.
 
-* Be familiar with the pydoc of lib/account.py, it contains many useful helper functions for cross account roles, etc.
+* Be familiar with the pydoc of antiope.aws_account.py, it contains many useful helper functions for cross account roles, etc.
     * From the antiope or lambda directory, run ```pydoc lib/account.py```
 
 * The following elements are required for all Antiope resources
@@ -78,41 +78,21 @@ You can easily add this block to the CFT. You want to change BucketInventoryLamb
 
 ```yaml
   BucketInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-bucket-inventory"
-      Description: Inventory S3 Buckets and their attributes
+      FunctionName: !Sub "${pResourcePrefix}-bucket-inventory"
+      Description: Inventory Buckets
       Handler: inventory-buckets.lambda_handler
-      Runtime: python3.6
-      Timeout: 600
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          ROLE_NAME: !Ref pRoleName
-      # Tags inherited from Stack
-
-  BucketInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt BucketInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  BucketInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [BucketInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 ```
+
+This function is run for all AWS accounts because it's subscribed to `TriggerAccountInventoryFunctionTopic`. If you have something to run just for each payer, you can subscribe it to `TriggerPayerInventoryFunctionTopic`
 
 Dashboard additions. There are three dashboard elements that list all the Inventory functions, The following line should be added to each of the three sections (preferably just above create-account-report)
 ```
@@ -134,9 +114,9 @@ In order for the new function to be supported with the ```make update``` command
 
 To first deploy the function, you should make sure the index with the correct mapping is created in ES first. Once the first document is indexed, you'll have to delete the index and recreate it with the proper mapping.
 
-The first time you add a function to the index, you should run a ```make deploy``` in the aws-inventory directory. This will both upload the lambda code and update the CloudFormation template to deploy the new lambda.
+The first time you add a function to the index, you should run a ```make deploy```. This will both upload the lambda code and update the CloudFormation template to deploy the new lambda.
 
-As you make changes to the lambda, you can speed up the deploy cycle by running ```make fupdate function=my-new-function-name```, that will just rezip the new code and manually push it to the one function. Note: if you need to modify any dependencies deployed via requirements.txt, you should run a ```make update``` instead. That will rerun the ```make deps``` and update all the functions.
+As you make changes to the lambda, you can speed up the deploy cycle by running ```make fupdate function=my-new-function-name``` in the aws-inventory director, that will just rezip the new code and manually push it to the one function. Note: if you need to modify any dependencies deployed via requirements.txt, you should run a ```make update``` instead. That will rerun the ```make deps``` and update all the functions.
 
 If you want to disable inventory while troubleshooting the ```make disable-inventory``` command in the antiope directory will turn off the State Machine event trigger. If you need to manually trigger the step function, you can run ```make trigger-inventory```
 

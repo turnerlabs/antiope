@@ -1,27 +1,22 @@
 #!/usr/bin/env python3
 
-import boto3
-import re
-import requests
+from dateutil import tz
+from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException, RequestError, NotFoundError
 from requests_aws4auth import AWS4Auth
-from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException
-
-
+import boto3
+import datetime
 import json
 import os
+import re
+import requests
 import time
-import datetime
-from dateutil import tz
-
-# from lib.account import *
-# from lib.common import *
-
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('elasticsearch').setLevel(logging.ERROR)
 
 
 # Lambda execution starts here
@@ -107,10 +102,12 @@ if __name__ == '__main__':
     # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
     # create console handler and set level to debug
     ch = logging.StreamHandler()
-    if args.debug:
-        ch.setLevel(logging.DEBUG)
+    if args.error:
+        logger.setLevel(logging.ERROR)
+    elif args.debug:
+        logger.setLevel(logging.DEBUG)
     else:
-        ch.setLevel(logging.ERROR)
+        logger.setLevel(logging.INFO)
 
     # create formatter
     # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')

@@ -1,22 +1,21 @@
 import boto3
 from botocore.exceptions import ClientError
-
 import json
 import os
 import time
 import datetime
-
 from mako.template import Template
 
-from lib.account import *
-from lib.vpc import *
-from lib.common import *
+from antiope.aws_account import *
+from antiope.vpc import *
+from common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 
 # Lambda main routine
@@ -55,19 +54,13 @@ def handler(event, context):
     json_data['account_count'] = len(active_accounts)
     json_data['bucket'] = os.environ['INVENTORY_BUCKET']
 
-    s3_client = boto3.client('s3')
-    try:
-        response = s3_client.get_object(
-            Bucket=os.environ['INVENTORY_BUCKET'],
-            Key='Templates/vpc_inventory.html'
-        )
-        mako_body = str(response['Body'].read().decode("utf-8"))
-    except ClientError as e:
-        logger.error("ClientError getting HTML Template: {}".format(e))
-        raise
-
+    # Render the Webpage
+    fh = open("html_templates/vpc_inventory.html", "r")
+    mako_body = fh.read()
     result = Template(mako_body).render(**json_data)
 
+    # Save HTML and json to S3
+    s3_client = boto3.client('s3')
     try:
         response = s3_client.put_object(
             # ACL='public-read',

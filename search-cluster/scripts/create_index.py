@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
 
-import boto3
-import re
-import requests
-from requests_aws4auth import AWS4Auth
+from dateutil import tz
 from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException, RequestError, NotFoundError
-
+from requests_aws4auth import AWS4Auth
+import boto3
+import datetime
 import json
 import os
+import re
+import requests
 import time
-import datetime
-from dateutil import tz
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('elasticsearch').setLevel(logging.ERROR)
 
 
 # Lambda execution starts here
 def main(args, logger):
-    print("Recreating index {} in {}".format(args.index, args.domain))
+    logger.debug("Attempting to create index {} in {}".format(args.index, args.domain))
 
     host = get_endpoint(args.domain)
     if host is None:
-        print("Failed to get Endpoint. Aborting....")
+        logger.critical("Failed to get Endpoint. Aborting....")
         exit(1)
 
     region = os.environ['AWS_DEFAULT_REGION']
@@ -45,7 +45,7 @@ def main(args, logger):
 
     try:
         if not os.path.isdir(args.mapping_dir):
-            print(f"Unable to find mapping_dir: {args.mapping_dir}. Aborting....")
+            logger.critical(f"Unable to find mapping_dir: {args.mapping_dir}. Aborting....")
             exit(1)
 
         if os.path.exists(f"{args.mapping_dir}/{args.index}.json"):
@@ -53,35 +53,41 @@ def main(args, logger):
         elif os.path.exists(f"{args.mapping_dir}/default.json"):
             filename = f"{args.mapping_dir}/default.json"
         else:
-            print(f"Unable to find mapping for {args.index}, or a default.json. Aborting....")
+            logger.critical(f"Unable to find mapping for {args.index}, or a default.json. Aborting....")
             exit(1)
+
+        logger.debug(f"Using mapping file {filename} for {args.index}")
 
         fh = open(filename, "r")
         mapping_text = fh.read()
     except Exception as e:
-        print(f"unable to read mapping file in {args.mapping_dir} for {args.index}: {e}. Aborting....")
+        logger.critical(f"unable to read mapping file in {args.mapping_dir} for {args.index}: {e}. Aborting....")
         exit(1)
 
     if args.delete:
         try:
-            print(f"Deleting Index {args.index}")
+            logger.info(f"Deleting Index {args.index}")
             es.indices.delete(index=args.index)
         except NotFoundError as e:
             # if e.error == ""
-            print(f"Index {args.index} doesn't exist to delete. Skipping...")
+            logger.debug(f"Index {args.index} doesn't exist to delete. Skipping...")
         except RequestError as e:
             # if e.error == ""
-            print(f"Unable to delete index {args.index}: {e}")
+            logger.critical(f"Unable to delete index {args.index}: {e}")
             exit(1)
         except ElasticsearchException as e:
-            print(f"Unable to delete index {args.index}: {e}")
+            logger.critical(f"Unable to delete index {args.index}: {e}")
             exit(1)
 
     try:
-        print(f"Creating Index {args.index}")
         response = es.indices.create(index=args.index, body=json.loads(mapping_text))
+        logger.info(f"Created Index {args.index}")
+        exit(0)
+    except RequestError as e:
+        logger.info(f"Index {args.index} already Exists, skipping...")
+        exit(0)
     except ElasticsearchException as e:
-        print(f"Failed to create index {args.index}: {e}")
+        logger.error(f"Failed to create index {args.index}: {e}")
         exit(1)
 
 def get_endpoint(domain):
@@ -122,14 +128,16 @@ if __name__ == '__main__':
     # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
     # create console handler and set level to debug
     ch = logging.StreamHandler()
-    if args.debug:
-        ch.setLevel(logging.DEBUG)
+    if args.error:
+        logger.setLevel(logging.ERROR)
+    elif args.debug:
+        logger.setLevel(logging.DEBUG)
     else:
-        ch.setLevel(logging.ERROR)
+        logger.setLevel(logging.INFO)
 
     # create formatter
     # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
     # add formatter to ch
     ch.setFormatter(formatter)
     # add ch to logger

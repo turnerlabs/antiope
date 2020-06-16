@@ -3,10 +3,6 @@
 Scratch/
 Notes.md
 
-cloudsploit/
-antiope-scorecards
-wmcso-antiope-customizations
-
 # Build-time crud
 *.zip
 *-test-event.json
@@ -16,9 +12,8 @@ wmcso-antiope-customizations
 # Deploy specific env vars passed to makefile. Not to be shared.
 config.*
 
-aws-inventory/*/lib/
-gcp-inventory/*/gcp_lib/
-azure-inventory/*/azure_lib/
+aws-inventory/lambda/antiope/*
+
 
 # Build-time crud for the search cluster lambda
 search-cluster/*/*dist-info
@@ -38,13 +33,12 @@ search-cluster/*/elasticsearch/
 
 # Build-time crud for the inventory lambda
 lambda_layer/python/
-gcp_lambda_layer/python/
-azure_lambda_layer/python/
-azure-lambda-layer/python/
+
 
 
 # Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml
+cloudformation/*Transformed*.yaml
 
 # Test events also contain sensitive datad
 *test-events/*

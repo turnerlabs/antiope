@@ -8,14 +8,16 @@ import time
 import datetime
 from dateutil import tz
 
-from lib.account import *
-from lib.common import *
+from antiope.aws_account import *
+from common import *
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+
 
 RESOURCE_PATH = "s3/bucket"
 RESOURCE_TYPE = "AWS::S3::Bucket"

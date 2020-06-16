@@ -1,0 +1,660 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Master Stack to Deploy all of Antiope
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+
+  pBucketName:
+    Description: Name of the Antiope Bucket to hold all the data
+    Type: String
+    Default: TO BE DEFINED BY MAKEFILE
+
+  pAWSRoleName:
+    Description: Default name of the AssumeRole to assume into accounts
+    Type: String
+    Default: Security-Audit
+
+  pIamUserName:
+    Type: String
+    Description: <optional> IAM Username with access to the Inventory Bucket
+    Default: NONE
+
+  pExecutionRate:
+    Description: How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
+    Type: String
+    Default: rate(1 hour)
+
+  pStaggerAccelerationFactor:
+    Description: Factor by which the delay between SNS Publish is shrunk. The larger the number, the more frequent the publish.
+    Type: Number
+    Default: 2
+
+  pDefaultLambdaSize:
+    Description: Size to assign to all Lambda
+    Type: Number
+    Default: 1046
+
+  pMaxLambdaDuration:
+    Description: How long to let the Lambda Run
+    Type: Number
+    Default: 300
+
+  pAWSEntSupport:
+    Type: String
+    Description: Set this to True if you have Business or Enterprise Support and can access support API
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pAWSEBSInventory:
+    Type: String
+    Description: Set this to True if you want Inventory EBS and Snapshots
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pDeployElasticSearch:
+    Type: String
+    Description: Deploy the Elastic Search Cluster component of Antiope
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pDeployCustomStackStateMachineArn:
+    Type: String
+    Description: ARN of a custom StateMachine to call after inventory state machines are run
+    Default: NONE
+
+  pDeployAzureStack:
+    Type: String
+    Description: Deploy the Azure Inventory component of Antiope
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pDeployGCPStack:
+    Type: String
+    Description: Deploy the GCP Inventory component of Antiope
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pClusterEncryption:
+    Type: String
+    Description: Enable Encryption for the Elasticsearch Cluster
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pAWSLambdaLayerPackage:
+    Description: AWS Inventory Lambda Layer Package Object Key
+    Type: String
+    Default: TO BE DEFINED BY MAKEFILE
+
+  pClusterInstanceType:
+    Type: String
+    Description: Size of the ES Cluster
+    Default: t2.small.elasticsearch
+    ConstraintDescription: Must be a valid Elasticsearch Service InstanceType (https://aws.amazon.com/elasticsearch-service/pricing/)
+
+  pClusterInstanceCount:
+    Type: Number
+    Description: Cluster Instance Count
+    Default: 1
+
+  pClusterEncryption:
+    Type: String
+    Description: Enable Encryption for the Elasticsearch Cluster
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+  pEmailAddress:
+    Type: String
+    Description: Default Username for Cognito
+    Default: NONE
+
+  pIdentityPoolName:
+    Type: String
+    Description: Name of the Identity Pool. Cannot contain non-alphanumeric char
+    Default: AntiopeIDPool
+    ConstraintDescription: pIdentityPoolName must only contain uppercase and lowercase letters and numbers
+    AllowedPattern: "[A-Za-z0-9]+"
+
+  pCognitoDomain:
+    Description: What you will modify the User pool after it is created (Can't be done via CFT)
+    Type: String
+    Default: antiope
+
+  pCognitoAPIDomain:
+    Description: The Custom Domain Name you will configure once the API Gateway is created
+    Type: String
+
+  pSNSAlertsInfoArn:
+    Description: SNS Topic Arn to Send Info Alerts (Leave as NONE for no info alerts)
+    Type: String
+    Default: NONE
+
+  pSNSAlertsErrorArn:
+    Description: SNS Topic Arn to Send Error Alerts (Leave as NONE for no error alerts)
+    Type: String
+    Default: NONE
+
+  pEventJson:
+    Description: JSON Event sent to the Master StepFunction
+    Type: String
+
+  pTemplateURL:
+    Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
+    Type: String
+
+  pAzureLambdaLayerPackage:
+    Description: Azure Inventory Lambda Layer Package Object Key
+    Type: String
+
+  pAzureServiceSecretName:
+    Description: Name of the Secret to use for Azure Service Principals
+    Type: String
+
+Conditions:
+  cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
+  cDeployCustomStack: !Not [ !Equals [ !Ref pDeployCustomStackStateMachineArn, "NONE"] ]
+  cDeployAzureStack: !Equals [ !Ref pDeployAzureStack, True]
+  cDeployGCPStack: !Equals [ !Ref pDeployGCPStack, True]
+  cCreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
+  cSNSAlertsInfo: !Not [ !Equals [ !Ref pSNSAlertsInfoArn, "NONE"] ]
+  cSNSAlertsError: !Not [ !Equals [ !Ref pSNSAlertsErrorArn, "NONE"] ]
+
+
+Resources:
+
+  InventoryIAMUser:
+    Condition: cCreateIAMUser
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref pIamUserName
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+
+  CognitoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        pBucketName: !Ref pBucketName
+        pCustomAPIDomain: !Ref pCognitoAPIDomain
+        pCustomCognitoDomain: !Ref pCognitoDomain
+        pEmailAddress: !Ref pEmailAddress
+        pIdentityPoolName: !Ref pIdentityPoolName
+      TemplateURL: ../cognito/cloudformation/Cognito-Template.yaml
+      TimeoutInMinutes: 30
+
+  AWSInventoryStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+          pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
+          pBucketName: !Ref pBucketName
+          pEBSInventory: !Ref pAWSEBSInventory
+          pEntSupport: !Ref pAWSEntSupport
+          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
+          pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
+          pResourcePrefix: !Sub "${AWS::StackName}-aws-inventory"
+          pRoleName: !Ref pAWSRoleName
+          pStaggerAccelerationFactor: !Ref pStaggerAccelerationFactor
+          pMaxLambdaDuration: !Ref pMaxLambdaDuration
+          pDefaultLambdaSize: !Ref pDefaultLambdaSize
+      TemplateURL: ../aws-inventory/cloudformation/Inventory-Template.yaml
+      TimeoutInMinutes: 30
+
+  ElasticSearchStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: cDeployElasticSearch
+    Properties:
+      Parameters:
+          pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
+          pBucketName: !Ref pBucketName
+          pClusterEncryption: !Ref pClusterEncryption
+          pClusterInstanceCount: !Ref pClusterInstanceCount
+          pClusterInstanceType: !Ref pClusterInstanceType
+          pCognitoKibanaAuthRole: !GetAtt CognitoStack.Outputs.CognitoKibanaAuthRole
+          pDomainName: !Ref AWS::StackName
+          pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
+      TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
+      TimeoutInMinutes: 30
+
+  AzureInventoryStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: cDeployAzureStack
+    Properties:
+      Parameters:
+          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
+          pResourcePrefix: !Sub "${AWS::StackName}-azure-inventory"
+          pAzureLambdaLayerPackage: !Ref pAzureLambdaLayerPackage
+          pAzureServiceSecretName: !Ref pAzureServiceSecretName
+          pBucketName: !Ref pBucketName
+          pDefaultLambdaSize: !Ref pDefaultLambdaSize
+          # pLambdaSNSDelay: use default for now
+          # pNumberOfSubsPerGroup: use default for now
+          pMaxLambdaDuration: !Ref pMaxLambdaDuration
+          pLambdaZipFile: REMOVED
+      TemplateURL: ../antiope-azure/cloudformation/Azure-Inventory-Template.yaml
+      TimeoutInMinutes: 30
+
+  GCPInventoryStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: cDeployGCPStack
+    Properties:
+      Parameters:
+          pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
+          pBucketName: !Ref pBucketName
+          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
+          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
+          pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
+          pResourcePrefix: !Sub "${AWS::StackName}-gcp-inventory"
+      TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
+      TimeoutInMinutes: 30
+
+  #
+  # Global StepFunction
+  #
+  TriggerStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - events.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: ExecuteStateMachine
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - states:StartExecution
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}-master-statemachine"
+
+  TriggerStateMachine:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "Trigger the master Antiope StateMachine"
+      ScheduleExpression: !Ref pExecutionRate
+      State: DISABLED  # Always deploy disabled, and re-enable by hand
+      Targets:
+      - Arn: !Ref MasterStateMachine
+        RoleArn: !GetAtt TriggerStateMachineRole.Arn
+        Id: TargetFunctionV1
+        Input: !Ref pEventJson
+
+  StateMachineExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - !Sub states.${AWS::Region}.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: InvokeLambda
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - !GetAtt LoadStepFunctionEventLambdaFunction.Arn
+      - PolicyName: InvokeStepFunctions
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - states:StartExecution
+            Resource:
+              - !GetAtt AWSInventoryStack.Outputs.InventoryProcessStateMachine
+              - !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}-noop-statemachine"
+              - Fn::If:
+                - cDeployCustomStack
+                - Ref: pDeployCustomStackStateMachineArn
+                - Ref: AWS::NoValue
+              - Fn::If:
+                - cDeployAzureStack
+                - Fn::GetAtt: AzureInventoryStack.Outputs.InventoryProcessStateMachine
+                - Ref: AWS::NoValue
+          - Effect: Allow
+            Action:
+              - states:DescribeExecution
+              - states:StopExecution
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - events:PutTargets
+              - events:PutRule
+              - events:DescribeRule
+            Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule
+
+  LoadStepFunctionEventLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-load-sf-event"
+      Description: Load the StepFunction Event from S3
+      Handler: index.handler
+      Runtime: python3.6
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: "Allow"
+          Action:
+          - states:ListExecutions
+          Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}-*"
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}-master-statemachine"
+      InlineCode: !Sub |
+          from __future__ import print_function
+          import boto3
+          import json
+          import logging
+          import os
+          from botocore.exceptions import ClientError
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          logging.getLogger('botocore').setLevel(logging.WARNING)
+          logging.getLogger('boto3').setLevel(logging.WARNING)
+
+          # Lambda main routine
+          def handler(event, context):
+              logger.info("Received event: " + json.dumps(event, sort_keys=True))
+              if statemachine_already_running(os.environ['STEPFUNCTION_ARN']):
+                  logger.error("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+                  raise ScorecardRunningException("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
+              # client = boto3.client('s3')
+              # response = client.get_object(
+              #   Bucket=os.environ['INVENTORY_BUCKET'],
+              #   Key=event['event_file']
+              # )
+              # loaded_event = json.loads(response['Body'].read())
+              # event.update(loaded_event)
+              return(event)
+
+          def statemachine_already_running(stepfunction_arn):
+              client = boto3.client('stepfunctions')
+              response = client.list_executions(stateMachineArn=stepfunction_arn, statusFilter='RUNNING')
+              if len(response['executions']) > 2:
+                  raise Exception("Too many StepFunction Executions")
+              elif len(response['executions']) > 1:
+                  return(True)
+              else:
+                  return(False)
+
+          # Used To tell the Step Function to wait 300 and try again
+          class ScorecardRunningException(Exception): pass
+          ### End of Function
+
+  # Cheesey Hack to work with conditionals
+  NoOpStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: !GetAtt StateMachineExecutionRole.Arn
+      StateMachineName: !Sub "${AWS::StackName}-noop-statemachine"
+      DefinitionString: !Sub |-
+        {
+          "Comment": "Stepfunction that does nothing",
+          "StartAt": "StartState",
+          "States": {
+            "StartState": {
+              "Type" : "Wait",
+              "Seconds" : 1,
+              "End": true
+            }
+          }
+        }
+
+
+  MasterStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub "${AWS::StackName}-master-statemachine"
+      Role: !GetAtt StateMachineExecutionRole.Arn
+      Definition:
+        Comment: !Sub "($AWS::StackName) Master State Machine for All of Antiope"
+        StartAt: LoadStepFunctionEventLambdaFunction
+        States:
+          LoadStepFunctionEventLambdaFunction:
+            Type: Task
+            Resource: !GetAtt LoadStepFunctionEventLambdaFunction.Arn
+            Next: ExecuteCloudInventoryStepFunctions
+            Catch:
+              - ErrorEquals:
+                - ScorecardRunningException
+                Next: WaitForStepFunctionToFinish
+                ResultPath: $.error-info
+          ExecuteCloudInventoryStepFunctions:
+            Type: Parallel
+            Next: ExecuteCustomStepFunction
+            ResultPath: null
+            Branches:
+              - StartAt: ExecuteAWSInventory
+                States:
+                  ExecuteAWSInventory:
+                    Type: Task
+                    Resource: arn:aws:states:::states:startExecution.sync
+                    Parameters:
+                      StateMachineArn: !GetAtt AWSInventoryStack.Outputs.InventoryProcessStateMachine
+                      Input:
+                        AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                        Payload.$: $
+                    End: true
+              - StartAt: ExecuteAzureInventory
+                States:
+                  ExecuteAzureInventory:
+                    Type: Task
+                    Resource: arn:aws:states:::states:startExecution.sync
+                    Parameters:
+                      StateMachineArn: !If [cDeployAzureStack, !GetAtt AzureInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
+                      Input:
+                        AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                        Payload.$: $
+                    End: true
+              - StartAt: ExecuteGCPInventory
+                States:
+                  ExecuteGCPInventory:
+                    Type: Task
+                    Resource: arn:aws:states:::states:startExecution.sync
+                    Parameters:
+                      StateMachineArn: !If [cDeployGCPStack, !GetAtt GCPInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
+                      Input:
+                        AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                        Payload.$: $
+                    End: true
+          ExecuteCustomStepFunction:
+            Type: Task
+            Resource: arn:aws:states:::states:startExecution.sync
+            Parameters:
+              StateMachineArn: !If [cDeployCustomStack, !Ref pDeployCustomStackStateMachineArn, !Ref NoOpStateMachine ]
+              Input:
+                AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
+                Payload.$: $
+            End: true
+          WaitForStepFunctionToFinish:
+            Type : Wait
+            Seconds : 300
+            Next: LoadStepFunctionEventLambdaFunction
+
+  #
+  # Error Handling Stuff
+  #
+  StepFunctionAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      AlarmActions:
+        - !If [ cSNSAlertsError, !Ref pSNSAlertsErrorArn, Ref: "AWS::NoValue" ]
+      AlarmDescription: "Alerts on stepfunction failures"
+      AlarmName: !Sub "${AWS::StackName}-StepFunction-Failure"
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: StateMachineArn
+          Value: !Ref MasterStateMachine
+      EvaluationPeriods: 1
+      MetricName: ExecutionsFailed
+      Namespace: AWS/States
+      OKActions:
+        - !If [ cSNSAlertsInfo, !Ref pSNSAlertsInfoArn, Ref: "AWS::NoValue" ]
+      Period: 300
+      Statistic: Average
+      Threshold: 0
+      TreatMissingData: notBreaching
+
+  ErrorHandlerEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsMasterKeyId: alias/aws/sqs
+      KmsDataKeyReusePeriodSeconds: 86400
+      MessageRetentionPeriod: 86400 # Hold on to errors for a day.
+      ReceiveMessageWaitTimeSeconds: 10
+      # RedrivePolicy:
+      #   FIXME
+      VisibilityTimeout: 300
+
+  ErrorHandlerEventQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      # AlarmActions:
+      #   - String
+      AlarmDescription: "Alert when Error Queue has messages"
+      AlarmName: !Sub "${AWS::StackName}-ErrorQueue"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ErrorHandlerEventQueue.QueueName
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      # OKActions:
+      #   - String
+      Period: 300
+      Statistic: Average
+      Threshold: 1
+      TreatMissingData: missing
+
+
+Outputs:
+  StackName:
+    Value: !Ref AWS::StackName
+    Description: Just the name of this stack
+
+  TemplateURL:
+    Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
+    Value: !Ref pTemplateURL
+
+  BucketName:
+    Value: !Ref pBucketName
+    Description: Name of S3 Bucket where all files are stored
+
+  AWSAccountInventoryTriggerTopic:
+    Value: !GetAtt AWSInventoryStack.Outputs.AccountInventoryTriggerTopic
+    Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
+
+  AWSPayerInventoryTriggerTopic:
+    Value: !GetAtt AWSInventoryStack.Outputs.PayerInventoryTriggerTopic
+    Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
+
+  AWSNewAccountNotificationTopic:
+    Value: !GetAtt AWSInventoryStack.Outputs.NewAccountNotificationTopic
+    Description: The discovery of new accounts is sent to this topic.
+
+  AWSForeignAccountNotificationTopic:
+    Value: !GetAtt AWSInventoryStack.Outputs.ForeignAccountNotificationTopic
+    Description: The discovery of new foreign (ie discovered in AMI or AssumeRole Policies) are sent to this topic
+
+  LoginUrl:
+    Description: Login URL for Cognito
+    Value: !GetAtt CognitoStack.Outputs.LoginUrl
+
+  ClusterEndpoint:
+    Condition: cDeployElasticSearch
+    Description: DNS Name for the Elastic Search Cluster
+    Value: !GetAtt ElasticSearchStack.Outputs.ClusterEndpoint
+
+  KibanaURL:
+    Condition: cDeployElasticSearch
+    Description: "The URL to access Kibana."
+    Value: !GetAtt ElasticSearchStack.Outputs.KibanaURL
+
+  SearchIngestEventQueueArn:
+    Condition: cDeployElasticSearch
+    Description: Arn of the SQS Queue S3 should send new events notifications to
+    Value: !GetAtt ElasticSearchStack.Outputs.SearchIngestEventQueueArn
+
+  SearchIngestEventQueueUrl:
+    Condition: cDeployElasticSearch
+    Description: Arn of the SQS Queue S3 should send new events notifications to
+    Value: !GetAtt ElasticSearchStack.Outputs.SearchIngestEventQueueUrl
+
+  TriggerEventName:
+    Value: !Ref TriggerStateMachine
+    Description: Name of the Trigger Event (used by the make file to enable to disable the inventory state machine)
+
+  ErrorQueue:
+    Value: !GetAtt ErrorHandlerEventQueue.QueueName
+    Description: Name of the SQS Queue where lambda errors are sent
+
+  ErrorQueueURL:
+    Value: !Ref ErrorHandlerEventQueue
+    Description: URL of the SQS Queue where lambda errors are sent
+
+  SearchClusterStackName:
+    Condition: cDeployElasticSearch
+    Description: Name of the Nested Search Cluster Stack
+    Value: !Ref ElasticSearchStack
+
+  AWSInventoryStackName:
+    Description: Name of the Nested AWS Inventory Stack
+    Value: !Ref AWSInventoryStack
+
+  CognitoStackName:
+    Description: Name of the Nested Cognito Stack
+    Value: !Ref CognitoStack
+

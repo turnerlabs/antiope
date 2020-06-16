@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy the Inventory Component of Antiope
+Description: Deploy the AWS Inventory Component of Antiope
+Transform: AWS::Serverless-2016-10-31
 
 Parameters:
 
@@ -7,38 +8,10 @@ Parameters:
     Description: Name of the bucket to hold the images
     Type: String
 
-  pLambdaZipFile:
-    Description: File Name for the lambdas
-    Type: String
-
-  pVersion:
-    Description: Version of this stack's deployment
-    Type: String
-
   pRoleName:
     Description: Default name of the AssumeRole to assume into accounts
     Type: String
     Default: Security-Audit
-
-  pIamUserName:
-    Type: String
-    Description: <optional> IAM Username with access to the Inventory Bucket
-    Default: NONE
-
-  pExecutionRate:
-    Description: How frequently the StepFunction should Run (As a CloudWatch ScheduleExpression)
-    Type: String
-    Default: rate(30 minutes)
-
-  pSmallLambdaSize:
-    Description: Memory footprint for smaller Lambda
-    Type: Number
-    Default: 128
-
-  pLargeLambdaSize:
-    Description: Memory footprint for Lambdas processing lots of resources
-    Type: Number
-    Default: 768
 
   pStaggerAccelerationFactor:
     Description: Factor by which the delay between SNS Publish is shrunk. The larger the number, the more frequent the publish.
@@ -65,37 +38,55 @@ Parameters:
       - True
       - False
 
+  pResourcePrefix:
+    Type: String
+    Description: Function Prefix (should relate to parent stack)
 
+  pErrorHandlerEventQueueURL:
+    Description: Antiope Spray-n-pray Error Queue Endpoint
+    Type: String
+
+  pErrorHandlerEventQueueArn:
+    Description: Antiope Spray-n-pray Error Queue ARN
+    Type: String
+
+  pErrorHandlerEventQueueAlarmArn:
+    Description: Alarm for the Antiope Spray-n-pray Error Queue
+    Type: String
+
+  pDefaultLambdaSize:
+    Description: Size to assign to all Lambda
+    Type: Number
+    Default: 1046
+
+  pMaxLambdaDuration:
+    Description: How long to let the Lambda Run
+    Type: Number
+    Default: 300
 
 Conditions:
-  CreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
   EnterpriseSupport: !Equals [ !Ref pEntSupport, True]
   EBSInventory: !Equals [ !Ref pEBSInventory, True]
 
-Resources:
+Globals:
+  Function:
+    Runtime: python3.6
+    MemorySize: !Ref pDefaultLambdaSize
+    Timeout: !Ref pMaxLambdaDuration
+    Layers:
+        - !Ref AWSInventoryLambdaLayer
+    CodeUri: ../lambda
+    Environment:
+      Variables:
+          ROLE_SESSION_NAME: !Ref pResourcePrefix
+          INVENTORY_BUCKET: !Ref pBucketName
+          ACCOUNT_TABLE: !Ref AccountDBTable
+          VPC_TABLE: !Ref VpcInventoryDBTable
+          ROLE_NAME: !Ref pRoleName
+          ERROR_QUEUE: !Ref pErrorHandlerEventQueueURL
+          LOG_LEVEL: 'INFO'
 
-  InventoryIAMUser:
-    Condition: CreateIAMUser
-    Type: AWS::IAM::User
-    Properties:
-      UserName: !Ref pIamUserName
-      Path: /
-      Policies:
-      - PolicyName: S3Access
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Action:
-            - s3:*
-            Effect: Allow
-            Resource:
-              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
-              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
-          - Action:
-            - s3:ListAllMyBuckets
-            - s3:GetBucketLocation
-            Effect: Allow
-            Resource: '*'
+Resources:
 
   InventoryLambdaRole:
     Type: AWS::IAM::Role
@@ -180,6 +171,7 @@ Resources:
             - sns:publish
             Resource:
               - !Ref TriggerAccountInventoryFunctionTopic
+              - !Ref TriggerPayerInventoryFunctionTopic
               - !Ref NewActiveAccountTopic
               - !Ref NewForeignAccountTopic
       - PolicyName: PublishToSQS
@@ -192,7 +184,7 @@ Resources:
             - sqs:ReceiveMessage
             - sqs:DeleteMessage
             Resource:
-              - !GetAtt ErrorHandlerEventQueue.Arn
+              - !Ref pErrorHandlerEventQueueArn
       - PolicyName: DataTableStream
         PolicyDocument:
           Version: '2012-10-17'
@@ -210,14 +202,6 @@ Resources:
               - dynamodb:UpdateItem
             Resource:
               - !GetAtt AccountDBTable.StreamArn
-      - PolicyName: ListExecutions
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: "Allow"
-            Action:
-            - states:ListExecutions
-            Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
 
   AWSInventoryLambdaLayer:
     Type: "AWS::Lambda::LayerVersion"
@@ -227,336 +211,94 @@ Resources:
       Content:
         S3Bucket: !Ref pBucketName
         S3Key: !Ref pAWSLambdaLayerPackage
-      Description: !Sub "${AWS::StackName}-AWS-Inventory-Libraries"
+      Description: !Sub "${pResourcePrefix}-AWS-Inventory-Libraries"
 
   #
   # State Machine Functions
   #
-  LoadStepFunctionEventLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-load-sf-event"
-      Description: Load the StepFunction Event from S3
-      Handler: index.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Environment:
-        Variables:
-          INVENTORY_STACK_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      Code:
-        ZipFile: !Sub |
-          from __future__ import print_function
-          import boto3
-          import json
-          import logging
-          import os
-          from botocore.exceptions import ClientError
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-          logging.getLogger('botocore').setLevel(logging.WARNING)
-          logging.getLogger('boto3').setLevel(logging.WARNING)
-
-          # Lambda main routine
-          def handler(event, context):
-              logger.info("Received event: " + json.dumps(event, sort_keys=True))
-              if statemachine_already_running(os.environ['STEPFUNCTION_ARN']):
-                  logger.error("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
-                  raise ScorecardRunningException("Stepfunction {} is already running".format(os.environ['STEPFUNCTION_ARN']))
-              client = boto3.client('s3')
-              response = client.get_object(
-                Bucket=os.environ['INVENTORY_BUCKET'],
-                Key=event['event_file']
-              )
-              loaded_event = json.loads(response['Body'].read())
-              event.update(loaded_event)
-              return(event)
-
-          def statemachine_already_running(stepfunction_arn):
-              client = boto3.client('stepfunctions')
-              response = client.list_executions(stateMachineArn=stepfunction_arn, statusFilter='RUNNING')
-              if len(response['executions']) > 2:
-                  raise Exception("Too many StepFunction Executions")
-              elif len(response['executions']) > 1:
-                  return(True)
-              else:
-                  return(False)
-
-          # Used To tell the Step Function to wait 30 and try again
-          class ScorecardRunningException(Exception): pass
-          ### End of Function
 
   PullOrganizationDataLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-pull-organization-data"
+      FunctionName: !Sub "${pResourcePrefix}-pull-organization-data"
       Description: AWS Lamdba to pull data from payer account into account table
       Handler: pull_organization_data.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
+      CodeUri: ../lambda
       Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          # Specific to this function
-          TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
-          STEPFUNCTION_ARN: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}"
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+        Variables: # Specific to this function
+          TRIGGER_PAYER_INVENTORY_ARN: !Ref TriggerPayerInventoryFunctionTopic
 
   TriggerInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-trigger-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-trigger-inventory"
       Description: Send a message to a topic for each AWS account
       Handler: trigger_account_actions.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
       Timeout: 900 # This should be the max!
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
+      CodeUri: ../lambda
       Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          # Specific to this function
+        Variables: # Specific to this function
           TRIGGER_ACCOUNT_INVENTORY_ARN: !Ref TriggerAccountInventoryFunctionTopic
           ACCEL_FACTOR: !Ref pStaggerAccelerationFactor
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
-
-  InventoryErrorHandlingLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-error-handler"
-      Description: Handle Errors generated by the aws-inventory system
-      Handler: index.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Environment:
-        Variables:
-          INVENTORY_STACK_NAME: !Ref AWS::StackName
-          CONFIG_FILE: "config.json"
-          INVENTORY_BUCKET: !Ref pBucketName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      Code:
-        ZipFile: !Sub |
-          from __future__ import print_function
-          import boto3
-          import json
-          import logging
-          import os
-          from botocore.exceptions import ClientError
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          # Lambda main routine
-          def handler(event, context):
-              logger.info("Received event: " + json.dumps(event, sort_keys=True))
-
-              sns_client = boto3.client('sns')
-              sns_client.publish (
-                TopicArn=os.environ['ALARM_TOPIC'],
-                Message=json.dumps(event, sort_keys=True),
-                Subject="{} Lambda Error".format(os.environ['INVENTORY_STACK_NAME'])
-                )
-              raise Exception(event['Cause'])
-          ### End of Function
+          ERROR_QUEUE: !Ref pErrorHandlerEventQueueURL
 
   CreateAccountReportLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-create-account-report"
+      FunctionName: !Sub "${pResourcePrefix}-create-account-report"
       Description: Create an HTML Report with all the AWS Accounts
       Handler: report-accounts.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   CreateForeignAccountReportLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-foreign-acct-report"
+      FunctionName: !Sub "${pResourcePrefix}-foreign-acct-report"
       Description: Create an HTML Report with all the Foreign AWS Accounts
       Handler: report-foreign.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   CreateVPCReportLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-create-vpc-report"
+      FunctionName: !Sub "${pResourcePrefix}-create-vpc-report"
       Description: Create an HTML Report with all the AWS VPCs
       Handler: report-vpcs.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
       Timeout: 600
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   CreateCredentialReportLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-create-cred-report"
+      FunctionName: !Sub "${pResourcePrefix}-create-cred-report"
       Description: Combine all credential reports into single csv file
       Handler: report-unified-credential-report.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
       Timeout: 600
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
-
-  HandoffToNextStepFunctionLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-next-func-handler"
-      Description: Handoff to the next StepFunction (if specified)
-      Handler: index.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      Role: !GetAtt InventoryLambdaRole.Arn
-      Environment:
-        Variables:
-          INVENTORY_STACK_NAME: !Ref AWS::StackName
-          CONFIG_FILE: "config.json"
-          INVENTORY_BUCKET: !Ref pBucketName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      Code:
-        ZipFile: !Sub |
-          from __future__ import print_function
-          import boto3
-          import json
-          import logging
-          import os
-          from botocore.exceptions import ClientError
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-
-          # Lambda main routine
-          def handler(event, context):
-              logger.info("Received event: " + json.dumps(event, sort_keys=True))
-              if 'next_function' in event and '${AWS::StackName}' in event['next_function']:
-                client = boto3.client('stepfunctions')
-                response = client.start_execution(
-                  stateMachineArn=event['next_function']['${AWS::StackName}'],
-                  input=json.dumps(event, sort_keys=True)
-                )
-          ### End of Function
+      CodeUri: ../lambda
+      MemorySize: 3008 # All Report Functions get the max memory for speed & size
 
   #
   # New Account Handling
   #
   NewAccountHandlerLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-new_account_handler"
+      FunctionName: !Sub "${pResourcePrefix}-new_account_handler"
       Description: Function to Handle the discovery of new Accounts written to the Accounts DDB Table
       Handler: new_account_handler.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
+      CodeUri: ../lambda
       Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-          # Specific to this function
+        Variables: # Specific to this function
           ACTIVE_TOPIC: !Ref NewActiveAccountTopic
           FOREIGN_TOPIC: !Ref NewForeignAccountTopic
 
@@ -581,803 +323,445 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: !Sub "Notifications for discovery of a foreign AWS Account"
+
   #
-  # Parallel Execution Functions
+  # Parallel Execution Functions (on each account)
   #
   VpcInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-vpc-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-vpc-inventory"
       Description: AWS Lamdba to populate a table with info on all VPCs
       Handler: inventory-vpc.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   ENIInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-eni-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-eni-inventory"
       Description: AWS Lamdba to to inventory all public IPs & ENIs in an account
       Handler: inventory-eni.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 600
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   HealthInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-health-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-health-inventory"
       Description: AWS Lamdba to to inventory Health Dashboard results
       Handler: inventory-health-report.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   CloudFormationInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-cloudformation-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-cloudformation-inventory"
       Description: Inventory the CF Stacks for the specific account
       Handler: inventory-cft.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 600
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   InstancesSecurityGroupsInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-instances-sg-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-instances-sg-inventory"
       Description: Inventory instances and security groups to a JSON file in S3
       Handler: inventory-instances-sg.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   GetBillingDataLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-get-billing-data"
+      FunctionName: !Sub "${pResourcePrefix}-get-billing-data"
       Description: Pull the spend from the AWS account
       Handler: get_billing_data.handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
       Environment:
         Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
           # Specific to this function
           BILLING_TABLE: !Ref HistoricalBillingDataTable
 
   Route53InventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-route53-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-route53-inventory"
       Description: Inventory Route 53 Domains & Zones
       Handler: inventory-route53.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 600
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   BucketInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-bucket-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-bucket-inventory"
       Description: Inventory S3 Buckets and their attributes
       Handler: inventory-buckets.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 600
-      MemorySize: 1536
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   IAMInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-iam-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-iam-inventory"
       Description: Inventory IAM Roles & Users
       Handler: inventory-iam.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 600
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   ECSInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ecs-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ecs-inventory"
       Description: Inventory ECS Clusters & Tasks
       Handler: inventory-ecs.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   CloudTrailInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-cloudtrail-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-cloudtrail-inventory"
       Description: Inventory CloudTrails
       Handler: inventory-cloudtrail.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   ElasticSearchInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-es-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-es-inventory"
       Description: Inventory ElasticSearch Service Domains
       Handler: inventory-es.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   CloudfrontInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-cloudfront-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-cloudfront-inventory"
       Description: Inventory CloudFront Distributions
       Handler: inventory-cloudfront.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   SecretsManagerInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-secrets-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-secrets-inventory"
       Description: Inventory Secrets Manager Secrets
       Handler: inventory-secrets.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   ECRInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ecr-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ecr-inventory"
       Description: Inventory ECR Repos and Images
       Handler: inventory-ecr.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   KMSInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-kms-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-kms-inventory"
       Description: Inventory Key Management Service
       Handler: inventory-kms.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   LambdasInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-lambdas-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-lambdas-inventory"
       Description: Inventory Lambdas Functions
       Handler: inventory-lambdas.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 600
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   DirectConnectInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-dx-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-dx-inventory"
       Description: Inventory DirectConnect
       Handler: inventory-dx.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   AMIInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ami-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ami-inventory"
       Description: Inventory AMIs in use
       Handler: inventory-ami.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   SSMInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ssm-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ssm-inventory"
       Description: Inventory Instances reporting into SSM
       Handler: inventory-ssm.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   TAInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Condition: EnterpriseSupport
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ta-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ta-inventory"
       Description: Inventory Trusted Advisor Checks
       Handler: inventory-trusted-advisor.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   SupportInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Condition: EnterpriseSupport
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-support-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-support-inventory"
       Description: Inventory Support Cases
       Handler: inventory-support-cases.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   GuarddutyInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-guardduty-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-guardduty-inventory"
       Description: Inventory GuardDuty Detectors
       Handler: inventory-guardduty.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   IAMAccessAnalyzerLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-iam-analyzer-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-iam-analyzer-inventory"
       Description: Inventory IAM Access Analyzer Findings
       Handler: inventory-iam-analyzer.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pSmallLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   EBSVolInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Condition: EBSInventory
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ebs-vol-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ebs-vol-inventory"
       Description: Inventory EBS Volumes & Snapshots
       Handler: inventory-ebs-volume.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   EBSSnapInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Condition: EBSInventory
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-ebs-snap-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ebs-snap-inventory"
       Description: Inventory EBS Volumes & Snapshots
       Handler: inventory-ebs-snapshot.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   ELBInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-elb-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-elb-inventory"
       Description: Inventory V1 and V2 LoadBalancers
       Handler: inventory-elb.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   RDSInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-rds-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-rds-inventory"
       Description: Inventory RDS and Aurora Databases
       Handler: inventory-rds.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   SageMakerInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-sagemaker-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-sagemaker-inventory"
       Description: Inventory RDS and Aurora Databases
       Handler: inventory-sagemaker.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   RedshiftInventoryLambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-redshift-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-redshift-inventory"
       Description: Inventory Redshift Clusters
       Handler: inventory-redshift.lambda_handler
-      Runtime: python3.6
-      Layers:
-        - !Ref AWSInventoryLambdaLayer
-      Timeout: 300
-      MemorySize: !Ref pLargeLambdaSize
       Role: !GetAtt InventoryLambdaRole.Arn
-      Code:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Sub ${pLambdaZipFile}
-      Environment:
-        Variables:
-          ROLE_SESSION_NAME: !Ref AWS::StackName
-          INVENTORY_BUCKET: !Ref pBucketName
-          ACCOUNT_TABLE: !Ref AccountDBTable
-          VPC_TABLE: !Ref VpcInventoryDBTable
-          ROLE_NAME: !Ref pRoleName
-          ERROR_QUEUE: !Ref ErrorHandlerEventQueue
-      # Tags inherited from Stack
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  #
+  # Parallel Execution Functions (on each PAYER)
+  #
 
   #
   # StateMachine
   #
-  TriggerStateMachineRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - events.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      Path: /
-      Policies:
-      - PolicyName: ExecuteStateMachine
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Action:
-            - states:StartExecution
-            Effect: Allow
-            Resource:
-              - !Ref InventoryProcessStateMachine
-
-  TriggerStateMachine:
-    Type: "AWS::Events::Rule"
-    Properties:
-      Description: "Trigger the state machine to gather inventory data"
-      ScheduleExpression: !Ref pExecutionRate
-      Targets:
-      - Arn: !Ref InventoryProcessStateMachine
-        RoleArn: !GetAtt TriggerStateMachineRole.Arn
-        Id: TargetFunctionV1
-        Input: !Sub |
-          {"event_file": "${AWS::StackName}-config.json" }
 
   StateMachineExecutionRole:
     Type: AWS::IAM::Role
@@ -1401,15 +785,12 @@ Resources:
             - lambda:InvokeFunction
             Effect: Allow
             Resource:
-              - !GetAtt LoadStepFunctionEventLambdaFunction.Arn
               - !GetAtt PullOrganizationDataLambdaFunction.Arn
               - !GetAtt TriggerInventoryLambdaFunction.Arn
               - !GetAtt CreateAccountReportLambdaFunction.Arn
               - !GetAtt CreateForeignAccountReportLambdaFunction.Arn
               - !GetAtt CreateVPCReportLambdaFunction.Arn
               - !GetAtt CreateCredentialReportLambdaFunction.Arn
-              - !GetAtt HandoffToNextStepFunctionLambdaFunction.Arn
-              - !GetAtt InventoryErrorHandlingLambdaFunction.Arn
       - PolicyName: LambdaLogging
         PolicyDocument:
           Version: '2012-10-17'
@@ -1423,76 +804,79 @@ Resources:
     Type: AWS::StepFunctions::StateMachine
     Properties:
       RoleArn: !GetAtt StateMachineExecutionRole.Arn
-      StateMachineName: !Ref AWS::StackName
+      StateMachineName: !Sub "${pResourcePrefix}-statemachine"
       DefinitionString: !Sub |-
         {
-          "Comment": "(${AWS::StackName}) State Machine to Gather Account Inventory Information",
-          "StartAt": "LoadStepFunctionEventLambdaFunction",
+          "Comment": "(${pResourcePrefix}) State Machine to Gather AWS Account Inventory Information",
+          "StartAt": "PullOrganizationDataLambdaFunction",
           "States": {
-            "ErrorHandlerState": {
-              "Type": "Task",
-              "Resource": "${InventoryErrorHandlingLambdaFunction.Arn}" ,
-              "End": true
-            },
-            "LoadStepFunctionEventLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${LoadStepFunctionEventLambdaFunction.Arn}",
-              "Next": "PullOrganizationDataLambdaFunction",
-              "Catch": [
-                {"ErrorEquals": ["ScorecardRunningException"], "Next": "WaitForStepFunctionToFinish", "ResultPath": "$.error-info"},
-                {"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}
-              ]
-            },
             "PullOrganizationDataLambdaFunction": {
               "Type": "Task",
               "Resource": "${PullOrganizationDataLambdaFunction.Arn}",
-              "Next": "TriggerInventoryLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"} ] },
+              "Next": "WaitForPayerInventoryLambdaExecutionsToComplete"
+            },
+            "WaitForPayerInventoryLambdaExecutionsToComplete": {
+              "Type": "Wait",
+              "Seconds": ${pMaxLambdaDuration},
+              "Next": "TriggerInventoryLambdaFunction"
+            },
             "TriggerInventoryLambdaFunction": {
               "Type": "Task",
               "Resource": "${TriggerInventoryLambdaFunction.Arn}",
-              "Next": "WaitForLambdaExecutionsToComplete",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
+              "Next": "WaitForAccountInventoryLambdaExecutionsToComplete"
             },
-            "WaitForLambdaExecutionsToComplete": {
+            "WaitForAccountInventoryLambdaExecutionsToComplete": {
               "Type": "Wait",
-              "Seconds": 300,
-              "Next": "CreateAccountReportLambdaFunction"
+              "Seconds": ${pMaxLambdaDuration},
+              "Next": "CreateAWSReports"
             },
-            "CreateAccountReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateAccountReportLambdaFunction.Arn}",
-              "Next": "CreateForeignAccountReportLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "CreateForeignAccountReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateForeignAccountReportLambdaFunction.Arn}",
-              "Next": "CreateVPCReportLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "CreateVPCReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateVPCReportLambdaFunction.Arn}",
-              "Next": "CreateCredentialReportLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "CreateCredentialReportLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${CreateCredentialReportLambdaFunction.Arn}",
-              "Next": "HandoffToNextStepFunctionLambdaFunction",
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "HandoffToNextStepFunctionLambdaFunction": {
-              "Type": "Task",
-              "Resource": "${HandoffToNextStepFunctionLambdaFunction.Arn}",
+
+            "CreateAWSReports": {
+              "Type": "Parallel",
               "End": true,
-              "Catch": [{"ErrorEquals": ["States.ALL"], "Next": "ErrorHandlerState"}]
-            },
-            "WaitForStepFunctionToFinish": {
-              "Type" : "Wait",
-              "Seconds" : 300,
-              "Next": "LoadStepFunctionEventLambdaFunction"
+              "ResultPath": null,
+              "Branches": [
+                {
+                  "StartAt": "CreateAccountReportLambdaFunction",
+                  "States": {
+                    "CreateAccountReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateAccountReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "CreateForeignAccountReportLambdaFunction",
+                  "States": {
+                    "CreateForeignAccountReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateForeignAccountReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "CreateVPCReportLambdaFunction",
+                  "States": {
+                    "CreateVPCReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateVPCReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "CreateCredentialReportLambdaFunction",
+                  "States": {
+                    "CreateCredentialReportLambdaFunction": {
+                      "Type": "Task",
+                      "Resource": "${CreateCredentialReportLambdaFunction.Arn}",
+                      "End": true
+                    }
+                  }
+                }
+              ]
             }
           }
         }
@@ -1503,451 +887,12 @@ Resources:
   TriggerAccountInventoryFunctionTopic:
     Type: AWS::SNS::Topic
     Properties:
-      DisplayName: !Sub "Triggers the Inventory of each Account for ${AWS::StackName}"
+      DisplayName: !Sub "Triggers the Inventory of each Account for ${pResourcePrefix}"
 
-  VpcInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
+  TriggerPayerInventoryFunctionTopic:
+    Type: AWS::SNS::Topic
     Properties:
-      FunctionName: !GetAtt VpcInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  VpcInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [VpcInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  ENIInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt ENIInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  ENIInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [ENIInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  CloudFormationInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt CloudFormationInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  CloudFormationInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [CloudFormationInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  InstancesSecurityGroupsInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt InstancesSecurityGroupsInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  InstancesSecurityGroupsInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [InstancesSecurityGroupsInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  GetBillingDataLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt GetBillingDataLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  GetBillingDataInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [GetBillingDataLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  Route53InventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt Route53InventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  Route53InventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [Route53InventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  BucketInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt BucketInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  BucketInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [BucketInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  IAMInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt IAMInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  IAMInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [IAMInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  ECSInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt ECSInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  ECSInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [ECSInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  CloudTrailInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt CloudTrailInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  CloudTrailInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [CloudTrailInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  ElasticSearchInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt ElasticSearchInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  ElasticSearchInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [ElasticSearchInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  CloudfrontInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt CloudfrontInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  CloudfrontInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [CloudfrontInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  SecretsManagerInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt SecretsManagerInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  SecretsManagerInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [SecretsManagerInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  ECRInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt ECRInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  ECRInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [ECRInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  LambdasInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt LambdasInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  LambdasInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [LambdasInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  KMSInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt KMSInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  KMSInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [KMSInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  DirectConnectnventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt DirectConnectInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  DirectConnectInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [DirectConnectInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  AMIInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt AMIInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  AMIInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [AMIInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  SSMInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt SSMInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  SSMInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [SSMInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  TAInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Condition: EnterpriseSupport
-    Properties:
-      FunctionName: !GetAtt TAInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  TAInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Condition: EnterpriseSupport
-    Properties:
-      Endpoint: !GetAtt [TAInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  SupportInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Condition: EnterpriseSupport
-    Properties:
-      FunctionName: !GetAtt SupportInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  SupportInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Condition: EnterpriseSupport
-    Properties:
-      Endpoint: !GetAtt [SupportInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  GuarddutyInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt GuarddutyInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  GuarddutyInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [GuarddutyInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  IAMAccessAnalyzerInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt IAMAccessAnalyzerLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  IAMAccessAnalyzerInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [IAMAccessAnalyzerLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  EBSVolInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Condition: EBSInventory
-    Properties:
-      FunctionName: !GetAtt EBSVolInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  EBSVolInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Condition: EBSInventory
-    Properties:
-      Endpoint: !GetAtt [EBSVolInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  EBSSnapInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Condition: EBSInventory
-    Properties:
-      FunctionName: !GetAtt EBSSnapInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  EBSSnapInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Condition: EBSInventory
-    Properties:
-      Endpoint: !GetAtt [EBSSnapInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  RDSInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt RDSInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  RDSInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [RDSInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  ELBInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt ELBInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  ELBInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [ELBInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  SageMakerInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt SageMakerInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  SageMakerInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [SageMakerInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
-  RedshiftInventoryLambdaFunctionPermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !GetAtt RedshiftInventoryLambdaFunction.Arn
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref TriggerAccountInventoryFunctionTopic
-      Action: lambda:invokeFunction
-
-  RedshiftInventoryTopicToLambdaSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Endpoint: !GetAtt [RedshiftInventoryLambdaFunction, Arn]
-      Protocol: lambda
-      TopicArn: !Ref 'TriggerAccountInventoryFunctionTopic'
-
+      DisplayName: !Sub "Triggers the Inventory of each Payer for ${pResourcePrefix}"
 
   #
   # DynamoDB Tables
@@ -1957,7 +902,7 @@ Resources:
   AccountDBTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
-      TableName: !Sub "${AWS::StackName}-accounts"
+      TableName: !Sub "${pResourcePrefix}-accounts"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "account_id"
@@ -1972,7 +917,7 @@ Resources:
   VpcInventoryDBTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
-      TableName: !Sub "${AWS::StackName}-vpc-inventory"
+      TableName: !Sub "${pResourcePrefix}-vpc-inventory"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "vpc_id"
@@ -1993,7 +938,7 @@ Resources:
   HistoricalBillingDataTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
-      TableName: !Sub "${AWS::StackName}-billing-data"
+      TableName: !Sub "${pResourcePrefix}-billing-data"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: "account_id"
@@ -2006,43 +951,6 @@ Resources:
         - AttributeName: "datetime"
           KeyType: "RANGE"
 
-  #
-  # Spray 'n Pray Error Handling
-  #
-
-
-  ErrorHandlerEventQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      KmsMasterKeyId: alias/aws/sqs
-      KmsDataKeyReusePeriodSeconds: 86400
-      MessageRetentionPeriod: 86400 # Hold on to errors for a day.
-      ReceiveMessageWaitTimeSeconds: 10
-      # RedrivePolicy:
-      #   FIXME
-      VisibilityTimeout: 300
-
-  ErrorHandlerEventQueueAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      ActionsEnabled: True
-      # AlarmActions:
-      #   - String
-      AlarmDescription: "Alert when Error Queue has messages"
-      AlarmName: !Sub "${AWS::StackName}-ErrorQueue"
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      Dimensions:
-        - Name: QueueName
-          Value: !GetAtt ErrorHandlerEventQueue.QueueName
-      EvaluationPeriods: 1
-      MetricName: ApproximateNumberOfMessagesVisible
-      Namespace: AWS/SQS
-      # OKActions:
-      #   - String
-      Period: 300
-      Statistic: Average
-      Threshold: 1
-      TreatMissingData: missing
 
   #
   # Dashboard
@@ -2050,7 +958,7 @@ Resources:
   Dashboard:
     Type: "AWS::CloudWatch::Dashboard"
     Properties:
-      DashboardName: !Ref AWS::StackName
+      DashboardName: !Ref pResourcePrefix
       DashboardBody: !Sub |-
         {
           "widgets": [
@@ -2080,7 +988,7 @@ Resources:
                 "height": 3,
                 "properties": {
                     "title": "ErrorQueue",
-                    "annotations": {"alarms": ["${ErrorHandlerEventQueueAlarm.Arn}"] },
+                    "annotations": {"alarms": ["${pErrorHandlerEventQueueAlarmArn}"] },
                     "view": "singleValue"
                 }
             },
@@ -2102,7 +1010,7 @@ Resources:
               "height": 3,
               "styles": "undefined",
               "properties": {
-                  "markdown": "\n# Stack Info\n* **Deploy Package**: ${pLambdaZipFile}\n* **Execution Schedule**: ${pExecutionRate} (GMT)\n* **Region**: ${AWS::Region}\n"
+                  "markdown": "\n# Stack Info\n* **StackName**: ${AWS::StackName}\n* **Region**: ${AWS::Region}\n* *[CloudFormation Stacks](https://console.aws.amazon.com/cloudformation/home?region=${AWS::Region}#/stacks?filteringText=${pResourcePrefix}&filteringStatus=active&viewNested=true&hideStacks=true)\n"
               }
             },
             {
@@ -2112,7 +1020,7 @@ Resources:
               "width": 6,
               "height": 3,
               "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${ErrorHandlerEventQueue};prefix=)\n"
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${!TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueueURL};prefix=)\n"
               }
             },
             {
@@ -2124,44 +1032,44 @@ Resources:
               "properties": {
                 "view": "singleValue",
                 "metrics": [
-                  [ "AWS/Lambda", "Invocations", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
-                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
-                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
-                  [ "...", "${AWS::StackName}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
-                  [ "...", "${AWS::StackName}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
-                  [ "...", "${AWS::StackName}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
-                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
-                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
-                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
-                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
-                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
-                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
-                  [ "...", "${AWS::StackName}-redshift-inventory", { "stat": "Sum", "period": 604800, "label": "redshift-inventory" } ],
-                  [ "...", "${AWS::StackName}-rds-inventory", { "stat": "Sum", "period": 604800, "label": "rds-inventory" } ],
-                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
-                  [ "...", "${AWS::StackName}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
-                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
-                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
-                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
-                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
-                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
-                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
-                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
-                  [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
-                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
-                  [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
-                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
-                  [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
+                  [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
+                  [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
+                  [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
+                  [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
+                  [ "...", "${pResourcePrefix}-redshift-inventory", { "stat": "Sum", "period": 604800, "label": "redshift-inventory" } ],
+                  [ "...", "${pResourcePrefix}-rds-inventory", { "stat": "Sum", "period": 604800, "label": "rds-inventory" } ],
+                  [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
+                  [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
+                  [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
+                  [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
+                  [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
+                  [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
+                  [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
+                  [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
+                  [ "...", "${pResourcePrefix}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
+                  [ "...", "${pResourcePrefix}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
                 "title": "Lambda Invocation",
@@ -2177,44 +1085,44 @@ Resources:
               "properties": {
                 "view": "singleValue",
                 "metrics": [
-                  [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
-                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
-                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
-                  [ "...", "${AWS::StackName}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
-                  [ "...", "${AWS::StackName}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
-                  [ "...", "${AWS::StackName}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
-                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
-                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
-                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
-                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
-                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
-                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
-                  [ "...", "${AWS::StackName}-redshift-inventory", { "stat": "Sum", "period": 604800, "label": "redshift-inventory" } ],
-                  [ "...", "${AWS::StackName}-rds-inventory", { "stat": "Sum", "period": 604800, "label": "rds-inventory" } ],
-                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
-                  [ "...", "${AWS::StackName}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
-                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
-                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
-                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
-                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
-                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
-                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
-                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
-                  [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
-                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
-                  [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
-                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
-                  [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
+                  [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
+                  [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
+                  [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
+                  [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
+                  [ "...", "${pResourcePrefix}-redshift-inventory", { "stat": "Sum", "period": 604800, "label": "redshift-inventory" } ],
+                  [ "...", "${pResourcePrefix}-rds-inventory", { "stat": "Sum", "period": 604800, "label": "rds-inventory" } ],
+                  [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
+                  [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
+                  [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
+                  [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
+                  [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
+                  [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
+                  [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
+                  [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-cred-report", { "stat": "Sum", "period": 604800, "label": "create-cred-report" } ],
+                  [ "...", "${pResourcePrefix}-create-foreign-account-report", { "stat": "Sum", "period": 604800, "label": "create-foreign-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-vpc-report", { "stat": "Sum", "period": 604800, "label": "create-vpc-report" } ],
+                  [ "...", "${pResourcePrefix}-error-handler", { "stat": "Sum", "period": 604800, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
                 "title": "Lambda Errors",
@@ -2230,44 +1138,44 @@ Resources:
               "properties": {
                 "view": "singleValue",
                 "metrics": [
-                  [ "AWS/Lambda", "Errors", "FunctionName", "${AWS::StackName}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
-                  [ "...", "${AWS::StackName}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
-                  [ "...", "${AWS::StackName}-bucket-inventory", { "stat": "Sum", "period": 900, "label": "bucket-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
-                  [ "...", "${AWS::StackName}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
-                  [ "...", "${AWS::StackName}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
-                  [ "...", "${AWS::StackName}-ebs-vol-inventory", { "stat": "Sum", "period": 900, "label": "ebs-vol-inventory" } ],
-                  [ "...", "${AWS::StackName}-ebs-snap-inventory", { "stat": "Sum", "period": 900, "label": "ebs-snap-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecr-inventory", { "stat": "Sum", "period": 900, "label": "ecr-inventory" } ],
-                  [ "...", "${AWS::StackName}-ecs-inventory", { "stat": "Sum", "period": 900, "label": "ecs-inventory" } ],
-                  [ "...", "${AWS::StackName}-elb-inventory", { "stat": "Sum", "period": 900, "label": "elb-inventory" } ],
-                  [ "...", "${AWS::StackName}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
-                  [ "...", "${AWS::StackName}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
-                  [ "...", "${AWS::StackName}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
-                  [ "...", "${AWS::StackName}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "iam-analyzer-inventory" } ],
-                  [ "...", "${AWS::StackName}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
-                  [ "...", "${AWS::StackName}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${AWS::StackName}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
-                  [ "...", "${AWS::StackName}-lambdas-inventory", { "stat": "Sum", "period": 900, "label": "lambdas-inventory" } ],
-                  [ "...", "${AWS::StackName}-redshift-inventory", { "stat": "Sum", "period": 900, "label": "redshift-inventory" } ],
-                  [ "...", "${AWS::StackName}-rds-inventory", { "stat": "Sum", "period": 900, "label": "rds-inventory" } ],
-                  [ "...", "${AWS::StackName}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
-                  [ "...", "${AWS::StackName}-sagemaker-inventory", { "stat": "Sum", "period": 900, "label": "sagemaker-inventory" } ],
-                  [ "...", "${AWS::StackName}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
-                  [ "...", "${AWS::StackName}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
-                  [ "...", "${AWS::StackName}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
-                  [ "...", "${AWS::StackName}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
-                  [ "...", "${AWS::StackName}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
-                  [ "...", "${AWS::StackName}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
-                  [ "...", "${AWS::StackName}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
-                  [ "...", "${AWS::StackName}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
-                  [ "...", "${AWS::StackName}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
-                  [ "...", "${AWS::StackName}-create-cred-report", { "stat": "Sum", "period": 900, "label": "create-cred-report" } ],
-                  [ "...", "${AWS::StackName}-create-foreign-account-report", { "stat": "Sum", "period": 900, "label": "create-foreign-account-report" } ],
-                  [ "...", "${AWS::StackName}-create-vpc-report", { "stat": "Sum", "period": 900, "label": "create-vpc-report" } ],
-                  [ "...", "${AWS::StackName}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
+                  [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 900, "label": "bucket-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 900, "label": "ebs-vol-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 900, "label": "ebs-snap-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 900, "label": "ecr-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 900, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 900, "label": "elb-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
+                  [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
+                  [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
+                  [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 900, "label": "lambdas-inventory" } ],
+                  [ "...", "${pResourcePrefix}-redshift-inventory", { "stat": "Sum", "period": 900, "label": "redshift-inventory" } ],
+                  [ "...", "${pResourcePrefix}-rds-inventory", { "stat": "Sum", "period": 900, "label": "rds-inventory" } ],
+                  [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
+                  [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 900, "label": "sagemaker-inventory" } ],
+                  [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
+                  [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
+                  [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
+                  [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
+                  [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
+                  [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-cred-report", { "stat": "Sum", "period": 900, "label": "create-cred-report" } ],
+                  [ "...", "${pResourcePrefix}-create-foreign-account-report", { "stat": "Sum", "period": 900, "label": "create-foreign-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-vpc-report", { "stat": "Sum", "period": 900, "label": "create-vpc-report" } ],
+                  [ "...", "${pResourcePrefix}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
                 "view": "timeSeries",
@@ -2376,17 +1284,17 @@ Outputs:
     Value: !Ref AWS::StackName
     Description: Just the name of this stack
 
-  Version:
-    Description: Version of this stack's deployment
-    Value: !Ref pVersion
+  InventoryProcessStateMachine:
+    Description: Arn of the AWS Inventory State Machine
+    Value: !Ref InventoryProcessStateMachine
 
-  LambdaPackageFile:
-    Value: !Ref pLambdaZipFile
-    Description: Object key to the Lambda package
-
-  InventoryTriggerTopic:
+  AccountInventoryTriggerTopic:
     Value: !Ref TriggerAccountInventoryFunctionTopic
     Description: Topic that triggers the per-account inventory lambda. You can subscribe custom lambda to this topic
+
+  PayerInventoryTriggerTopic:
+    Value: !Ref TriggerPayerInventoryFunctionTopic
+    Description: Topic that triggers the per-payer inventory lambda. You can subscribe custom lambda to this topic
 
   NewAccountNotificationTopic:
     Value: !Ref NewActiveAccountTopic
@@ -2396,14 +1304,6 @@ Outputs:
     Value: !Ref NewForeignAccountTopic
     Description: The discovery of new foreign (ie discovered in AMI or AssumeRole Policies) are sent to this topic
 
-  TriggerEventName:
-    Value: !Ref TriggerStateMachine
-    Description: Name of the Trigger Event (used by the make file to enable to disable the inventory state machine)
-
   BucketName:
     Value: !Ref pBucketName
     Description: Name of S3 Bucket where all files are stored
-
-  ErrorQueue:
-    Value: !GetAtt ErrorHandlerEventQueue.QueueName
-    Description: Name of the SQS Queue where lambda errors are sent
