@@ -658,7 +658,7 @@ Resources:
   AccessAnalyzerLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${pResourcePrefix}-accessanalyzer-analyzer-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-ia2-analyzer-inventory"
       Description: Inventory IAM Access Analyzer Findings
       Handler: inventory-accessanalyzer-analyzers.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -1048,7 +1048,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${pResourcePrefix}-accessanalyzer-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "accessanalyzer-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1101,7 +1101,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${pResourcePrefix}-accessanalyzer-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "accessanalyzer-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1154,7 +1154,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
-                  [ "...", "${pResourcePrefix}-accessanalyzer-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "accessanalyzer-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
