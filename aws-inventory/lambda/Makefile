@@ -6,6 +6,8 @@ PIP=pip3
 
 FILES =	common.py\
 		get_billing_data.py \
+		inventory-accessanalyzer-analyzers.py \
+		inventory-accessanalyzer-findings.py \
 		inventory-ami.py \
 		inventory-buckets.py \
 		inventory-cft.py \
@@ -22,7 +24,6 @@ FILES =	common.py\
 		inventory-guardduty.py \
 		inventory-health-report.py \
 		inventory-iam.py \
-		inventory-iam-analyzer.py \
 		inventory-instances-sg.py \
 		inventory-kms.py \
 		inventory-lambdas.py \

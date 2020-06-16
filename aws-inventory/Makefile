@@ -27,6 +27,8 @@ export LAMBDA_PACKAGE=$(RESOURCE_PREFIX)-lambda-$(version).zip
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
+			$(RESOURCE_PREFIX)-accessanalyzer-analyzer-inventory \
+			$(RESOURCE_PREFIX)-accessanalyzer-finding-inventory \
 			$(RESOURCE_PREFIX)-ami-inventory \
 			$(RESOURCE_PREFIX)-bucket-inventory \
 			$(RESOURCE_PREFIX)-cloudformation-inventory \
@@ -42,7 +44,6 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-es-inventory \
 			$(RESOURCE_PREFIX)-guardduty-inventory \
 			$(RESOURCE_PREFIX)-health-inventory \
-			$(RESOURCE_PREFIX)-iam-analyzer-inventory \
 			$(RESOURCE_PREFIX)-iam-inventory \
 			$(RESOURCE_PREFIX)-instances-sg-inventory \
 			$(RESOURCE_PREFIX)-kms-inventory \
