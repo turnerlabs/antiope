@@ -28,7 +28,19 @@ def lambda_handler(event, context):
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
 
     try:
-        target_account = AWSAccount(message['account_id'])
+
+        # This function is to be attached to both a
+        if 'payer_id' in message:
+            payer_account = AWSAccount(message['payer_id'])
+            target_account = payer_account.get_delegated_admin_account_for_service('access-analyzer')
+            account_id = message['payer_id']
+            org_level = True
+        elif 'account_id' in message:
+            account_id = message['account_id']
+            target_account = AWSAccount(message['account_id'])
+            org_level = False
+        else:
+            raise("Message contained neither account_id nor payer_id")
 
         regions = target_account.get_regions()
         if 'region' in message:
@@ -54,12 +66,12 @@ def lambda_handler(event, context):
             logger.error(f"AccessDeniedException for access-analyzer in {target_account.account_name}({target_account.account_id})")
             return()
         else:
-            logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
-            capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
+            logger.critical("AWS Error getting info for {}: {}".format(account_id, e))
+            capture_error(message, context, e, "ClientError for {}: {}".format(account_id, e))
             raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
-        capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
+        capture_error(message, context, e, "General Exception for {}: {}".format(account_id, e))
         raise
 
 
@@ -115,6 +127,8 @@ def get_findings(target_account, client, region, analyzer_arn):
         resource_item['resourceCreationTime']           = f['createdAt']
         resource_item['errors']                         = {}
         save_resource_to_s3(FINDING_PATH, resource_item['resourceId'], resource_item)
+
+def get_delegated_admin(payer_account):
 
 
 def get_all_findings(client, arn, region):
