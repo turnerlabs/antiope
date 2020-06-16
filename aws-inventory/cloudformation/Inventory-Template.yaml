@@ -659,7 +659,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub "${pResourcePrefix}-ia2-analyzer-inventory"
-      Description: Inventory IAM Access Analyzer Findings
+      Description: Inventory IAM Access Analyzer analyzers
       Handler: inventory-accessanalyzer-analyzers.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
@@ -758,6 +758,20 @@ Resources:
   #
   # Parallel Execution Functions (on each PAYER)
   #
+  AccessAnalyzerOrgFindingsLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-ia2-org-findings"
+      Description: Inventory IAM Access Analyzer Org Findings
+      Handler: inventory-accessanalyzer-findings.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerPayerInventoryFunctionTopic
+
 
   #
   # StateMachine
@@ -1049,6 +1063,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1102,6 +1117,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1155,6 +1171,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "ia2-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 900, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
