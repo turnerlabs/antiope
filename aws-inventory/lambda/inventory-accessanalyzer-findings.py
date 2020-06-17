@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from dateutil import tz
 
 from antiope.aws_account import *
+from antiope.aws_organization import *
 from common import *
 
 import logging
@@ -24,8 +25,13 @@ def lambda_handler(event, context):
 
     try:
 
-        payer_account = AWSAccount(message['payer_id'])
+        payer_account = AWSOrganizationMaster(message['payer_id'])
         delegated_account = payer_account.get_delegated_admin_account_for_service('access-analyzer')
+
+        if delegated_account is None:
+            logger.error(f"No AccessAnalyzer Delegation configured for payer {message['payer_id']}")
+            return(event)
+
         account_id = message['payer_id']
         org_level = True
 
@@ -57,12 +63,12 @@ def lambda_handler(event, context):
             logger.error(f"AccessDeniedException for access-analyzer in {delegated_account.account_name}({delegated_account.account_id})")
             return()
         else:
-            logger.critical("AWS Error getting info for {}: {}".format(account_id, e))
-            capture_error(message, context, e, "ClientError for {}: {}".format(account_id, e))
+            logger.critical("AWS Error getting info for {}: {}".format(message['payer_id'], e))
+            capture_error(message, context, e, "ClientError for {}: {}".format(message['payer_id'], e))
             raise
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
-        capture_error(message, context, e, "General Exception for {}: {}".format(account_id, e))
+        capture_error(message, context, e, "General Exception for {}: {}".format(message['payer_id'], e))
         raise
 
 
@@ -102,7 +108,7 @@ def get_findings(delegated_account, client, region, analyzer_arn):
     return(findings)
 
 
-def save_findings(findings, orgId)
+def save_findings(findings, orgId):
     # Save HTML and json to S3
     s3_client = boto3.client('s3')
     today = datetime.date.today()
@@ -110,14 +116,12 @@ def save_findings(findings, orgId)
     try:
         # Save the JSON to S3
         response = s3_client.put_object(
-            # ACL='public-read',
             Body=json.dumps(findings, sort_keys=True, indent=2, default=str),
             Bucket=os.environ['INVENTORY_BUCKET'],
             ContentType='application/json',
             Key=f"AccessAnalyzer/{orgId}-latest.json",
         )
         response = s3_client.put_object(
-            # ACL='public-read',
             Body=json.dumps(findings, sort_keys=True, indent=2, default=str),
             Bucket=os.environ['INVENTORY_BUCKET'],
             ContentType='application/json',

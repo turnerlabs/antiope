@@ -39,7 +39,6 @@ layer:
 test:
 	cd aws-inventory && $(MAKE) test
 	cd search-cluster && $(MAKE) test
-	cd cognito && $(MAKE) test
 
 # Add the library dependencies into the lamda folders before cloudformation package is run
 deps:
@@ -55,7 +54,7 @@ deps:
 install: deploy post-deploy
 
 # Everything to deploy a fresh version of code
-deploy: cft-validate package cft-deploy push-config
+deploy: test cft-validate package cft-deploy push-config
 
 # Package up the nested stacks and code which are copied to S3. Then copy the transformed template to S3 where it will be deployed from
 package: deps
