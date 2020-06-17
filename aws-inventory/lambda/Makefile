@@ -56,7 +56,7 @@ clean:
 	rm -rf __pycache__ *.zip *.dist-info $(DEPENDENCIES)
 
 # # Create the package Zip. Assumes all tests were done
-zipfile:  $(FILES) $(DEPENDENCIES)
+zipfile:  $(FILES) $(DEPENDENCIES) html_templates
 	cp -a ../../antiope-aws-module/antiope .
 	zip -r $(LAMBDA_PACKAGE) $^
 
