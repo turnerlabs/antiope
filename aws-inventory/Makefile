@@ -4,7 +4,7 @@ ifndef env
 	env ?= dev
 endif
 
-include ../config.$(env)
+include ../config-files/config.$(env)
 export
 
 # MAIN_STACK_NAME is custom to your deployment and should be the same for all Antiope Stacks

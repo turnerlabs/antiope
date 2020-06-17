@@ -34,7 +34,8 @@ search-cluster/*/elasticsearch/
 # Build-time crud for the inventory lambda
 lambda_layer/python/
 
-
+# don't commit the config-files
+config-files/
 
 # Manifests are inputs to Cloudformation. They contain deploy specific things (like payer accounts)
 *Manifest.yaml
