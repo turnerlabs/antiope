@@ -32,7 +32,7 @@ Parameters:
   pDefaultLambdaSize:
     Description: Size to assign to all Lambda
     Type: Number
-    Default: 1046
+    Default: 1024
 
   pMaxLambdaDuration:
     Description: How long to let the Lambda Run
