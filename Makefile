@@ -117,7 +117,7 @@ clean:
 	cd aws-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
 	cd lambda_layer && $(MAKE) clean
-	rm cloudformation/$(OUTPUT_TEMPLATE_PREFIX)*
+	rm -f cloudformation/$(OUTPUT_TEMPLATE_PREFIX)*
 
 # Run pep8 style checks on lambda
 pep8:
