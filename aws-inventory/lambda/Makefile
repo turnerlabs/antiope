@@ -56,9 +56,9 @@ clean:
 	rm -rf __pycache__ *.zip *.dist-info $(DEPENDENCIES)
 
 # # Create the package Zip. Assumes all tests were done
-zipfile:  $(FILES) $(DEPENDENCIES) html_templates
+zipfile:  $(FILES) html_templates
 	cp -a ../../antiope-aws-module/antiope .
-	zip -r $(LAMBDA_PACKAGE) $^
+	zip -r $(LAMBDA_PACKAGE) $^ $(DEPENDENCIES)
 
 test: $(FILES)
 	for f in $^; do $(PYTHON) -m py_compile $$f; if [ $$? -ne 0 ] ; then echo "$$f FAILS" ; exit 1; fi done

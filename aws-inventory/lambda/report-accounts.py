@@ -7,6 +7,7 @@ import datetime
 from mako.template import Template
 
 from antiope.aws_account import *
+from antiope.config import AccountLookupError
 from common import *
 
 import logging
@@ -56,8 +57,10 @@ def handler(event, context):
                 payer = AWSAccount(str(a.payer_id))
                 j['payer_name'] = payer.account_name
                 payers[payer.account_id] = payer.account_name
-        except AccountLookupError:
-            j['payer_name'] = "Not Found"
+        except LookupError:
+            logger.debug("Unable to find the payer in the database. Must be an orphan")
+            j['payer_name'] = "Unknown Payer"
+            payers[str(a.payer_id)] = "Unknown Payer"
 
         # Build the cross account role link
         if hasattr(a, 'cross_account_role') and a.cross_account_role is not None:
