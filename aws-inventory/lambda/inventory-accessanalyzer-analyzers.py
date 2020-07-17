@@ -46,8 +46,8 @@ def lambda_handler(event, context):
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        if e.response['Error']['Code'] == 'AccessDeniedException':
-            logger.error(f"AccessDeniedException for access-analyzer in {target_account.account_name}({target_account.account_id})")
+        if e.response['Error']['Code'] == 'AccessDeniedException' or e.response['Error']['Code'] == 'UnauthorizedOperation':
+            logger.error(f"AccessDeniedException/UnauthorizedOperation for access-analyzer in {target_account.account_name}({target_account.account_id}): {e}")
             return()
         else:
             logger.critical("AWS Error getting info for {}: {}".format(account_id, e))

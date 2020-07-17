@@ -52,6 +52,9 @@ def lambda_handler(event, context):
 
         save_findings(output, payer_account.org_id)
 
+    except NotAnAWSOrganizationMaster:
+        logger.error(f"{message['payer_id']} is not an Organization Master Account")
+        return()
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(delegated_account.account_name, delegated_account.account_id))
         return()
