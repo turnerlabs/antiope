@@ -164,13 +164,13 @@ Resources:
   AWSInventoryLambdaLayer:
     Type: "AWS::Lambda::LayerVersion"
     Properties:
-      LayerName: !Sub "${pResourcePrefix}-aws-layer"
+      LayerName: !Sub "${AWS::StackName}-aws-layer"
       CompatibleRuntimes:
         - python3.6
       Content:
         S3Bucket: !Ref pBucketName
         S3Key: !Ref pAWSLambdaLayerPackage
-      Description: !Sub "${pResourcePrefix}-AWS-Inventory-Libraries"
+      Description: !Sub "${AWS::StackName}-AWS-Inventory-Libraries"
 
   InventoryIAMUser:
     Condition: cCreateIAMUser
