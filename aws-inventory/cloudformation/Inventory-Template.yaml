@@ -18,8 +18,8 @@ Parameters:
     Type: Number
     Default: 2
 
-  pAWSLambdaLayerPackage:
-    Description: Object Key for the Antiope Python Dependencies Lambda Layer
+  pAWSInventoryLambdaLayer:
+    Description: ARN Antiope AWS Lambda Layer
     Type: String
 
   pEntSupport:
@@ -74,7 +74,7 @@ Globals:
     MemorySize: !Ref pDefaultLambdaSize
     Timeout: !Ref pMaxLambdaDuration
     Layers:
-        - !Ref AWSInventoryLambdaLayer
+        - !Ref pAWSInventoryLambdaLayer
     CodeUri: ../lambda
     Environment:
       Variables:
@@ -202,16 +202,6 @@ Resources:
               - dynamodb:UpdateItem
             Resource:
               - !GetAtt AccountDBTable.StreamArn
-
-  AWSInventoryLambdaLayer:
-    Type: "AWS::Lambda::LayerVersion"
-    Properties:
-      CompatibleRuntimes:
-        - python3.6
-      Content:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Ref pAWSLambdaLayerPackage
-      Description: !Sub "${pResourcePrefix}-AWS-Inventory-Libraries"
 
   #
   # State Machine Functions
