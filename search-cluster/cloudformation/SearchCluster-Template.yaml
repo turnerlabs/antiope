@@ -15,7 +15,7 @@ Parameters:
     MaxLength: 28
 
   pAWSInventoryLambdaLayer:
-    Description: Antiope AWS Lambda Layer
+    Description: ARN Antiope AWS Lambda Layer
     Type: String
 
   pClusterInstanceType:
