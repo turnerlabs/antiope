@@ -37,10 +37,14 @@ def save_resource_to_s3(prefix, resource_id, resource):
 
 def get_active_accounts(table_name=None):
     """Returns an array of all active AWS accounts as AWSAccount objects"""
+
+    # Reuse an AntiopeConfig object to avoid breaking on the 1024 file limit in lambda
+    antiope_config = AntiopeConfig()
+
     account_ids = get_account_ids(status="ACTIVE", table_name=table_name)
     output = []
     for a in account_ids:
-        output.append(AWSAccount(a))
+        output.append(AWSAccount(a, config=antiope_config))
     return(output)
 
 
