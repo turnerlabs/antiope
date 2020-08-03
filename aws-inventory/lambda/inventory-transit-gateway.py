@@ -73,6 +73,8 @@ def discover_transit_gateways(target_account, region):
             resource_item['configuration']                  = tg
             resource_item['supplementaryConfiguration']     = {}
             resource_item['resourceId']                     = tg['TransitGatewayId']
+            resource_item['ARN']                            = tg['TransitGatewayArn']
+            resource_item['resourceCreationTime']           = tg['CreationTime']
             resource_item['errors']                         = {}
             
             if 'Tags' in tg:
