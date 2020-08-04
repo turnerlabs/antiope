@@ -33,6 +33,7 @@ INDICES="	resources_accessanalyzer_analyzer \
 			resources_ec2_instance \
 			resources_ec2_securitygroup \
 			resources_ec2_snapshot \
+			resources_ec2_transitgateway \
 			resources_ec2_volume \
 			resources_ec2_vpc \
 			resources_ecr_repository \

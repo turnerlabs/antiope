@@ -36,6 +36,7 @@ FILES =	common.py\
 		inventory-support-cases.py \
 		inventory-trusted-advisor.py \
 		inventory-vpc.py \
+		inventory-transit-gateway.py \
 		new_account_handler.py \
 		pull_organization_data.py \
 		report-accounts.py \
