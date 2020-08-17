@@ -9,6 +9,7 @@ FILES =	common.py\
 		inventory-ami.py \
 		inventory-buckets.py \
 		inventory-cft.py \
+		inventory-client-vpn.py \
 		inventory-cloudfront.py \
 		inventory-cloudtrail.py \
 		inventory-dx.py \

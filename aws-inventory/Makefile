@@ -29,6 +29,7 @@ export LAMBDA_PACKAGE=$(RESOURCE_PREFIX)-lambda-$(version).zip
 FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-ami-inventory \
 			$(RESOURCE_PREFIX)-bucket-inventory \
+			$(RESOURCE-PREFIX)-client-vpn-inventory \
 			$(RESOURCE_PREFIX)-cloudformation-inventory \
 			$(RESOURCE_PREFIX)-cloudfront-inventory \
 			$(RESOURCE_PREFIX)-cloudtrail-inventory \
