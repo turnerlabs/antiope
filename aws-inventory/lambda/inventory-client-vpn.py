@@ -53,12 +53,12 @@ def lambda_handler(event, context):
             return(event)
         
         logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
-        #capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
+        capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
     
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
-        #capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
+        capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
         raise
 
 def discover_client_vpn_endpoints(target_account, region):
@@ -69,7 +69,7 @@ def discover_client_vpn_endpoints(target_account, region):
     
     if response['ClientVpnEndpoints']:
         
-        for cpvn in response['ClientVpnEndpoints']:
+        for cvpn in response['ClientVpnEndpoints']:
             
             resource_item = {}
             resource_item['awsAccountId']                   = target_account.account_id
@@ -78,22 +78,30 @@ def discover_client_vpn_endpoints(target_account, region):
             resource_item['source']                         = "Antiope"
             resource_item['awsRegion']                      = region
             resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
-            resource_item['configuration']                  = cpvn
+            resource_item['configuration']                  = cvpn
             resource_item['supplementaryConfiguration']     = {}
             resource_item['resourceId']                     = cvpn['ClientVpnEndpointId']
-            resource_item['resourceCreationTime']           = cpvn['Timestamp']
+            resource_item['resourceCreationTime']           = cvpn['CreationTime']
             resource_item['errors']                         = {}
         
-            # Get the VPN connection configuration and add as part of the supplmentry configuration.
+            if 'Tags' in cvpn:
+                resource_item['tags']                       = parse_tags(cvpn['Tags'])
+
+           # Get any active VPN connections to the endpoint and add as part of the supplmentry configuration.
             connections = discover_client_vpn_connections(ec2_client, cvpn['ClientVpnEndpointId'])
-        
-            for e in endpoints:
-                resource_item['supplementaryConfiguration'] = e
+            resource_item['supplementaryConfiguration']['Connections'] = connections
     
+            # Obtain other network configuration associated with the VPN endpoint and add as part of the supplmentry configuration.
+            routes = discover_client_vpn_routes(ec2_client, cvpn['ClientVpnEndpointId'])
+            resource_item['supplementaryConfiguration']['Routes'] = routes
+    
+            targets = discover_client_vpn_targets(ec2_client, cvpn['ClientVpnEndpointId'])
+            resource_item['supplementaryConfiguration']['ClientVpnTargetNetworks'] = targets
+            
             # Save files to S3
-            #save_resource_to_s3(RESOURCE_PATH, cvpn['ClientVpnEndpointId'], resource_item)
+            save_resource_to_s3(RESOURCE_PATH, cvpn['ClientVpnEndpointId'], resource_item)
        
-            logger.info("Discovered Client VPN connection ({}) in account {} for region {}".format(cpvn['ClientVpnEndpointId'], target_account.account_id, region))
+            logger.info("Discovered Client VPN connection ({}) in account {} for region {}".format(cvpn['ClientVpnEndpointId'], target_account.account_id, region))
             logger.debug("Data: {}".format(resource_item))
     else:
         logger.debug("No Client VPN connections found for account {} in region {}".format(target_account.account_id, region))
@@ -102,15 +110,23 @@ def discover_client_vpn_connections(ec2_client, vpnId):
     '''Get client VPN endpoint configuration based on the endpointId'''
     
     response = ec2_client.describe_client_vpn_connections(
-            Filters=[
-                {
-                    'Name': 'ClientVpnEndpointId',
-                    'Values': [
-                            vpnId,
-                    ]
-                },
-            ]
-        
+            ClientVpnEndpointId=vpnId,
         )
     
     return(response['Connections'])
+
+def discover_client_vpn_routes(ec2_client, vpnId):
+    '''Get client VPN routes configuration based on the endpointId'''   
+    response = ec2_client.describe_client_vpn_routes(
+            ClientVpnEndpointId=vpnId,
+        )
+    
+    return(response['Routes'])
+
+def discover_client_vpn_targets(ec2_client, vpnId):
+    '''Get client VPN target networks configuration based on the endpointId'''
+    response = ec2_client.describe_client_vpn_target_networks(
+            ClientVpnEndpointId=vpnId,
+        )
+    
+    return(response['ClientVpnTargetNetworks'])
