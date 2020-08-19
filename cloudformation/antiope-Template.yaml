@@ -63,6 +63,14 @@ Parameters:
       - True
       - False
 
+  pRuleState:
+    Type: String
+    Description: Enable to disable the CloudWatch Event to fire the Stepfunction
+    Description: DISABLED
+    AllowedValues:
+      - DISABLED
+      - ENABLED
+
   pDeployCustomStackStateMachineArn:
     Type: String
     Description: ARN of a custom StateMachine to call after inventory state machines are run
@@ -274,7 +282,7 @@ Resources:
     Properties:
       Description: "Trigger the master Antiope StateMachine"
       ScheduleExpression: !Ref pExecutionRate
-      State: DISABLED  # Always deploy disabled, and re-enable by hand
+      State: !Ref pRuleState
       Targets:
       - Arn: !Ref MasterStateMachine
         RoleArn: !GetAtt TriggerStateMachineRole.Arn
