@@ -4,7 +4,7 @@ ifndef env
 	env ?= dev
 endif
 
-include ../config.$(env)
+include ../config-files/config.$(env)
 export
 
 # MAIN_STACK_NAME is custom to your deployment and should be the same for all Antiope Stacks
@@ -27,6 +27,8 @@ export LAMBDA_PACKAGE=$(RESOURCE_PREFIX)-lambda-$(version).zip
 
 # List of all the functions deployed by this stack. Required for "make update" to work.
 FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
+			$(RESOURCE_PREFIX)-ia2-analyzer-inventory \
+			$(RESOURCE_PREFIX)-ia2-org-findings \
 			$(RESOURCE_PREFIX)-ami-inventory \
 			$(RESOURCE_PREFIX)-bucket-inventory \
 			$(RESOURCE_PREFIX)-cloudformation-inventory \
@@ -40,9 +42,9 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-elb-inventory \
 			$(RESOURCE_PREFIX)-eni-inventory \
 			$(RESOURCE_PREFIX)-es-inventory \
+			$(RESOURCE_PREFIX)-transit-gateway-inventory \
 			$(RESOURCE_PREFIX)-guardduty-inventory \
 			$(RESOURCE_PREFIX)-health-inventory \
-			$(RESOURCE_PREFIX)-iam-analyzer-inventory \
 			$(RESOURCE_PREFIX)-iam-inventory \
 			$(RESOURCE_PREFIX)-instances-sg-inventory \
 			$(RESOURCE_PREFIX)-kms-inventory \

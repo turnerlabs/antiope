@@ -1,5 +1,5 @@
 
-include ../config.$(env)
+include ../config-files/config.$(env)
 export
 
 ifndef MAIN_STACK_NAME

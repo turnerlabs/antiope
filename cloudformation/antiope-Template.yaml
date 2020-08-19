@@ -32,7 +32,7 @@ Parameters:
   pDefaultLambdaSize:
     Description: Size to assign to all Lambda
     Type: Number
-    Default: 1046
+    Default: 1024
 
   pMaxLambdaDuration:
     Description: How long to let the Lambda Run
@@ -63,26 +63,28 @@ Parameters:
       - True
       - False
 
+  pRuleState:
+    Type: String
+    Description: Enable to disable the CloudWatch Event to fire the Stepfunction
+    Description: DISABLED
+    AllowedValues:
+      - DISABLED
+      - ENABLED
+
   pDeployCustomStackStateMachineArn:
     Type: String
     Description: ARN of a custom StateMachine to call after inventory state machines are run
     Default: NONE
 
-  pDeployAzureStack:
+  pDeployAzureStackStateMachineArn:
     Type: String
-    Description: Deploy the Azure Inventory component of Antiope
-    Default: False
-    AllowedValues:
-      - True
-      - False
+    Description: ARN of Azure StateMachine to call during the inventory phase of the master StepFunction
+    Default: NONE
 
-  pDeployGCPStack:
+  pDeployGCPStackStateMachineArn:
     Type: String
-    Description: Deploy the GCP Inventory component of Antiope
-    Default: False
-    AllowedValues:
-      - True
-      - False
+    Description: ARN of the GCP StateMachine to call during the inventory phase of the master StepFunction
+    Default: NONE
 
   pClusterEncryption:
     Type: String
@@ -155,25 +157,28 @@ Parameters:
     Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
     Type: String
 
-  pAzureLambdaLayerPackage:
-    Description: Azure Inventory Lambda Layer Package Object Key
-    Type: String
-
-  pAzureServiceSecretName:
-    Description: Name of the Secret to use for Azure Service Principals
-    Type: String
-
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
   cDeployCustomStack: !Not [ !Equals [ !Ref pDeployCustomStackStateMachineArn, "NONE"] ]
-  cDeployAzureStack: !Equals [ !Ref pDeployAzureStack, True]
-  cDeployGCPStack: !Equals [ !Ref pDeployGCPStack, True]
+  cDeployAzureStack: !Not [ !Equals [ !Ref pDeployAzureStackStateMachineArn, "NONE"] ]
+  cDeployGCPStack: !Not [ !Equals [ !Ref pDeployGCPStackStateMachineArn, "NONE"] ]
   cCreateIAMUser: !Not [ !Equals [ !Ref pIamUserName, "NONE"] ]
   cSNSAlertsInfo: !Not [ !Equals [ !Ref pSNSAlertsInfoArn, "NONE"] ]
   cSNSAlertsError: !Not [ !Equals [ !Ref pSNSAlertsErrorArn, "NONE"] ]
 
 
 Resources:
+
+  AWSInventoryLambdaLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      LayerName: !Sub "${AWS::StackName}-aws-layer"
+      CompatibleRuntimes:
+        - python3.6
+      Content:
+        S3Bucket: !Ref pBucketName
+        S3Key: !Ref pAWSLambdaLayerPackage
+      Description: !Sub "${AWS::StackName}-AWS-Inventory-Libraries"
 
   InventoryIAMUser:
     Condition: cCreateIAMUser
@@ -214,7 +219,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     Properties:
       Parameters:
-          pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
+          pAWSInventoryLambdaLayer: !Ref AWSInventoryLambdaLayer
           pBucketName: !Ref pBucketName
           pEBSInventory: !Ref pAWSEBSInventory
           pEntSupport: !Ref pAWSEntSupport
@@ -234,7 +239,7 @@ Resources:
     Condition: cDeployElasticSearch
     Properties:
       Parameters:
-          pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
+          pAWSInventoryLambdaLayer: !Ref AWSInventoryLambdaLayer
           pBucketName: !Ref pBucketName
           pClusterEncryption: !Ref pClusterEncryption
           pClusterInstanceCount: !Ref pClusterInstanceCount
@@ -242,39 +247,6 @@ Resources:
           pCognitoKibanaAuthRole: !GetAtt CognitoStack.Outputs.CognitoKibanaAuthRole
           pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
-      TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
-      TimeoutInMinutes: 30
-
-  AzureInventoryStack:
-    Type: AWS::CloudFormation::Stack
-    Condition: cDeployAzureStack
-    Properties:
-      Parameters:
-          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
-          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
-          pResourcePrefix: !Sub "${AWS::StackName}-azure-inventory"
-          pAzureLambdaLayerPackage: !Ref pAzureLambdaLayerPackage
-          pAzureServiceSecretName: !Ref pAzureServiceSecretName
-          pBucketName: !Ref pBucketName
-          pDefaultLambdaSize: !Ref pDefaultLambdaSize
-          # pLambdaSNSDelay: use default for now
-          # pNumberOfSubsPerGroup: use default for now
-          pMaxLambdaDuration: !Ref pMaxLambdaDuration
-          pLambdaZipFile: REMOVED
-      TemplateURL: ../antiope-azure/cloudformation/Azure-Inventory-Template.yaml
-      TimeoutInMinutes: 30
-
-  GCPInventoryStack:
-    Type: AWS::CloudFormation::Stack
-    Condition: cDeployGCPStack
-    Properties:
-      Parameters:
-          pAWSLambdaLayerPackage: !Ref pAWSLambdaLayerPackage
-          pBucketName: !Ref pBucketName
-          pErrorHandlerEventQueueURL: !Ref ErrorHandlerEventQueue
-          pErrorHandlerEventQueueArn: !GetAtt ErrorHandlerEventQueue.Arn
-          pErrorHandlerEventQueueAlarmArn: !GetAtt ErrorHandlerEventQueueAlarm.Arn
-          pResourcePrefix: !Sub "${AWS::StackName}-gcp-inventory"
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 
@@ -310,7 +282,7 @@ Resources:
     Properties:
       Description: "Trigger the master Antiope StateMachine"
       ScheduleExpression: !Ref pExecutionRate
-      State: DISABLED  # Always deploy disabled, and re-enable by hand
+      State: !Ref pRuleState
       Targets:
       - Arn: !Ref MasterStateMachine
         RoleArn: !GetAtt TriggerStateMachineRole.Arn
@@ -356,7 +328,11 @@ Resources:
                 - Ref: AWS::NoValue
               - Fn::If:
                 - cDeployAzureStack
-                - Fn::GetAtt: AzureInventoryStack.Outputs.InventoryProcessStateMachine
+                - Ref: pDeployAzureStackStateMachineArn
+                - Ref: AWS::NoValue
+              - Fn::If:
+                - cDeployGCPStack
+                - Ref: pDeployGCPStackStateMachineArn
                 - Ref: AWS::NoValue
           - Effect: Allow
             Action:
@@ -491,7 +467,7 @@ Resources:
                     Type: Task
                     Resource: arn:aws:states:::states:startExecution.sync
                     Parameters:
-                      StateMachineArn: !If [cDeployAzureStack, !GetAtt AzureInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
+                      StateMachineArn: !If [cDeployAzureStack, !Ref pDeployAzureStackStateMachineArn, !Ref NoOpStateMachine ]
                       Input:
                         AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
                         Payload.$: $
@@ -502,7 +478,7 @@ Resources:
                     Type: Task
                     Resource: arn:aws:states:::states:startExecution.sync
                     Parameters:
-                      StateMachineArn: !If [cDeployGCPStack, !GetAtt GCPInventoryStack.Outputs.InventoryProcessStateMachine, !Ref NoOpStateMachine ]
+                      StateMachineArn: !If [cDeployGCPStack, !Ref pDeployGCPStackStateMachineArn, !Ref NoOpStateMachine ]
                       Input:
                         AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
                         Payload.$: $
@@ -578,6 +554,74 @@ Resources:
       Statistic: Average
       Threshold: 1
       TreatMissingData: missing
+
+
+  #
+  # Parms for the sub-stacks
+  #
+
+  AntiopeMainStackParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Parameters from the main Antiope stack
+      Type: String
+      Name: !Sub "${AWS::StackName}-main"
+      Value: !Sub |-
+        {
+          "ErrorQueueURL": "${ErrorHandlerEventQueue}",
+          "ErrorQueueName": "${ErrorHandlerEventQueue.QueueName}",
+          "TriggerEventName": "${TriggerStateMachine}",
+          "BucketName": "${pBucketName}",
+          "TemplateURL": "${pTemplateURL}"
+        }
+
+  AntiopeMainStackParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Parameters from the main Antiope stack
+      Type: String
+      Name: !Sub "${AWS::StackName}-main"
+      Value: !Sub |-
+        {
+          "ErrorQueueURL": "${ErrorHandlerEventQueue}",
+          "ErrorQueueName": "${ErrorHandlerEventQueue.QueueName}",
+          "ErrorQueueArn": "${ErrorHandlerEventQueue.Arn}",
+          "TriggerEventName": "${TriggerStateMachine}",
+          "BucketName": "${pBucketName}",
+          "TemplateURL": "${pTemplateURL}"
+        }
+
+  AntiopeMainStackErrorQueueArnParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Arn of the Error SQS Queue from main Antiope stack
+      Type: String
+      Name: !Sub "${AWS::StackName}-ErrorQueueArn"
+      Value: !GetAtt ErrorHandlerEventQueue.Arn
+
+
+  AntiopeMainStackErrorQueueUrlParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: URL of the Error SQS Queue from main Antiope stack
+      Type: String
+      Name: !Sub "${AWS::StackName}-ErrorQueueURL"
+      Value: !Ref ErrorHandlerEventQueue
+
+
+  AntiopeESStackParam:
+    Type: AWS::SSM::Parameter
+    Condition: cDeployElasticSearch
+    Properties:
+      Description: Parameters from the Antiope ElasticSearch stack
+      Type: String
+      Name: !Sub "${AWS::StackName}-elasticsearch"
+      Value: !Sub |-
+        {
+          "ClusterName": "${ElasticSearchStack.Outputs.ClusterName}",
+          "ClusterEndpoint": "${ElasticSearchStack.Outputs.ClusterEndpoint}",
+          "KibanaURL": "${ElasticSearchStack.Outputs.KibanaURL}"
+        }
 
 
 Outputs:

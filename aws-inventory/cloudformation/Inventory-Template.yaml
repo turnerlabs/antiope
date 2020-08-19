@@ -18,8 +18,8 @@ Parameters:
     Type: Number
     Default: 2
 
-  pAWSLambdaLayerPackage:
-    Description: Object Key for the Antiope Python Dependencies Lambda Layer
+  pAWSInventoryLambdaLayer:
+    Description: ARN Antiope AWS Lambda Layer
     Type: String
 
   pEntSupport:
@@ -74,7 +74,7 @@ Globals:
     MemorySize: !Ref pDefaultLambdaSize
     Timeout: !Ref pMaxLambdaDuration
     Layers:
-        - !Ref AWSInventoryLambdaLayer
+        - !Ref pAWSInventoryLambdaLayer
     CodeUri: ../lambda
     Environment:
       Variables:
@@ -203,16 +203,6 @@ Resources:
             Resource:
               - !GetAtt AccountDBTable.StreamArn
 
-  AWSInventoryLambdaLayer:
-    Type: "AWS::Lambda::LayerVersion"
-    Properties:
-      CompatibleRuntimes:
-        - python3.6
-      Content:
-        S3Bucket: !Ref pBucketName
-        S3Key: !Ref pAWSLambdaLayerPackage
-      Description: !Sub "${pResourcePrefix}-AWS-Inventory-Libraries"
-
   #
   # State Machine Functions
   #
@@ -333,6 +323,20 @@ Resources:
       FunctionName: !Sub "${pResourcePrefix}-vpc-inventory"
       Description: AWS Lamdba to populate a table with info on all VPCs
       Handler: inventory-vpc.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
+  TransitGWInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-transit-gateway-inventory"
+      Description: AWS Lamdba to discover EC2 transit gateways
+      Handler: inventory-transit-gateway.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
@@ -655,12 +659,12 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-  IAMAccessAnalyzerLambdaFunction:
+  AccessAnalyzerLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${pResourcePrefix}-iam-analyzer-inventory"
-      Description: Inventory IAM Access Analyzer Findings
-      Handler: inventory-iam-analyzer.lambda_handler
+      FunctionName: !Sub "${pResourcePrefix}-ia2-analyzer-inventory"
+      Description: Inventory IAM Access Analyzer analyzers
+      Handler: inventory-accessanalyzer-analyzers.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
@@ -758,6 +762,20 @@ Resources:
   #
   # Parallel Execution Functions (on each PAYER)
   #
+  AccessAnalyzerOrgFindingsLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-ia2-org-findings"
+      Description: Inventory IAM Access Analyzer Org Findings
+      Handler: inventory-accessanalyzer-findings.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerPayerInventoryFunctionTopic
+
 
   #
   # StateMachine
@@ -1048,7 +1066,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${pResourcePrefix}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1063,6 +1082,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
+                  [ "...", "${pResourcePrefix}-transit-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
@@ -1101,7 +1121,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
-                  [ "...", "${pResourcePrefix}-iam-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1116,6 +1137,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
+                  [ "...", "${pResourcePrefix}-transit-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
                   [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Sum", "period": 604800, "label": "create-account-report" } ],
@@ -1154,7 +1176,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
-                  [ "...", "${pResourcePrefix}-iam-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "iam-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "ia2-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 900, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
@@ -1169,6 +1192,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
+                  [ "...", "${pResourcePrefix}-transit-gateway-inventory", { "stat": "Sum", "period": 900, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
                   [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
                   [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],

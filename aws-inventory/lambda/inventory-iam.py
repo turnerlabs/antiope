@@ -129,7 +129,6 @@ def process_trusted_account(principal, role_arn):
         account_id = principal
     elif principal == "*":
         logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
-        raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
         return()  # No accounts to add to the DB
     else:
         logger.error("Unable to identify what kind of AWS Principal this is: {}".format(principal))

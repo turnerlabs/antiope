@@ -4,7 +4,7 @@ ifndef env
 	env ?= dev
 endif
 
-include config.$(env)
+include config-files/config.$(env)
 export
 
 
@@ -39,7 +39,6 @@ layer:
 test:
 	cd aws-inventory && $(MAKE) test
 	cd search-cluster && $(MAKE) test
-	cd cognito && $(MAKE) test
 
 # Add the library dependencies into the lamda folders before cloudformation package is run
 deps:
@@ -55,7 +54,7 @@ deps:
 install: deploy post-deploy
 
 # Everything to deploy a fresh version of code
-deploy: cft-validate package cft-deploy push-config
+deploy: test cft-validate package cft-deploy push-config
 
 # Package up the nested stacks and code which are copied to S3. Then copy the transformed template to S3 where it will be deployed from
 package: deps
@@ -71,7 +70,7 @@ endif
 ifndef LAYER_URL
 	$(error LAYER_URL is not set)
 endif
-	cft-deploy -m $(MANIFEST) --template-url $(TEMPLATE_URL) pTemplateURL=$(TEMPLATE_URL) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) --force
+	cft-deploy -m config-files/$(MANIFEST) --template-url $(TEMPLATE_URL) pTemplateURL=$(TEMPLATE_URL) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) --force
 
 # Execute the post-deploy scripts required to make it all work
 post-deploy:
@@ -98,7 +97,7 @@ endif
 ifndef template
 	$(error template is not set)
 endif
-	cft-deploy -m $(MANIFEST) --template-url $(template) pTemplateURL=$(template) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) --force
+	cft-deploy -m config-files/$(MANIFEST) --template-url $(template) pTemplateURL=$(template) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) --force
 
 
 #
@@ -118,7 +117,7 @@ clean:
 	cd aws-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
 	cd lambda_layer && $(MAKE) clean
-	rm cloudformation/$(OUTPUT_TEMPLATE_PREFIX)*
+	rm -f cloudformation/$(OUTPUT_TEMPLATE_PREFIX)*
 
 # Run pep8 style checks on lambda
 pep8:
@@ -150,12 +149,12 @@ endif
 
 # Copy the manifest and config file up to S3 for backup & sharing
 push-config:
-	@aws s3 cp $(MANIFEST) s3://$(BUCKET)/${CONFIG_PREFIX}/$(MANIFEST)
-	@aws s3 cp config.$(env) s3://$(BUCKET)/${CONFIG_PREFIX}/config.$(env)
+	@aws s3 cp config-files/$(MANIFEST) s3://$(BUCKET)/${CONFIG_PREFIX}/$(MANIFEST)
+	@aws s3 cp config-files/config.$(env) s3://$(BUCKET)/${CONFIG_PREFIX}/config.$(env)
 
 # Pull down the latest config and manifest from S3
 pull-config:
-	aws s3 sync s3://$(BUCKET)/${CONFIG_PREFIX}/ .
+	aws s3 sync s3://$(BUCKET)/${CONFIG_PREFIX}/ config-files/
 
 # Copy _all_ the AWS resources discovered locally. This can be a lot of files
 sync-resources:

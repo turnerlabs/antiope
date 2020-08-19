@@ -9,7 +9,7 @@ ifndef env
 	env ?= dev
 endif
 
-include ../config.$(env)
+include ../config-files/config.$(env)
 export
 
 

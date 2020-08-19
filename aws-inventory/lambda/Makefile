@@ -6,6 +6,8 @@ PIP=pip3
 
 FILES =	common.py\
 		get_billing_data.py \
+		inventory-accessanalyzer-analyzers.py \
+		inventory-accessanalyzer-findings.py \
 		inventory-ami.py \
 		inventory-buckets.py \
 		inventory-cft.py \
@@ -22,7 +24,6 @@ FILES =	common.py\
 		inventory-guardduty.py \
 		inventory-health-report.py \
 		inventory-iam.py \
-		inventory-iam-analyzer.py \
 		inventory-instances-sg.py \
 		inventory-kms.py \
 		inventory-lambdas.py \
@@ -35,6 +36,7 @@ FILES =	common.py\
 		inventory-support-cases.py \
 		inventory-trusted-advisor.py \
 		inventory-vpc.py \
+		inventory-transit-gateway.py \
 		new_account_handler.py \
 		pull_organization_data.py \
 		report-accounts.py \
@@ -55,9 +57,9 @@ clean:
 	rm -rf __pycache__ *.zip *.dist-info $(DEPENDENCIES)
 
 # # Create the package Zip. Assumes all tests were done
-zipfile:  $(FILES) $(DEPENDENCIES)
+zipfile:  $(FILES) html_templates
 	cp -a ../../antiope-aws-module/antiope .
-	zip -r $(LAMBDA_PACKAGE) $^
+	zip -r $(LAMBDA_PACKAGE) $^ $(DEPENDENCIES)
 
 test: $(FILES)
 	for f in $^; do $(PYTHON) -m py_compile $$f; if [ $$? -ne 0 ] ; then echo "$$f FAILS" ; exit 1; fi done
