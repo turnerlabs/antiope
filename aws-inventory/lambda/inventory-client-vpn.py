@@ -16,7 +16,7 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
-RESOURCE_PATH = "ec2/vpn"
+RESOURCE_PATH = "ec2/clientvpn"
 
 
 def lambda_handler(event, context):
@@ -74,7 +74,7 @@ def discover_client_vpn_endpoints(target_account, region):
             resource_item = {}
             resource_item['awsAccountId']                   = target_account.account_id
             resource_item['awsAccountName']                 = target_account.account_name
-            resource_item['resourceType']                   = "AWS::EC2::ClientVpnEndpoints"
+            resource_item['resourceType']                   = "AWS::EC2::ClientVpnEndpoint"
             resource_item['source']                         = "Antiope"
             resource_item['awsRegion']                      = region
             resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
@@ -87,11 +87,11 @@ def discover_client_vpn_endpoints(target_account, region):
             if 'Tags' in cvpn:
                 resource_item['tags']                       = parse_tags(cvpn['Tags'])
 
-           # Get any active VPN connections to the endpoint and add as part of the supplmentry configuration.
+           # Get any active VPN connections to the endpoint and add as part of the supplementary configuration.
             connections = discover_client_vpn_connections(ec2_client, cvpn['ClientVpnEndpointId'])
             resource_item['supplementaryConfiguration']['Connections'] = connections
     
-            # Obtain other network configuration associated with the VPN endpoint and add as part of the supplmentry configuration.
+            # Obtain other network configuration associated with the VPN endpoint and add as part of the supplementary configuration.
             routes = discover_client_vpn_routes(ec2_client, cvpn['ClientVpnEndpointId'])
             resource_item['supplementaryConfiguration']['Routes'] = routes
     
