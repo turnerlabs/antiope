@@ -13,6 +13,7 @@ FILES =	common.py\
 		inventory-cft.py \
 		inventory-cloudfront.py \
 		inventory-cloudtrail.py \
+		inventory-client-vpn.py \
 		inventory-dx.py \
 		inventory-ebs-snapshot.py \
 		inventory-ebs-volume.py \

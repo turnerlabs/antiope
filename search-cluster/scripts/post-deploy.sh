@@ -36,6 +36,7 @@ INDICES="	resources_accessanalyzer_analyzer \
 			resources_ec2_transitgateway \
 			resources_ec2_volume \
 			resources_ec2_vpc \
+			resources_ec2_clientvpn \
 			resources_ecr_repository \
 			resources_ecs_cluster \
 			resources_ecs_task \
