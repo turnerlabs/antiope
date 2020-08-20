@@ -44,7 +44,6 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-eni-inventory \
 			$(RESOURCE_PREFIX)-es-inventory \
 			$(RESOURCE_PREFIX)-transit-gateway-inventory \
-			$(RESOURCE_PREFIX)-worklink-inventory \
 			$(RESOURCE_PREFIX)-guardduty-inventory \
 			$(RESOURCE_PREFIX)-health-inventory \
 			$(RESOURCE_PREFIX)-iam-inventory \
