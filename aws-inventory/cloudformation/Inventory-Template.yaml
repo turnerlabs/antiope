@@ -835,7 +835,7 @@ Resources:
             },
             "WaitForPayerInventoryLambdaExecutionsToComplete": {
               "Type": "Wait",
-              "Seconds": ${pMaxLambdaDuration},
+              "Seconds": 60,
               "Next": "TriggerInventoryLambdaFunction"
             },
             "TriggerInventoryLambdaFunction": {
