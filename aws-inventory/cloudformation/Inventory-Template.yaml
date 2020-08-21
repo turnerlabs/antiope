@@ -334,7 +334,7 @@ Resources:
   TransitGWInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${pResourcePrefix}-transit-gateway-inventory"
+      FunctionName: !Sub "${pResourcePrefix}-transit-gw-inventory"
       Description: AWS Lamdba to discover EC2 transit gateways
       Handler: inventory-transit-gateway.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
@@ -1097,7 +1097,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
-                  [ "...", "${pResourcePrefix}-transit-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
@@ -1153,7 +1153,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
-                  [ "...", "${pResourcePrefix}-transit-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
                   [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 604800, "label": "new_account_handler" } ],
@@ -1209,7 +1209,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
-                  [ "...", "${pResourcePrefix}-transit-gateway-inventory", { "stat": "Sum", "period": 900, "label": "transit-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 900, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 900, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
                   [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
