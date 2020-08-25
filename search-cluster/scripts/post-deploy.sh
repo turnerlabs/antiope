@@ -60,6 +60,7 @@ INDICES="	resources_accessanalyzer_analyzer \
 			resources_secretsmanager_secret \
 			resources_ssm_managedinstance \
 			resources_support_case \
+			resources_worklink_fleet \
 			resources_support_trustedadvisorcheckresult"
 
 # What does this script need to do:
