@@ -1007,7 +1007,7 @@ Resources:
     Properties:
       Description: Parameters from the AWS Inventory Antiope stack
       Type: String
-      Name: !Sub "${pResourcePrefix}-aws-inventory"
+      Name: !Sub "${pResourcePrefix}"
       Value: !Sub |-
         {
           "account_table_name": "${AccountDBTable}",
