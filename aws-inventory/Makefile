@@ -43,7 +43,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-elb-inventory \
 			$(RESOURCE_PREFIX)-eni-inventory \
 			$(RESOURCE_PREFIX)-es-inventory \
-			$(RESOURCE_PREFIX)-transit-gateway-inventory \
+			$(RESOURCE_PREFIX)-transit-gw-inventory \
 			$(RESOURCE_PREFIX)-guardduty-inventory \
 			$(RESOURCE_PREFIX)-health-inventory \
 			$(RESOURCE_PREFIX)-iam-inventory \
@@ -64,6 +64,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-create-cred-report \
 			$(RESOURCE_PREFIX)-create-foreign-account-report \
 			$(RESOURCE_PREFIX)-create-vpc-report \
+			$(RESOURCE_PREFIX)-worklink-inventory \
 			$(RESOURCE_PREFIX)-new_account_handler
 
 .PHONY: $(FUNCTIONS)
