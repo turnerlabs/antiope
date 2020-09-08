@@ -985,6 +985,25 @@ Resources:
           KeyType: "RANGE"
 
 
+#
+# Export Antiope Vars for later Use
+#
+  AntiopeAWSInventoryParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Parameters from the AWS Inventory Antiope stack
+      Type: String
+      Name: !Sub "${pResourcePrefix}-aws-inventory"
+      Value: !Sub |-
+        {
+          "account_table_name": "${AccountDBTable}",
+          "vpc_table_name": "${VpcInventoryDBTable}",
+          "billing_table_name": "${HistoricalBillingDataTable}",
+          "role_name": "${pRoleName}",
+          "role_session_name": "${pResourcePrefix}"
+        }
+
+
   #
   # Dashboard
   #
