@@ -62,7 +62,7 @@ INDICES="	resources_accessanalyzer_analyzer \
 			resources_support_case \
 			resources_worklink_fleet \
 			resources_support_trustedadvisorcheckresult \
-			azure_resources_vm_instance""
+			azure_resources_vm_instance"
 
 # What does this script need to do:
 # 	1. Enable the S3 Event on the Resources prefix of the S3 Bucket
