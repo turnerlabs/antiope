@@ -38,23 +38,10 @@
           },
           "type": "keyword"
         },
-        "azureRegion": {
-          "fields": {
-            "keyword": {
-              "ignore_above": 20,
-              "type": "keyword"
-            }
-          },
-          "type": "keyword"
-        },
         "configuration": {
           "type": "object"
         },
         "configurationItemCaptureTime": {
-          "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
-          "type": "date"
-        },
-        "resourceCreationTime": {
           "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
           "type": "date"
         },
