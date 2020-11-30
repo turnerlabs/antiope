@@ -185,3 +185,13 @@ get-inventory-errors:
 	$(eval QUEUE := $(shell aws cloudformation describe-stacks --stack-name $(MAIN_STACK_NAME) --query 'Stacks[0].Outputs[?OutputKey==`ErrorQueue`].OutputValue' --output text --region $(AWS_DEFAULT_REGION)))
 	./bin/pull_errors.py --queue $(QUEUE) --filename $(MAIN_STACK_NAME)-Errors.html --delete
 	open $(MAIN_STACK_NAME)-Errors.html
+
+python-requirements:
+	pip3 install -r requirements.txt
+
+python-env:
+	python3 -m venv .env
+	source .env/bin/activate
+
+python-env-activate:
+	source .env/bin/activate

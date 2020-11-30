@@ -1,0 +1,7 @@
+boto3
+elasticsearch
+python-dateutil
+PyYAML
+requests
+requests_aws4auth
+semver
