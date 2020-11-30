@@ -25,6 +25,8 @@ INDICES="	resources_accessanalyzer_analyzer \
 			resources_cloudformation_stack \
 			resources_cloudfront_distribution \
 			resources_cloudtrail_trail \
+			resources_cloudwatch_alarm \
+			resources_cloudwatch_composite_alarm \
 			resources_dx_connection \
 			resources_dx_gw \
 			resources_dx_vif \
