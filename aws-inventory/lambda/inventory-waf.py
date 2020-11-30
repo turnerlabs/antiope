@@ -114,9 +114,13 @@ def process_v2_acl(client, my_WebACL, target_account, region):
         if 'LoggingConfiguration' in response:
             resource_item['supplementaryConfiguration']['LoggingConfiguration'] = response['LoggingConfiguration']
     except ClientError as e:
-        message = f"Error getting the LoggingConfiguration for WebACL {my_WebACL['Id']} in {region} for {target_account.account_name}: {e}"
-        resource_item['errors']['LoggingConfiguration'] = message
-        logger.warning(message)
+        if e.response['Error']['Code'] == "WAFNonexistentItemException":
+            # Then the WAF has no logging config, so do nothing
+            pass
+        else:
+            message = f"Error getting the LoggingConfiguration for WebACL {my_WebACL['Id']} in {region} for {target_account.account_name}: {e}"
+            resource_item['errors']['LoggingConfiguration'] = message
+            logger.warning(message)
 
     save_resource_to_s3(WAFv2_PATH, resource_item['resourceId'], resource_item)
 
