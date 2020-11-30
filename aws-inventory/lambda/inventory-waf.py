@@ -16,8 +16,7 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
-FUNC_PATH = "lambda/function"
-LAYER_PATH = "lambda/layer"
+WAFv2_PATH = "wafv2/webacl"
 
 
 def lambda_handler(event, context):
@@ -27,10 +26,12 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
+        # Collect CLOUDFRONT WAFs from us-east-1
+        discover_cloudfront_WAFs(target_account)
+        # Now get the regional ones
         for r in target_account.get_regions():
             try:
-                discover_lambdas(target_account, r)
-                discover_lambda_layer(target_account, r)
+                discover_regional_WAFs(target_account, r)
             except ClientError as e:
                 # Move onto next region if we get access denied. This is probably SCPs
                 if e.response['Error']['Code'] == 'AccessDeniedException':
@@ -55,99 +56,68 @@ def lambda_handler(event, context):
         raise
 
 
-def discover_lambdas(target_account, region):
-    '''Iterate across all regions to discover Lambdas'''
+def discover_regional_WAFs(target_account, region):
+    '''Find and process all the REGIONAL AWS WAFv2'''
 
-    lambdas = []
-    client = target_account.get_client('lambda', region=region)
-    response = client.list_functions()
+    web_acls = []
+    client = target_account.get_client('wafv2', region=region)
+    response = client.list_web_acls(Scope='REGIONAL')
     while 'NextMarker' in response:  # Gotta Catch 'em all!
-        lambdas += response['Functions']
-        response = client.list_functions(Marker=response['NextMarker'])
-    lambdas += response['Functions']
+        web_acls += response['WebACLs']
+        response = client.list_web_acls(Scope='REGIONAL', NextMarker=response['NextMarker'])
+    web_acls += response['WebACLs']
 
-    logger.debug(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
+    logger.debug(f"Discovered {len(web_acls)} WebACLs in {target_account.account_name}")
 
-    for l in lambdas:
-        process_lambda(client, l, target_account, region)
+    for acl in web_acls:
+        response = client.get_web_acl(Name=acl['Name'], Scope='REGIONAL', Id=acl['Id'])
+        process_v2_acl(client, response['WebACL'], target_account, region)
+
+def discover_cloudfront_WAFs(target_account):
+    '''Find and process all the CLOUDFRONT AWS WAFv2 (via us-east-1)'''
+
+    web_acls = []
+    client = target_account.get_client('wafv2', region='us-east-1')
+    response = client.list_web_acls(Scope='CLOUDFRONT')
+    while 'NextMarker' in response:  # Gotta Catch 'em all!
+        web_acls += response['WebACLs']
+        response = client.list_web_acls(Scope='CLOUDFRONT', NextMarker=response['NextMarker'])
+    web_acls += response['WebACLs']
+
+    logger.debug(f"Discovered {len(web_acls)} WebACLs in {target_account.account_name}")
+
+    for acl in web_acls:
+        response = client.get_web_acl(Name=acl['Name'], Scope='CLOUDFRONT', Id=acl['Id'])
+        process_v2_acl(client, response['WebACL'], target_account, "global")
 
 
-def process_lambda(client, mylambda, target_account, region):
+
+def process_v2_acl(client, my_WebACL, target_account, region):
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
-    resource_item['resourceType']                   = "AWS::Lambda::Function"
+    resource_item['resourceType']                   = "AWS::WAFv2::WebACL"
     resource_item['source']                         = "Antiope"
 
     resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
     resource_item['awsRegion']                      = region
-    resource_item['configuration']                  = mylambda
-    if 'tags' in mylambda:
-        resource_item['tags']                       = parse_tags(mylambda['tags'])
+    resource_item['configuration']                  = my_WebACL
+    # TODO Tags?
     resource_item['supplementaryConfiguration']     = {}
-    resource_item['resourceId']                     = "{}-{}-{}".format(target_account.account_id, region, mylambda['FunctionName'].replace("/", "-"))
-    resource_item['resourceName']                   = mylambda['FunctionName']
-    resource_item['ARN']                            = mylambda['FunctionArn']
+    resource_item['resourceId']                     = my_WebACL['Id']
+    resource_item['resourceName']                   = my_WebACL['Name']
+    resource_item['ARN']                            = my_WebACL['ARN']
     resource_item['errors']                         = {}
 
     try:
-        response = client.get_policy(FunctionName=mylambda['FunctionArn'])
-        if 'Policy' in response:
-            resource_item['supplementaryConfiguration']['Policy']    = json.loads(response['Policy'])
+        response = client.get_logging_configuration(ResourceArn=my_WebACL['ARN'])
+        if 'LoggingConfiguration' in response:
+            resource_item['supplementaryConfiguration']['LoggingConfiguration'] = response['LoggingConfiguration']
     except ClientError as e:
-        message = f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}"
-        resource_item['errors']['Policy'] = message
+        message = f"Error getting the LoggingConfiguration for WebACL {my_WebACL['Id']} in {region} for {target_account.account_name}: {e}"
+        resource_item['errors']['LoggingConfiguration'] = message
         logger.warning(message)
 
-    save_resource_to_s3(FUNC_PATH, resource_item['resourceId'], resource_item)
+    save_resource_to_s3(WAFv2_PATH, resource_item['resourceId'], resource_item)
 
 
-def discover_lambda_layer(target_account, region):
-    '''Iterate across all regions to discover Lambdas'''
-    try:
-        layers = []
-        client = target_account.get_client('lambda', region=region)
-        response = client.list_layers()
-        while 'NextMarker' in response:  # Gotta Catch 'em all!
-            layers += response['Layers']
-            response = client.list_layers(Marker=response['NextMarker'])
-        layers += response['Layers']
-
-        for l in layers:
-            process_layer(client, l, target_account, region)
-    except AttributeError as e:
-        import botocore
-        logger.error(f"Unable to inventory Lambda Layers - Lambda Boto3 doesn't support yet. Boto3: {boto3.__version__} botocore: {botocore.__version__}")
-        return()
-
-
-def process_layer(client, layer, target_account, region):
-    resource_item = {}
-    resource_item['awsAccountId']                   = target_account.account_id
-    resource_item['awsAccountName']                 = target_account.account_name
-    resource_item['resourceType']                   = "AWS::Lambda::Layer"
-    resource_item['source']                         = "Antiope"
-
-    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
-    resource_item['awsRegion']                      = region
-    resource_item['configuration']                  = layer
-    if 'tags' in layer:
-        resource_item['tags']                       = parse_tags(layer['tags'])
-    resource_item['supplementaryConfiguration']     = {}
-    resource_item['resourceId']                     = "{}-{}-{}".format(target_account.account_id, region, layer['LayerName'].replace("/", "-"))
-    resource_item['resourceName']                   = layer['LayerName']
-    resource_item['ARN']                            = layer['LayerArn']
-    resource_item['errors']                         = {}
-
-    try:
-        resource_item['supplementaryConfiguration']['LayerVersions'] = []
-        response = client.list_layer_versions(LayerName=layer['LayerName'], MaxItems=50)
-        for version in response['LayerVersions']:
-            version['Policy'] = client.get_layer_version_policy(LayerName=layer['LayerName'], VersionNumber=version['Version'])
-            resource_item['supplementaryConfiguration']['LayerVersions'].append(version)
-    except ClientError as e:
-        message = f"Error getting the Policy for layer {layer['LayerName']} in {region} for {target_account.account_name}: {e}"
-        resource_item['errors']['LayerVersions'] = message
-        logger.warning(message)
-
-    save_resource_to_s3(LAYER_PATH, resource_item['resourceId'], resource_item)
