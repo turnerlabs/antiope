@@ -55,7 +55,9 @@ def lambda_handler(event, context):
             logger.warning(message)
 
         try:
-            resource_item['supplementaryConfiguration']['DRTAccess'] = client.describe_drt_access()
+            response = client.describe_drt_access()
+            del response['ResponseMetadata'] # Clean up the results
+            resource_item['supplementaryConfiguration']['DRTAccess'] = response
         except ClientError as e:
             message = f"Error getting drt_access() for {target_account.account_name}: {e}"
             resource_item['errors']['DRTAccess'] = message
