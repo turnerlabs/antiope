@@ -796,11 +796,11 @@ Resources:
       Handler: inventory-waf.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
-      # Events:
-      #   AccountInventoryTrigger:
-      #     Type: SNS
-      #     Properties:
-      #       Topic: !Ref TriggerAccountInventoryFunctionTopic
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   ShieldInventoryLambdaFunction:
     Type: AWS::Serverless::Function
@@ -810,11 +810,11 @@ Resources:
       Handler: inventory-shield.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
-      # Events:
-      #   AccountInventoryTrigger:
-      #     Type: SNS
-      #     Properties:
-      #       Topic: !Ref TriggerAccountInventoryFunctionTopic
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
 
 
