@@ -81,12 +81,8 @@ fi
 
 echo "Discovered Search Stack is $SEARCH_STACK_NAME"
 scripts_dir=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
-# echo "Scripts are located in $scripts_dir"
+echo "Scripts are located in $scripts_dir"
 
-#
-# Install Dependencies
-#
-pip3 install -r $scripts_dir/requirements.txt -t $scripts_dir > /dev/null 2>&1
 
 #
 # S3 Event To SQS
