@@ -100,7 +100,7 @@ Resources:
         InstanceCount: !Ref pClusterInstanceCount
         ZoneAwarenessEnabled: false
         InstanceType: !Ref pClusterInstanceType
-      ElasticsearchVersion: 6.3
+      ElasticsearchVersion: !Ref pElasticSearchVersion
       # Encryption at rest is not supported with t2.small.elasticsearch
       EncryptionAtRestOptions:
         Enabled: !Ref pClusterEncryption

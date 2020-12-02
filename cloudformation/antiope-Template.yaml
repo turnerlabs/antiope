@@ -118,6 +118,22 @@ Parameters:
       - True
       - False
 
+  pElasticSearchVersion:
+    Type: String
+    Description: What version of Elasticsearch you want to use
+    Default: "7.9"  # Latest as of 2020-12-02
+    AllowedValues:
+      - "7.9"
+      - "7.8"
+      - "7.7"
+      - "7.4"
+      - "7.1"
+      - "6.8"
+      - "6.7"
+      - "6.5"
+      - "6.4"
+      - "6.3"
+
   pEmailAddress:
     Type: String
     Description: Default Username for Cognito
@@ -247,6 +263,7 @@ Resources:
           pCognitoKibanaAuthRole: !GetAtt CognitoStack.Outputs.CognitoKibanaAuthRole
           pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
+          pElasticSearchVersion: !Ref pElasticSearchVersion
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 
