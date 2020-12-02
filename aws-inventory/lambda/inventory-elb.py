@@ -126,8 +126,8 @@ def discover_elbv2(account, region):
         resource_item['errors']                         = {}
 
         # To Fix - throttling occurs here
-        # attrib = elb_client.describe_load_balancer_attributes(LoadBalancerArn=arn)
-        # resource_item['supplementaryConfiguration']['Attributes'] = attrib['Attributes']
+        attrib = elb_client.describe_load_balancer_attributes(LoadBalancerArn=arn)
+        resource_item['supplementaryConfiguration']['Attributes'] = attrib['Attributes']
 
         try:
             tags = elb_client.describe_tags(ResourceArns=[arn])
