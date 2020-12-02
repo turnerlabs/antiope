@@ -685,6 +685,10 @@ Outputs:
     Value: !GetAtt ErrorHandlerEventQueue.QueueName
     Description: Name of the SQS Queue where lambda errors are sent
 
+  ErrorQueueArn:
+    Value: !GetAtt ErrorHandlerEventQueue.Arn
+    Description: Arn of the SQS Queue where lambda errors are sent
+
   ErrorQueueURL:
     Value: !Ref ErrorHandlerEventQueue
     Description: URL of the SQS Queue where lambda errors are sent

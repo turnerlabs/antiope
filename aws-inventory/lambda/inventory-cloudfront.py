@@ -40,7 +40,9 @@ def lambda_handler(event, context):
         resource_item['resourceType']                   = RESOURCE_TYPE
         resource_item['source']                         = "Antiope"
 
-        for distribution in list_distributions(cf_client, target_account):
+        distributions = list_distributions(cf_client, target_account)
+        logger.debug(f"Found {len(distributions)} distributions for account {target_account.account_name}({target_account.account_id}")
+        for distribution in distributions:
 
             resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
             resource_item['configuration']                  = distribution
@@ -68,10 +70,10 @@ def lambda_handler(event, context):
 def list_distributions(cf_client, target_account):
     distributions = []
     response = cf_client.list_distributions()
-    while 'NextMarker' in response['DistributionList'] and 'IsTruncated' in response and response['IsTruncated'] is True:
+    while 'NextMarker' in response['DistributionList']:
         for i in response['DistributionList']['Items']:
             distributions.append(i)
-        response = cf_client.list_distributions(Marker=response['NextMarker'])
+        response = cf_client.list_distributions(Marker=response['DistributionList']['NextMarker'])
     if 'Items' not in response['DistributionList']:
         return(distributions)
     for i in response['DistributionList']['Items']:
