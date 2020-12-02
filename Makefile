@@ -191,7 +191,7 @@ python-requirements:
 
 python-env:
 	python3 -m venv .env
-	source .env/bin/activate
+	@echo "now run:\n\tsource .env/bin/activate"
 
 python-env-activate:
-	source .env/bin/activate
+	@echo "You need to run this from the parent shell: \n\tsource .env/bin/activate"
