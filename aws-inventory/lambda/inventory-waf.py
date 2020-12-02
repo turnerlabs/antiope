@@ -122,6 +122,21 @@ def process_v2_acl(client, my_WebACL, target_account, region):
             resource_item['errors']['LoggingConfiguration'] = message
             logger.warning(message)
 
+    if region != "global":
+        # This doesn't work for CloudFront Distributions
+        try:
+            response = client.list_resources_for_web_acl(WebACLArn=my_WebACL['ARN'])
+            if 'ResourceArns' in response:
+                resource_item['supplementaryConfiguration']['AssociatedResourceArns'] = response['ResourceArns']
+        except ClientError as e:
+            if e.response['Error']['Code'] == "WAFNonexistentItemException":
+                # Then the WAF has no logging config, so do nothing
+                pass
+            else:
+                message = f"Error getting the AssociatedResourceArns for WebACL {my_WebACL['Id']} in {region} for {target_account.account_name}: {e}"
+                resource_item['errors']['AssociatedResourceArns'] = message
+                logger.warning(message)
+
     save_resource_to_s3(WAFv2_PATH, resource_item['resourceId'], resource_item)
 
 
