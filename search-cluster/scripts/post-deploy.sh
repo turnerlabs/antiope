@@ -82,12 +82,8 @@ fi
 
 echo "Discovered Search Stack is $SEARCH_STACK_NAME"
 scripts_dir=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
-# echo "Scripts are located in $scripts_dir"
+echo "Scripts are located in $scripts_dir"
 
-#
-# Install Dependencies
-#
-pip3 install -r $scripts_dir/requirements.txt -t $scripts_dir > /dev/null 2>&1
 
 #
 # S3 Event To SQS
@@ -133,7 +129,7 @@ DOMAIN=`aws cloudformation describe-stacks --stack-name $SEARCH_STACK_NAME --que
 ROLE=`aws cloudformation describe-stacks --stack-name $SEARCH_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`ESCognitoRoleArn\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
 USER_POOL_ID=`aws cloudformation describe-stacks --stack-name $COGNITO_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoUserPoolId\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
 ID_POOL_ID=`aws cloudformation describe-stacks --stack-name $COGNITO_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoIdentityPoolId\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
-echo aws es update-elasticsearch-domain-config --domain-name ${DOMAIN} --cognito-options Enabled=true,UserPoolId=${USER_POOL_ID},IdentityPoolId=${ID_POOL_ID},RoleArn=${ROLE} --region ${AWS_DEFAULT_REGION}
+aws es update-elasticsearch-domain-config --domain-name ${DOMAIN} --cognito-options Enabled=true,UserPoolId=${USER_POOL_ID},IdentityPoolId=${ID_POOL_ID},RoleArn=${ROLE} --region ${AWS_DEFAULT_REGION}
 if [ $? -ne 0 ] ; then
 	echo "WARNING - Issue creating Kibana for the Elastic Search Cluster. You may need to investigate and run this script again"
 fi
