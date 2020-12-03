@@ -84,7 +84,7 @@ def main(args, logger):
         logger.info(f"Created Index {args.index}")
         exit(0)
     except RequestError as e:
-        logger.info(f"Index {args.index} already Exists, skipping...")
+        logger.info(f"RequestError for Index {args.index}: {e}")
         exit(0)
     except ElasticsearchException as e:
         logger.error(f"Failed to create index {args.index}: {e}")

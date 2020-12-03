@@ -1,0 +1,116 @@
+{
+  "mappings": {
+      "properties": {
+        "ARN": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "awsAccountId": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 13,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "awsAccountName": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "awsRegion": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 20,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "configuration": {
+          "type": "object",
+          "properties": {
+            "Outputs": {
+              "type": "nested",
+              "include_in_parent": true,
+              "properties": {
+                "OutputKey": {"type": "keyword"},
+                "OutputValue": {"type": "keyword"}
+              }
+            },
+            "Parameters": {
+              "type": "nested",
+              "include_in_parent": true,
+              "properties": {
+                "ParameterKey": {"type": "keyword"},
+                "ParameterValue": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        "configurationItemCaptureTime": {
+          "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
+          "type": "date"
+        },
+        "errors": {
+          "type": "object"
+        },
+        "resourceId": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "resourceName": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "text"
+        },
+        "resourceType": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "source": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "supplementaryConfiguration": {
+          "type": "object"
+        },
+        "tags": {
+          "type": "object",
+          "enabled": false
+        }
+      },
+      "_meta": {
+        "antiope_mapping_version": "2019-03-27"
+      }
+    }
+}
