@@ -21,7 +21,7 @@ Antiope is given a list of AWS Organizational parent accounts, and will inventor
 All resources are dropped as individual json files into the S3 Bucket of your choosing under `/Resources/<type>-<resource_id>.json`
 
 ## What you can do with what it collects
-Right now, the primary function of the collection is to solve the needle-in-the-haystack problem. My aggregating all the resources across all accounts & regions into a single place finding resources like IP addresses becomes much easier. Antiope is also starting to track where inter-account trust is occurring and creating a record of accounts outside your organization that are trusted by one or more accounts in your organization.
+Right now, the primary function of the collection is to solve the needle-in-the-haystack problem. By aggregating all the resources across all accounts & regions into a single place finding resources like IP addresses becomes much easier. Antiope is also starting to track where inter-account trust is occurring and creating a record of accounts outside your organization that are trusted by one or more accounts in your organization.
 
 Finally, the elastic search cluster is being used as a data repository for threat hunting scripts to find things like open Elastic Search or de-referenced CloudFront origins. Those hunting scripts can be found in antiope/search-cluster/scripts/hunt-*
 
