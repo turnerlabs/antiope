@@ -1,0 +1,87 @@
+{
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "azureSubscriptionId": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 40,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "azureSubscriptionName": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "azureTenantId": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 40,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "azureTenantName": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "configuration": {
+          "type": "object"
+        },
+        "configurationItemCaptureTime": {
+          "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
+          "type": "date"
+        },
+        "errors": {
+          "type": "object"
+        },
+        "resourceId": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "resourceType": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "source": {
+          "fields": {
+            "keyword": {
+              "ignore_above": 256,
+              "type": "keyword"
+            }
+          },
+          "type": "keyword"
+        },
+        "supplementaryConfiguration": {
+          "type": "object"
+        }
+      },
+      "_meta": {
+        "antiope_mapping_version": "2020-11-19"
+      }
+    }
+  }
+}

@@ -157,6 +157,14 @@ Parameters:
     Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
     Type: String
 
+  pElasticEndpoint:
+    Description: FQDN of the Endpoint for Antiope ES Domain
+    Type: String
+
+  pElasticClusterName:
+    Description: Name of the Antiope ES Domain
+    Type: String
+
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
   cDeployCustomStack: !Not [ !Equals [ !Ref pDeployCustomStackStateMachineArn, "NONE"] ]
