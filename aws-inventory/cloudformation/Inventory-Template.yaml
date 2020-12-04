@@ -788,6 +788,37 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  WafInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-waf-inventory"
+      Description: Inventory AWS WAFv2
+      Handler: inventory-waf.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
+  ShieldInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-shield-inventory"
+      Description: Inventory Shield Advanced settings
+      Handler: inventory-shield.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
+
+
+
   #
   # Parallel Execution Functions (on each PAYER)
   #
@@ -1125,12 +1156,14 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 604800, "label": "waf-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 604800, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
@@ -1182,12 +1215,14 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 604800, "label": "waf-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 604800, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
@@ -1239,12 +1274,14 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 900, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 900, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 900, "label": "transit-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 900, "label": "waf-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 900, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 900, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
