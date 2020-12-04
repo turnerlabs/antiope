@@ -82,6 +82,10 @@ def discover_buckets(account, context):
         resource_item['resourceCreationTime']           = b['CreationDate']
         resource_item['errors']                         = {}
 
+        # insure we don't inherit the tags from the previous bucket in the loop
+        if 'tags' in resource_item:
+            del resource_item['tags']
+
         # Go through a bunch of API calls to get details on this bucket
         try:
             response = s3_client.get_bucket_encryption(Bucket=bucket_name)

@@ -112,7 +112,7 @@ Resources:
       NodeToNodeEncryptionOptions:
         Enabled: !Ref pClusterEncryption
       SnapshotOptions:
-        AutomatedSnapshotStartHour: "0"
+        AutomatedSnapshotStartHour: 0
 
   SearchClusterKMSKey:
     Type: AWS::KMS::Key
