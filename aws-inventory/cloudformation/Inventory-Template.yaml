@@ -816,7 +816,19 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-
+  CWAlarmInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-cw-alarm-inventory"
+      Description: Inventory Cloud Watch Alarms
+      Handler: inventory-cw-alarm.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
 
   #
@@ -1135,6 +1147,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Sum", "period": 604800, "label": "cw-alarm-inventory" } ],
                   [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
@@ -1194,6 +1207,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Sum", "period": 604800, "label": "cw-alarm-inventory" } ],
                   [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
@@ -1253,6 +1267,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Sum", "period": 900, "label": "cw-alarm-inventory" } ],
                   [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 900, "label": "ebs-vol-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 900, "label": "ebs-snap-inventory" } ],
