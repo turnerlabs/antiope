@@ -58,8 +58,12 @@ INDICES="	resources_accessanalyzer_analyzer \
 			resources_s3_bucket \
 			resources_sagemaker_notebook \
 			resources_secretsmanager_secret \
+			resources_shield_attacks \
+			resources_shield_protection \
+			resources_shield_subscription \
 			resources_ssm_managedinstance \
 			resources_support_case \
+			resources_wafv2_webacl \
 			resources_worklink_fleet \
 			resources_support_trustedadvisorcheckresult \
 			azure_resources_vm_instance"
