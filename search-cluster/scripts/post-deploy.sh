@@ -16,54 +16,6 @@ if [ -z $AWS_DEFAULT_REGION ] ; then
 fi
 
 
-# This is a definition of all the Resource Indcies that are created in ElasticSearch for AWS.
-# Each Index needs to have a mapping defined before any indexing occurs
-# Stylistically, indicies should be singular
-# An index is defined based on the S3 path the object is found in. "resouces_$service_$resourceType"
-INDICES="	resources_accessanalyzer_analyzer \
-			resources_accessanalyzer_finding \
-			resources_cloudformation_stack \
-			resources_cloudfront_distribution \
-			resources_cloudtrail_trail \
-			resources_dx_connection \
-			resources_dx_gw \
-			resources_dx_vif \
-			resources_ec2_ami \
-			resources_ec2_eni \
-			resources_ec2_instance \
-			resources_ec2_securitygroup \
-			resources_ec2_snapshot \
-			resources_ec2_transitgateway \
-			resources_ec2_volume \
-			resources_ec2_vpc \
-			resources_ec2_clientvpn \
-			resources_ecr_repository \
-			resources_ecs_cluster \
-			resources_ecs_task \
-			resources_elb_loadbalancer \
-			resources_elbv2_loadbalancer \
-			resources_es_domain \
-			resources_guardduty_detector \
-			resources_iam_role \
-			resources_iam_saml \
-			resources_iam_user \
-			resources_kms_key \
-			resources_lambda_function \
-			resources_lambda_layer \
-			resources_rds_dbcluster \
-			resources_rds_dbinstance \
-			resources_redshift_clusters \
-			resources_route53_domain \
-			resources_route53_hostedzone \
-			resources_s3_bucket \
-			resources_sagemaker_notebook \
-			resources_secretsmanager_secret \
-			resources_ssm_managedinstance \
-			resources_support_case \
-			resources_worklink_fleet \
-			resources_support_trustedadvisorcheckresult \
-			azure_resources_vm_instance"
-
 # What does this script need to do:
 # 	1. Enable the S3 Event on the Resources prefix of the S3 Bucket
 # 	2. Enable S3 events on the azure/gcp stuff (someday)
@@ -137,7 +89,5 @@ fi
 #
 # Index Mapping Creation
 #
-for index in $INDICES ; do
-	$scripts_dir/create_index.py --domain $MAIN_STACK_NAME --index $index --mapping_dir $scripts_dir/../mappings
-done
+$scripts_dir/make_all_indicies.sh
 
