@@ -22,6 +22,10 @@ def parse_tags(tagset):
 
 def save_resource_to_s3(prefix, resource_id, resource):
     """Saves the resource to S3 in prefix with the object name of resource_id.json"""
+    if "/" in resource_id:
+        logger.error(f"{resource_id} contains a / character and cannot be safely stored in S3 under {prefix}")
+        resource_id.replace("/", "-")
+
     s3client = boto3.client('s3')
     try:
         object_key = "Resources/{}/{}.json".format(prefix, resource_id)
