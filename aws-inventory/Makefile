@@ -53,11 +53,13 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-rds-inventory \
 			$(RESOURCE_PREFIX)-route53-inventory \
 			$(RESOURCE_PREFIX)-secrets-inventory \
+			$(RESOURCE_PREFIX)-shield-inventory \
 			$(RESOURCE_PREFIX)-ssm-inventory \
 			$(RESOURCE_PREFIX)-sqs-inventory \
 			$(RESOURCE_PREFIX)-support-inventory \
 			$(RESOURCE_PREFIX)-ta-inventory \
 			$(RESOURCE_PREFIX)-vpc-inventory \
+			$(RESOURCE_PREFIX)-waf-inventory \
 			$(RESOURCE_PREFIX)-trigger-inventory \
 			$(RESOURCE_PREFIX)-get-billing-data \
 			$(RESOURCE_PREFIX)-create-account-report \

@@ -33,11 +33,13 @@ FILES =	common.py\
 		inventory-route53.py \
 		inventory-sagemaker.py \
 		inventory-secrets.py \
+		inventory-shield.py \
 		inventory-ssm.py \
 		inventory-support-cases.py \
 		inventory-trusted-advisor.py \
 		inventory-vpc.py \
 		inventory-transit-gateway.py \
+		inventory-waf.py \
 		inventory-worklink.py \
 		new_account_handler.py \
 		pull_organization_data.py \
