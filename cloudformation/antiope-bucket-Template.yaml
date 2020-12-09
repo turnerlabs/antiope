@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create and Manage the Antiope S3 Bucket (and event notifications)
+
+Parameters:
+
+  pBucketName:
+    Description: Name of the Antiope Bucket to hold all the data
+    Type: String
+
+Resources:
+  AntiopeBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    # DependsOn: AntiopeBucketNotificationTopicPolicy
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Ref pBucketName
+      # Additional Configuration options to come back and revisit.
+      # LifecycleConfiguration: <- I don't think we'd ever want to expire resources, but maybe over time?
+      # LoggingConfiguration: <- Probably unnecessary, but if someone needs it for compliance
+      # MetricsConfigurations: <- Might be useful to see metrics on the primary keys of the bucket
+      # InventoryConfiguration: <- Might be useful to pull out the Resources/ objects into a specific report
+      NotificationConfiguration:
+        TopicConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "Resources/"
+                  - Name: suffix
+                    Value: ".json"
+            Topic: !Ref ResourceNotificationTopic
+      OwnershipControls:
+        Rules:
+        - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: False  # This rule also prohibits Cross-Account bucket access
+
+  # TODO
+  # What Bucket Policy is needed?
+
+  ResourceNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Destination of PutObject calls from ${pBucketName}"
+      TopicName: !Sub "${pBucketName}-Resources-PutObject"
+
+  # This Policy can be reused for any future Topics
+  AntiopeBucketNotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref ResourceNotificationTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: AllowAntiopeBucket
+        Statement:
+        - Sid: AllowAntiopeBucketPublish
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action:
+          - SNS:Publish
+          Resource:
+          - !Ref ResourceNotificationTopic
+          Condition:
+            ArnLike:
+              aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+            StringEquals:
+              aws:SourceAccount: !Ref AWS::AccountId
+
+
+
+Outputs:
+
+  Bucket:
+    Value: !Ref AntiopeBucket
+    Description: Antiope Bucket Name
+
+  BucketArn:
+    Value: !GetAtt AntiopeBucket.Arn
+    Description: Antiope Bucket ARN
+
+  BucketDomainName:
+    Value: !GetAtt AntiopeBucket.DomainName
+    Description: The IPv4 DNS name of the Antiope Bucket
+
+  ResourceNotificationTopicArn:
+    Value: !Ref ResourceNotificationTopic
+    Description: ARN of the Topic where Resources PubObject events are Sent
+
+  ResourceNotificationTopicName:
+    Value: !GetAtt ResourceNotificationTopic.TopicName
+    Description: Name of the Topic where Resources PubObject events are Sent
