@@ -60,8 +60,10 @@ def main(args, logger):
         print(f"Index: {index_name}")
         doc['index-pattern']['title'] = index_name
 
-        es.index(index=".kibana", doc_type="doc", id=f"index-pattern:{index_name}", body=doc)
-
+        try:
+            es.index(index=".kibana", doc_type="doc", id=f"index-pattern:{index_name}", body=doc)
+        except Exception as e:
+            logger.error(f"Unable to create index patter for {index_name}: {e}")
 
 
 def get_endpoint(domain, region):
