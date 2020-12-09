@@ -7,6 +7,18 @@ Parameters:
     Description: Name of the Antiope Bucket to hold all the data
     Type: String
 
+  pImportState:
+    Description: Set this to True if you're going to try and import an existing bucket into S3 Management
+    Type: String
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+Conditions:
+  cNotImportState: !Equals [ !Ref pImportState, False]
+  cImportState: !Equals [ !Ref pImportState, True]
+
 Resources:
   AntiopeBucket:
     Type: AWS::S3::Bucket
@@ -24,17 +36,25 @@ Resources:
       # LoggingConfiguration: <- Probably unnecessary, but if someone needs it for compliance
       # MetricsConfigurations: <- Might be useful to see metrics on the primary keys of the bucket
       # InventoryConfiguration: <- Might be useful to pull out the Resources/ objects into a specific report
+
+
+
       NotificationConfiguration:
         TopicConfigurations:
-          - Event: 's3:ObjectCreated:*'
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: "Resources/"
-                  - Name: suffix
-                    Value: ".json"
-            Topic: !Ref ResourceNotificationTopic
+          - Fn::If:
+            - cImportState
+            - Ref: AWS::NoValue
+            - Event: 's3:ObjectCreated:*'
+              Filter:
+                S3Key:
+                  Rules:
+                    - Name: prefix
+                      Value: "Resources/"
+                    - Name: suffix
+                      Value: ".json"
+              Topic: !Ref ResourceNotificationTopic
+
+
       OwnershipControls:
         Rules:
         - ObjectOwnership: BucketOwnerPreferred
@@ -44,11 +64,20 @@ Resources:
         IgnorePublicAcls: True
         RestrictPublicBuckets: False  # This rule also prohibits Cross-Account bucket access
 
+              # - Fn::If:
+              #   - cDeployCustomStack
+              #   - Ref: pDeployCustomStackStateMachineArn
+              #   - Ref: AWS::NoValue
+
+
+
+
   # TODO
   # What Bucket Policy is needed?
 
   ResourceNotificationTopic:
     Type: AWS::SNS::Topic
+    Condition: cNotImportState # Don't attempt to create if we're doing an import
     Properties:
       DisplayName: !Sub "Destination of PutObject calls from ${pBucketName}"
       TopicName: !Sub "${pBucketName}-Resources-PutObject"
@@ -56,6 +85,7 @@ Resources:
   # This Policy can be reused for any future Topics
   AntiopeBucketNotificationTopicPolicy:
     Type: AWS::SNS::TopicPolicy
+    Condition: cNotImportState # Don't attempt to create if we're doing an import
     Properties:
       Topics:
         - !Ref ResourceNotificationTopic
@@ -82,21 +112,25 @@ Resources:
 Outputs:
 
   Bucket:
-    Value: !Ref AntiopeBucket
+    Value: !Ref pBucketName
     Description: Antiope Bucket Name
 
   BucketArn:
+    Condition: cNotImportState # Import doesn't support stack outputs
     Value: !GetAtt AntiopeBucket.Arn
     Description: Antiope Bucket ARN
 
   BucketDomainName:
+    Condition: cNotImportState # Import doesn't support stack outputs
     Value: !GetAtt AntiopeBucket.DomainName
     Description: The IPv4 DNS name of the Antiope Bucket
 
   ResourceNotificationTopicArn:
+    Condition: cNotImportState # Import doesn't support stack outputs
     Value: !Ref ResourceNotificationTopic
     Description: ARN of the Topic where Resources PubObject events are Sent
 
   ResourceNotificationTopicName:
+    Condition: cNotImportState # Import doesn't support stack outputs
     Value: !GetAtt ResourceNotificationTopic.TopicName
     Description: Name of the Topic where Resources PubObject events are Sent
