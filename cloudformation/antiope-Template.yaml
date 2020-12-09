@@ -588,18 +588,25 @@ Resources:
   ErrorReportLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${AWS::StackName}-load-sf-event"
-      Description: Load the StepFunction Event from S3
+      FunctionName: !Sub "${AWS::StackName}-dump-errors"
+      Description: Dump the Error Queue at the end of the run
       Handler: index.handler
       Runtime: python3.6
+      Timeout: 180
+      MemorySize: 1024
       Policies:
       - AWSLambdaBasicExecutionRole
       - Version: '2012-10-17'
         Statement:
         - Effect: "Allow"
           Action:
-          - states:ListExecutions
-          Resource: !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${AWS::StackName}-*"
+          - sqs:ReceiveMessage
+          - sqs:DeleteMessage
+          Resource: !GetAtt ErrorHandlerEventQueue.Arn
+        - Effect: "Allow"
+          Action:
+          - s3:PutObject
+          Resource: !Sub "arn:aws:s3:::${pBucketName}/ErrorReports/*"
       Environment:
         Variables:
           INVENTORY_BUCKET: !Ref pBucketName
@@ -608,6 +615,7 @@ Resources:
           STACKNAME: !Ref AWS::StackName
       InlineCode: !Sub |
         import boto3
+        from botocore.exceptions import ClientError
         import json
         import os
         import time
@@ -650,7 +658,7 @@ Resources:
 
                 for m in response['Messages']:
                     # print messages
-                    print(m['MessageId'])
+                    # print(m['MessageId'])
                     sent_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(m['Attributes']['SentTimestamp'])/1000))
                     error_string = format_error(m['Body'], region, sent_time)
                     # print(error_string)
@@ -677,7 +685,7 @@ Resources:
 
             s3client = boto3.client('s3')
             try:
-                object_key = f"ErrorReports/{datetime.now().strftime("%Y-%m-%d-%H-%M")}.html"
+                object_key = f"ErrorReports/{datetime.now().strftime('%Y-%m-%d-%H-%M')}.html"
                 s3client.put_object(
                     Body=html_output,
                     Bucket=os.environ['INVENTORY_BUCKET'],
@@ -687,6 +695,7 @@ Resources:
             except ClientError as e:
                 logger.error("Unable to save Error Report {}: {}".format(object_key, e))
 
+            return(event)
 
         ## End ##
         def format_error(error_raw, region, sent_time):
