@@ -113,6 +113,9 @@ Resources:
         Enabled: !Ref pClusterEncryption
       SnapshotOptions:
         AutomatedSnapshotStartHour: "0"
+      DomainEndpointOptions:
+        EnforceHTTPS: True
+        TLSSecurityPolicy: Policy-Min-TLS-1-2-2019-07
 
   SearchClusterKMSKey:
     Type: AWS::KMS::Key
