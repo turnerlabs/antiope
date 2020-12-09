@@ -262,6 +262,8 @@ Resources:
           pClusterInstanceCount: !Ref pClusterInstanceCount
           pClusterInstanceType: !Ref pClusterInstanceType
           pCognitoKibanaAuthRole: !GetAtt CognitoStack.Outputs.CognitoKibanaAuthRole
+          pCognitoIdentityPoolId: !GetAtt CognitoStack.Outputs.CognitoIdentityPoolId
+          pCognitoUserPoolId: !GetAtt CognitoStack.Outputs.CognitoUserPoolId
           pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
           pElasticSearchVersion: !Ref pElasticSearchVersion
