@@ -830,7 +830,7 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-   FirehoseInventoryLambdaFunction:
+  FirehoseInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub "${pResourcePrefix}-firehose-inventory"
