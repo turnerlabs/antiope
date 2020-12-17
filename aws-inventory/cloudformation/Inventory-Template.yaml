@@ -816,6 +816,19 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  FirehoseInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-firehose-inventory"
+      Description: Inventory Kinesis Firehoses
+      Handler: inventory-firehose.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
 
 
@@ -1143,6 +1156,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Sum", "period": 604800, "label": "firehose-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
@@ -1202,6 +1216,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Sum", "period": 604800, "label": "firehose-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
@@ -1261,6 +1276,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 900, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Sum", "period": 900, "label": "firehose-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "ia2-analyzer-inventory" } ],
