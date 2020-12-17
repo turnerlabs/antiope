@@ -23,6 +23,7 @@ FILES =	common.py\
 		inventory-elb.py \
 		inventory-eni.py \
 		inventory-es.py \
+		inventory-firehose.py \
 		inventory-guardduty.py \
 		inventory-health-report.py \
 		inventory-iam.py \
