@@ -129,7 +129,7 @@ def inventory_attacks(target_account, client):
         resource_item = {}
         resource_item['awsAccountId']                   = target_account.account_id
         resource_item['awsAccountName']                 = target_account.account_name
-        resource_item['resourceType']                   = "AWS::Shield::Protection"
+        resource_item['resourceType']                   = "AWS::Shield::Attack"
         resource_item['source']                         = "Antiope"
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = this_attack
