@@ -845,7 +845,6 @@ Resources:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
 
-
   #
   # Parallel Execution Functions (on each PAYER)
   #
