@@ -69,10 +69,16 @@ Parameters:
       - "6.4"
       - "6.3"
 
+  pS3EventNotificationTopic:
+    Description: SNS Topic for the Elasticsearch SQS Queue to subscribe to.
+    Type: String
+    Default: None
+
 
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
   ReIndex: !Equals [ !Ref pReIndexSettings, True ]
+  SNS2SQS: !Not [ !Equals [ !Ref pS3EventNotificationTopic, "None"] ]
 
 
 Resources:
@@ -276,7 +282,8 @@ Resources:
         Version: '2012-10-17'
         Id: AllowS3
         Statement:
-        - Effect: Allow
+        - Sid: AllowS3EventNotification
+          Effect: Allow
           Principal:
             AWS: '*'
           Action:
@@ -285,6 +292,26 @@ Resources:
           Condition:
             ArnLike:
               aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+        - !If
+          - SNS2SQS
+          - Sid: Allow-SNS-SendMessage
+            Effect: Allow
+            Principal: "*"
+            Action:
+            - sqs:SendMessage
+            Resource: !GetAtt SearchIngestEventQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref pS3EventNotificationTopic
+          - !Ref AWS::NoValue
+
+  SearchIngestQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: SNS2SQS
+    Properties:
+      Endpoint: !GetAtt SearchIngestEventQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref pS3EventNotificationTopic
 
   SearchIngestS3FunctionMapping:
     Type: AWS::Lambda::EventSourceMapping
