@@ -128,7 +128,7 @@ Resources:
       CognitoOptions:
           Enabled: True
           IdentityPoolId: !Ref pCognitoIdentityPoolId
-          RoleArn: !Ref pCognitoKibanaAuthRole
+          RoleArn: !GetAtt ESEnableCognitoRole.Arn
           UserPoolId: !Ref pCognitoUserPoolId
 
   SearchClusterKMSKey:
