@@ -54,6 +54,7 @@ INDICES="	resources_accessanalyzer_analyzer
 			resources_s3_bucket
 			resources_sagemaker_notebook
 			resources_secretsmanager_secret
+			resources_shield_attack
 			resources_shield_protection
 			resources_shield_subscription
 			resources_ssm_managedinstance
