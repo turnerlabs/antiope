@@ -181,6 +181,11 @@ Parameters:
     Description: Name of the Antiope ES Domain
     Type: String
 
+  pS3EventNotificationTopicArn:
+    Description: SNS Topic from the Antiope Bucket Stack.
+    Type: String
+    Default: None
+
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
   cDeployCustomStack: !Not [ !Equals [ !Ref pDeployCustomStackStateMachineArn, "NONE"] ]
@@ -272,6 +277,7 @@ Resources:
           pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
           pElasticSearchVersion: !Ref pElasticSearchVersion
+          pS3EventNotificationTopicArn: !Ref pS3EventNotificationTopicArn
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 
