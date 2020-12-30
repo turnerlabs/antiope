@@ -76,15 +76,16 @@ aws s3api put-bucket-notification-configuration --bucket ${BUCKET} --notificatio
 #
 # Kibana Auth
 #
-COGNITO_STACK_NAME=`aws cloudformation describe-stacks --stack-name $MAIN_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoStackName\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
-DOMAIN=`aws cloudformation describe-stacks --stack-name $SEARCH_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`ClusterName\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
-ROLE=`aws cloudformation describe-stacks --stack-name $SEARCH_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`ESCognitoRoleArn\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
-USER_POOL_ID=`aws cloudformation describe-stacks --stack-name $COGNITO_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoUserPoolId\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
-ID_POOL_ID=`aws cloudformation describe-stacks --stack-name $COGNITO_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoIdentityPoolId\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
-aws es update-elasticsearch-domain-config --domain-name ${DOMAIN} --cognito-options Enabled=true,UserPoolId=${USER_POOL_ID},IdentityPoolId=${ID_POOL_ID},RoleArn=${ROLE} --region ${AWS_DEFAULT_REGION}
-if [ $? -ne 0 ] ; then
-	echo "WARNING - Issue creating Kibana for the Elastic Search Cluster. You may need to investigate and run this script again"
-fi
+#### Kibana Auth can now be done via CloudFormation. Bout Damn Time #####
+# COGNITO_STACK_NAME=`aws cloudformation describe-stacks --stack-name $MAIN_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoStackName\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
+# DOMAIN=`aws cloudformation describe-stacks --stack-name $SEARCH_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`ClusterName\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
+# ROLE=`aws cloudformation describe-stacks --stack-name $SEARCH_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`ESCognitoRoleArn\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
+# USER_POOL_ID=`aws cloudformation describe-stacks --stack-name $COGNITO_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoUserPoolId\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
+# ID_POOL_ID=`aws cloudformation describe-stacks --stack-name $COGNITO_STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==\`CognitoIdentityPoolId\`].OutputValue' --output text --region $AWS_DEFAULT_REGION`
+# aws es update-elasticsearch-domain-config --domain-name ${DOMAIN} --cognito-options Enabled=true,UserPoolId=${USER_POOL_ID},IdentityPoolId=${ID_POOL_ID},RoleArn=${ROLE} --region ${AWS_DEFAULT_REGION}
+# if [ $? -ne 0 ] ; then
+# 	echo "WARNING - Issue creating Kibana for the Elastic Search Cluster. You may need to investigate and run this script again"
+# fi
 
 #
 # Index Mapping Creation

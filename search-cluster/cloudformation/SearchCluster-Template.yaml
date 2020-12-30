@@ -41,6 +41,14 @@ Parameters:
     Type: String
     Description: ARN for the Kibana Cognito Auth role (Created by the Cognito Stack)
 
+  pCognitoIdentityPoolId:
+    Type: String
+    Description: Identity Pool ID from the Cognito Stack
+
+  pCognitoUserPoolId:
+    Type: String
+    Description: User Pool ID from the Cognito Stack
+
   pReIndexSettings:
     Type: String
     Description: Set this to True to enable greater capacity for ReIndex
@@ -112,7 +120,16 @@ Resources:
       NodeToNodeEncryptionOptions:
         Enabled: !Ref pClusterEncryption
       SnapshotOptions:
-        AutomatedSnapshotStartHour: 0
+        AutomatedSnapshotStartHour: "0"
+      DomainEndpointOptions:
+        EnforceHTTPS: True
+        TLSSecurityPolicy: Policy-Min-TLS-1-2-2019-07
+      # I can now do this in Cloudformation woot!
+      CognitoOptions:
+          Enabled: True
+          IdentityPoolId: !Ref pCognitoIdentityPoolId
+          RoleArn: !Ref pCognitoKibanaAuthRole
+          UserPoolId: !Ref pCognitoUserPoolId
 
   SearchClusterKMSKey:
     Type: AWS::KMS::Key
