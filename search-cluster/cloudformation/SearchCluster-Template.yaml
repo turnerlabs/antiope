@@ -79,7 +79,7 @@ Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
   ReIndex: !Equals [ !Ref pReIndexSettings, True ]
   SNS2SQS: !Not [ !Equals [ !Ref pS3EventNotificationTopicArn, "None"] ]
-
+  SQSEncryptionEnabled: !And [ !Equals [ !Ref pClusterEncryption, True ], !Equals [ !Ref pS3EventNotificationTopicArn, "None"] ]
 
 Resources:
 
@@ -236,7 +236,7 @@ Resources:
       CodeUri: ../lambda
       FunctionName: !Sub "${pResourcePrefix}-ingest-s3"
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
-      Handler: ingest_s3.lambda_handler
+      Handler: !If [ SNS2SQS, ingest_sns_sqs.py, ingest_sqs_direct.lambda_handler ]
       Runtime: python3.6
       Timeout: !If [ ReIndex, 900, 180]
       MemorySize: 768
@@ -257,14 +257,17 @@ Resources:
   SearchIngestEventQueue:
     Type: AWS::SQS::Queue
     Properties:
+      # Note: SNS to SQS doesn't work if KMS is enabled. Since this SQS Queue only contains
+      # Account ID, Bucket and Object names, it's reasonably safe to not encrypt. YYMV
+      # We only support SQS Encryption if Encryption is enabled and SNS support is not.
       KmsMasterKeyId:
         Fn::If:
-          - EncryptionEnabled
+          - SQSEncryptionEnabled
           - Ref: SearchClusterKMSKey
           - Ref: AWS::NoValue
       KmsDataKeyReusePeriodSeconds:
         Fn::If:
-          - EncryptionEnabled
+          - SQSEncryptionEnabled
           - 86400
           - Ref: AWS::NoValue
       MessageRetentionPeriod: !If [ ReIndex, 10800, 3600]  # Any messages older than an hour are probably out-of-date
