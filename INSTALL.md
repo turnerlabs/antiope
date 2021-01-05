@@ -7,7 +7,7 @@
 1. Make sure you have the AWS CLI installed
 1. Make sure you have a modern boto3
 1. Make sure you have jq installed.
-1. Create an S3 Bucket to act as the Antiope bucket
+1. Create an [S3 Bucket](docs/AntiopeBucket.md) to act as the Antiope bucket. A CloudFormation template exists to do this.
     * **It is important that the bucket be created in the region you intend to run Antiope.**
     * This bucket contains all the packaged code, discovered resources and Reports.
 1. You'll need cftdeploy python package & scripts:
