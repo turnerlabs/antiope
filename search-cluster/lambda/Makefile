@@ -4,7 +4,7 @@
 PYTHON=python3
 PIP=pip3
 
-FILES=ingest_s3.py
+FILES=ingest_sns_sqs.py ingest_sqs_direct.py
 
 DEPENDENCIES=
 

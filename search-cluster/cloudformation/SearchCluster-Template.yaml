@@ -236,7 +236,7 @@ Resources:
       CodeUri: ../lambda
       FunctionName: !Sub "${pResourcePrefix}-ingest-s3"
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
-      Handler: !If [ SNS2SQS, ingest_sns_sqs.py, ingest_sqs_direct.lambda_handler ]
+      Handler: !If [ SNS2SQS, ingest_sns_sqs.lambda_handler, ingest_sqs_direct.lambda_handler ]
       Runtime: python3.6
       Timeout: !If [ ReIndex, 900, 180]
       MemorySize: 768
