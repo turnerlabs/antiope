@@ -34,6 +34,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-cloudformation-inventory \
 			$(RESOURCE_PREFIX)-cloudfront-inventory \
 			$(RESOURCE_PREFIX)-cloudtrail-inventory \
+			$(RESOURCE_PREFIX)-cw-alarm-inventory \
 			$(RESOURCE_PREFIX)-client-vpn-inventory \
 			$(RESOURCE_PREFIX)-dx-inventory \
 			$(RESOURCE_PREFIX)-ebs-snap-inventory \
@@ -43,6 +44,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-elb-inventory \
 			$(RESOURCE_PREFIX)-eni-inventory \
 			$(RESOURCE_PREFIX)-es-inventory \
+			$(RESOURCE_PREFIX)-firehose-inventory \
 			$(RESOURCE_PREFIX)-transit-gw-inventory \
 			$(RESOURCE_PREFIX)-guardduty-inventory \
 			$(RESOURCE_PREFIX)-health-inventory \

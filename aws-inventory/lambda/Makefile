@@ -14,6 +14,7 @@ FILES =	common.py\
 		inventory-cloudfront.py \
 		inventory-cloudtrail.py \
 		inventory-client-vpn.py \
+		inventory-cw-alarm.py \
 		inventory-dx.py \
 		inventory-ebs-snapshot.py \
 		inventory-ebs-volume.py \
@@ -22,6 +23,7 @@ FILES =	common.py\
 		inventory-elb.py \
 		inventory-eni.py \
 		inventory-es.py \
+		inventory-firehose.py \
 		inventory-guardduty.py \
 		inventory-health-report.py \
 		inventory-iam.py \

@@ -816,7 +816,33 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  FirehoseInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-firehose-inventory"
+      Description: Inventory Kinesis Firehoses
+      Handler: inventory-firehose.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  CWAlarmInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-cw-alarm-inventory"
+      Description: Inventory Cloud Watch Alarms
+      Handler: inventory-cw-alarm.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
 
   #
@@ -1135,6 +1161,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Sum", "period": 604800, "label": "cw-alarm-inventory" } ],
                   [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
@@ -1143,6 +1170,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Sum", "period": 604800, "label": "firehose-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
@@ -1194,6 +1222,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 604800, "label": "cloudfront-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 604800, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Sum", "period": 604800, "label": "cw-alarm-inventory" } ],
                   [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 604800, "label": "dx-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-vol-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
@@ -1202,6 +1231,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Sum", "period": 604800, "label": "firehose-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 604800, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
@@ -1253,6 +1283,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Sum", "period": 900, "label": "cw-alarm-inventory" } ],
                   [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 900, "label": "ebs-vol-inventory" } ],
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 900, "label": "ebs-snap-inventory" } ],
@@ -1261,6 +1292,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 900, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Sum", "period": 900, "label": "firehose-inventory" } ],
                   [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "ia2-analyzer-inventory" } ],
