@@ -91,6 +91,7 @@ def discover_connections(target_account, region):
         resource_item['errors']                         = {}
         if 'tags' in c:
             resource_item['tags']                       = parse_tags(c['tags'])
+
         save_resource_to_s3(CONNECTION_PATH, resource_item['resourceId'], resource_item)
 
 
