@@ -16,7 +16,7 @@ logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
-
+logging.basicConfig()
 
 # Lambda execution starts here
 def lambda_handler(event, context):
@@ -52,6 +52,11 @@ def lambda_handler(event, context):
 
             # This is a shitty hack to get around the fact Principal can be "*" or {"AWS": "*"} in an IAM Statement
             modified_resource_to_index = fix_principal(resource_to_index)
+
+            # Time is required to have '.' and 6 digits of precision following.  Some items lack the precision so add it.
+            if "configurationItemCaptureTime" in modified_resource_to_index:
+                if '.' not in modified_resource_to_index[ "configurationItemCaptureTime"]:
+                    modified_resource_to_index[ "configurationItemCaptureTime" ] += ".000000"
 
             # Now we need to build the ES command. We need the index and document name from the object_key
             key_parts = obj_key.split("/")
