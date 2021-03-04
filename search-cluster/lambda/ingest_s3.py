@@ -18,6 +18,18 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.basicConfig()
 
+# establish the Elastic Search host url
+host = "https://{}".format(os.environ['ES_DOMAIN_ENDPOINT'])
+
+# antiope's index model queries AWS for resources and writes each resource as an object in s3
+# the prefix to this object is used to define the name of the Elastic Search index and the object is
+# then inserted into Elastic Search. The array below excludes insertion from the specified prefix.
+excluded_resource_prefixes=[]
+if 'EXCLUDED_RESOURCE_PREFIXES' in os.environ:
+    if os.environ['EXCLUDED_RESOURCE_PREFIXES'] != '':
+        excluded_resource_prefixes=os.environ['EXCLUDED_RESOURCE_PREFIXES'].split(',')
+
+print( excluded_resource_prefixes )
 # Lambda execution starts here
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -27,7 +39,6 @@ def lambda_handler(event, context):
     credentials = boto3.Session().get_credentials()
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
 
-    host = "https://{}".format(os.environ['ES_DOMAIN_ENDPOINT'])
     es_type = "_doc"  # This is what es is moving to after deprecating types in 6.0
     headers = {"Content-Type": "application/json"}
 
@@ -41,10 +52,13 @@ def lambda_handler(event, context):
             continue
         logger.debug("records: {} message: {}".format(len(message['Records']), json.dumps(message, sort_keys=True)))
 
-
         for s3_record in message['Records']:
             bucket = s3_record['s3']['bucket']['name']
             obj_key = s3_record['s3']['object']['key']
+
+            if prefix_excluded( obj_key ):
+                logger.info( f"Prefix {obj_key} excluded: skipping insertion into ES" )
+                continue
 
             resource_to_index = get_object(bucket, obj_key)
             if resource_to_index is None:
@@ -194,3 +208,9 @@ def get_object(bucket, obj_key):
         else:
             logger.error("Error getting resource s3://{}/{}: {}".format(bucket, obj_key, e))
         return(None)
+
+def prefix_excluded(s3key):
+    for prefix in excluded_resource_prefixes:
+        if s3key.startswith( prefix ):
+            return True
+    return False

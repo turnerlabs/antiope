@@ -181,6 +181,11 @@ Parameters:
     Description: Name of the Antiope ES Domain
     Type: String
 
+  pExcludedResourcePrefixes:
+    Type: String
+    Description: Comma separated list of prefixes to exclude from pushing into
+    Default: ""
+
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
   cDeployCustomStack: !Not [ !Equals [ !Ref pDeployCustomStackStateMachineArn, "NONE"] ]
@@ -272,6 +277,7 @@ Resources:
           pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
           pElasticSearchVersion: !Ref pElasticSearchVersion
+          pExcludedResourcePrefixes: !Ref pExcludedResourcePrefixes
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 
@@ -730,4 +736,3 @@ Outputs:
   CognitoStackName:
     Description: Name of the Nested Cognito Stack
     Value: !Ref CognitoStack
-
