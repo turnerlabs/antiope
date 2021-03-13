@@ -112,45 +112,4 @@ def save_report_to_s3(event, tmp_csv):
     csvfile.close()
 
 
-if __name__ == '__main__':
 
-    # Process Arguments
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", help="print debugging info", action='store_true')
-    parser.add_argument("--error", help="print error info only", action='store_true')
-    parser.add_argument("--timestamp", help="Timestamp To generate report from", required=True)
-
-    args = parser.parse_args()
-
-    # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    if args.debug:
-        ch.setLevel(logging.DEBUG)
-        logging.getLogger('elasticsearch').setLevel(logging.DEBUG)
-        DEBUG = True
-    elif args.error:
-        ch.setLevel(logging.ERROR)
-    else:
-        ch.setLevel(logging.INFO)
-
-    # create formatter
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-    # add formatter to ch
-    ch.setFormatter(formatter)
-    # add ch to logger
-    logger.addHandler(ch)
-
-    os.environ['VPC_TABLE'] = "warnermedia-antiope-prod-aws-inventory-vpc-inventory"
-    os.environ['ACCOUNT_TABLE'] = "warnermedia-antiope-prod-aws-inventory-accounts"
-    os.environ['INVENTORY_BUCKET'] = "warnermedia-antiope"
-    os.environ['ROLE_NAME'] = "wmcso-audit"
-    os.environ['ROLE_SESSION_NAME'] = "Antiope"
-
-    event = {
-        'timestamp': args.timestamp
-    }
-
-    handler(event, {})
