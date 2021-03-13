@@ -77,11 +77,17 @@ Parameters:
       - "6.4"
       - "6.3"
 
+  pS3EventNotificationTopicArn:
+    Description: SNS Topic for the Elasticsearch SQS Queue to subscribe to.
+    Type: String
+    Default: None
+
 
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
   ReIndex: !Equals [ !Ref pReIndexSettings, True ]
-
+  SNS2SQS: !Not [ !Equals [ !Ref pS3EventNotificationTopicArn, "None"] ]
+  SQSEncryptionEnabled: !And [ !Equals [ !Ref pClusterEncryption, True ], !Equals [ !Ref pS3EventNotificationTopicArn, "None"] ]
 
 Resources:
 
@@ -247,7 +253,7 @@ Resources:
       CodeUri: ../lambda
       FunctionName: !Sub "${pResourcePrefix}-ingest-s3"
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
-      Handler: ingest_s3.lambda_handler
+      Handler: !If [ SNS2SQS, ingest_sns_sqs.lambda_handler, ingest_sqs_direct.lambda_handler ]
       Runtime: python3.6
       Timeout: !If [ ReIndex, 900, 180]
       MemorySize: 768
@@ -268,14 +274,17 @@ Resources:
   SearchIngestEventQueue:
     Type: AWS::SQS::Queue
     Properties:
+      # Note: SNS to SQS doesn't work if KMS is enabled. Since this SQS Queue only contains
+      # Account ID, Bucket and Object names, it's reasonably safe to not encrypt. YYMV
+      # We only support SQS Encryption if Encryption is enabled and SNS support is not.
       KmsMasterKeyId:
         Fn::If:
-          - EncryptionEnabled
+          - SQSEncryptionEnabled
           - Ref: SearchClusterKMSKey
           - Ref: AWS::NoValue
       KmsDataKeyReusePeriodSeconds:
         Fn::If:
-          - EncryptionEnabled
+          - SQSEncryptionEnabled
           - 86400
           - Ref: AWS::NoValue
       MessageRetentionPeriod: !If [ ReIndex, 10800, 3600]  # Any messages older than an hour are probably out-of-date
@@ -293,7 +302,8 @@ Resources:
         Version: '2012-10-17'
         Id: AllowS3
         Statement:
-        - Effect: Allow
+        - Sid: AllowS3EventNotification
+          Effect: Allow
           Principal:
             AWS: '*'
           Action:
@@ -302,6 +312,26 @@ Resources:
           Condition:
             ArnLike:
               aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+        - !If
+          - SNS2SQS
+          - Sid: Allow-SNS-SendMessage
+            Effect: Allow
+            Principal: "*"
+            Action:
+            - sqs:SendMessage
+            Resource: !GetAtt SearchIngestEventQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref pS3EventNotificationTopicArn
+          - !Ref AWS::NoValue
+
+  SearchIngestQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: SNS2SQS
+    Properties:
+      Endpoint: !GetAtt SearchIngestEventQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref pS3EventNotificationTopicArn
 
   SearchIngestS3FunctionMapping:
     Type: AWS::Lambda::EventSourceMapping
