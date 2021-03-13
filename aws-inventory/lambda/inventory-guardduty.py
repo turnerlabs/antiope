@@ -1,5 +1,5 @@
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 import json
 import os
 import time
@@ -49,16 +49,20 @@ def lambda_handler(event, context):
 def discover_detectors(target_account, region):
     '''Iterate across all regions to discover Cloudsecrets'''
 
-    detector_ids = []
-    client = target_account.get_client('guardduty', region=region)
-    response = client.list_detectors()
-    while 'nextToken' in response:  # Gotta Catch 'em all!
+    try:
+        detector_ids = []
+        client = target_account.get_client('guardduty', region=region)
+        response = client.list_detectors()
+        while 'nextToken' in response:  # Gotta Catch 'em all!
+            detector_ids += response['DetectorIds']
+            response = client.list_detectors(nextToken=response['NextToken'])
         detector_ids += response['DetectorIds']
-        response = client.list_detectors(nextToken=response['NextToken'])
-    detector_ids += response['DetectorIds']
 
-    for d in detector_ids:
-        process_detector(client, d, target_account, region)
+        for d in detector_ids:
+            process_detector(client, d, target_account, region)
+    except EndpointConnectionError as e:
+        # Great, Another region that was introduced without GuardDuty Support
+        logger.warning(f"EndpointConnectionError for GuardDuty in region {region}")
 
 
 def process_detector(client, detector_id, target_account, region):
