@@ -32,6 +32,12 @@ def lambda_handler(event, context):
             except EndpointConnectionError as e:
                 # Great, Another region that was introduced without GuardDuty Support
                 logger.warning(f"EndpointConnectionError for SageMaker in region {r}")
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.warning(f"Access Denied for SageMaker in region {r} for account {target_account.account_name}({target_account.account_id}): {e}")
+                    continue
+                else:
+                    raise
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

@@ -42,8 +42,13 @@ def lambda_handler(event, context):
 
         # describe ec2 instances
         for r in regions:
-            ec2_client = target_account.get_client('ec2', region=r)
-            process_instances(target_account, ec2_client, r)
+            try:
+                ec2_client = target_account.get_client('ec2', region=r)
+                process_instances(target_account, ec2_client, r)
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'UnauthorizedOperation':
+                    logger.warning(f"Antiope doesn't have proper permissions to inventory AMIs in {target_account.account_name} ({target_account.account_id}) in region {r}: {e}")
+                    continue
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

@@ -77,11 +77,19 @@ def discover_trails(target_account, region):
         resource_item['ARN']                            = trail['TrailARN']
         resource_item['errors']                         = {}
 
-        event_response = ct_client.get_event_selectors(TrailName=trail['Name'])
-        resource_item['supplementaryConfiguration']['EventSelectors'] = event_response['EventSelectors']
+        try:
+            event_response = ct_client.get_event_selectors(TrailName=trail['Name'])
+            resource_item['supplementaryConfiguration']['EventSelectors'] = event_response['EventSelectors']
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'TrailNotFoundException':
+                resource_item['errors']['EventSelectors'] = e
 
-        status_response = ct_client.get_trail_status(Name=trail['Name'])
-        resource_item['supplementaryConfiguration']['Status'] = status_response
-        del(resource_item['supplementaryConfiguration']['Status']['ResponseMetadata'])
+        try:
+            status_response = ct_client.get_trail_status(Name=trail['Name'])
+            resource_item['supplementaryConfiguration']['Status'] = status_response
+            del(resource_item['supplementaryConfiguration']['Status']['ResponseMetadata'])
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'TrailNotFoundException':
+                resource_item['errors']['Status'] = e
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
