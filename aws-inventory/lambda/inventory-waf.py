@@ -41,7 +41,7 @@ def lambda_handler(event, context):
                     raise  # pass on to the next handlier
             except EndpointConnectionError as e:
                 # Great, Another region that was introduced without GuardDuty Support
-                logger.warning(f"EndpointConnectionError for WAF in region {region}")
+                logger.warning(f"EndpointConnectionError for WAF in region {r}")
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
