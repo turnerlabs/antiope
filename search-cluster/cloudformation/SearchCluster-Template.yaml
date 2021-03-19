@@ -74,6 +74,10 @@ Parameters:
     Description: Comma separated list of prefixes to exclude from pushing into
     Default: ""
 
+  pAWSInventoryBucketEventSNSTopic:
+    Type: String
+    Description: S3 put event notifications from the inventory process
+
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
   ReIndex: !Equals [ !Ref pReIndexSettings, True ]
@@ -289,7 +293,19 @@ Resources:
           Resource: !GetAtt SearchIngestEventQueue.Arn
           Condition:
             ArnLike:
-              aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+              aws:SourceArn:
+                - !Sub "arn:aws:s3:*:*:${pBucketName}"
+                - !Ref pAWSInventoryBucketEventSNSTopic
+
+  # subscribe to SNS topic of inspector bucket.
+  Subscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref pAWSInventoryBucketEventSNSTopic
+      Endpoint: !GetAtt SearchIngestEventQueue.Arn
+      # RedrivePolicy:
+      #   deadLetterTargetArn: !GetAtt DeadLetterSQSQueue.Arn
 
   SearchIngestS3FunctionMapping:
     Type: AWS::Lambda::EventSourceMapping

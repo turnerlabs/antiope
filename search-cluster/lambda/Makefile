@@ -6,7 +6,7 @@ PIP=pip3
 
 FILES=ingest_s3.py
 
-DEPENDENCIES=
+DEPENDENCIES=awsevents.py
 
 package: test clean deps zipfile
 

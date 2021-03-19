@@ -116,6 +116,7 @@ cft-validate:
 clean:
 	cd aws-inventory && $(MAKE) clean
 	cd search-cluster && $(MAKE) clean
+	cd splunk-ingest && $(MAKE) clean
 	cd lambda_layer && $(MAKE) clean
 	rm -f cloudformation/$(OUTPUT_TEMPLATE_PREFIX)*
 

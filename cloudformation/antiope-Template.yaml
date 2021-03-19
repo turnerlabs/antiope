@@ -63,6 +63,14 @@ Parameters:
       - True
       - False
 
+  pDeploySplunkIngest:
+    Type: String
+    Description: Deploy the Splunk Ingest component of Antiope
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
   pRuleState:
     Type: String
     Description: Enable to disable the CloudWatch Event to fire the Stepfunction
@@ -109,14 +117,6 @@ Parameters:
     Type: Number
     Description: Cluster Instance Count
     Default: 1
-
-  pClusterEncryption:
-    Type: String
-    Description: Enable Encryption for the Elasticsearch Cluster
-    Default: False
-    AllowedValues:
-      - True
-      - False
 
   pElasticSearchVersion:
     Type: String
@@ -186,8 +186,22 @@ Parameters:
     Description: Comma separated list of prefixes to exclude from pushing into
     Default: ""
 
+  pSplunkHecUrl:
+    Type: String
+    Description: Splunk HEC URL
+
+  pSplunkIndex:
+    Type: String
+    Description: Splunk Index
+
+  pSplunkHecSecret:
+    Type: String
+    Description: HEC Token
+    Default: '{ "HecAccessToken": "NothingToSeeHere" }'
+
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
+  cDeploySplunkIngest: !Equals [ !Ref pDeploySplunkIngest, True]
   cDeployCustomStack: !Not [ !Equals [ !Ref pDeployCustomStackStateMachineArn, "NONE"] ]
   cDeployAzureStack: !Not [ !Equals [ !Ref pDeployAzureStackStateMachineArn, "NONE"] ]
   cDeployGCPStack: !Not [ !Equals [ !Ref pDeployGCPStackStateMachineArn, "NONE"] ]
@@ -278,9 +292,28 @@ Resources:
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
           pElasticSearchVersion: !Ref pElasticSearchVersion
           pExcludedResourcePrefixes: !Ref pExcludedResourcePrefixes
+          pAWSInventoryBucketEventSNSTopic:
+            Fn::GetAtt:
+            - AWSInventoryStack
+            - Outputs.AWSInventoryBucketEventSNSTopic
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 
+  SplunkIngestStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: cDeploySplunkIngest
+    Properties:
+      Parameters:
+          pBucketName: !Ref pBucketName
+          pResourcePrefix: !Sub "${AWS::StackName}-splunk-ingest"
+          pSplunkHecUrl: !Ref pSplunkHecUrl
+          pSplunkIndex: !Ref pSplunkIndex
+          pAWSInventoryBucketEventSNSTopic:
+            Fn::GetAtt:
+            - AWSInventoryStack
+            - Outputs.AWSInventoryBucketEventSNSTopic
+      TemplateURL: ../splunk-ingest/cloudformation/SplunkIngest-Template.yaml
+      TimeoutInMinutes: 30
   #
   # Global StepFunction
   #

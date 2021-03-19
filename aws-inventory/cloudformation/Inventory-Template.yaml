@@ -1074,6 +1074,71 @@ Resources:
           "role_session_name": "${pResourcePrefix}"
         }
 
+#
+# Create an SNS topic to which S3 will send PUT event notifications of .json objects created by the Inventory process
+#
+  SNSKMSKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: SNS Topic KMS Key
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Id: key-default-1
+        Statement:
+        - Sid: Allow administration of the key
+          Effect: Allow
+          Principal:
+            AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action: ['kms:Create*', 'kms:Describe*', 'kms:Enable*', 'kms:List*', 'kms:Put*',
+            'kms:Update*', 'kms:Revoke*', 'kms:Disable*', 'kms:Get*', 'kms:Delete*',
+            'kms:ScheduleKeyDeletion', 'kms:CancelKeyDeletion', 'kms:Decrypt', 'kms:TagResource']
+          Resource: '*'
+        - Sid: Allow use of the key via org condition
+          Effect: Allow
+          Principal:
+            Service:
+              - s3.amazonaws.com
+              - sns.amazonaws.com
+          Action: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey']
+          Resource: '*'
+
+  SNSKMSKeyAlias:
+    Type: "AWS::KMS::Alias"
+    Properties:
+      AliasName: !Sub "alias/${AWS::StackName}-snstopic"
+      TargetKeyId: !Ref SNSKMSKey
+
+  BucketEventSnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      KmsMasterKeyId: !Ref SNSKMSKeyAlias
+
+  BucketEventSnsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Id: InventoryS3SnsNotification
+        Statement:
+          - Sid: LoggingS3SnsNotification
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+              - SNS:Publish
+              - SNS:Receive
+            Resource: !Ref BucketEventSnsTopic
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub arn:aws:s3:*:*:${pBucketName}
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Topics:
+        - !Ref BucketEventSnsTopic
 
   #
   # Dashboard
@@ -1450,6 +1515,10 @@ Outputs:
   ForeignAccountNotificationTopic:
     Value: !Ref NewForeignAccountTopic
     Description: The discovery of new foreign (ie discovered in AMI or AssumeRole Policies) are sent to this topic
+
+  AWSInventoryBucketEventSNSTopic:
+    Value: !Ref BucketEventSnsTopic
+    Description:  SNS Topic receiving S3 Put object events of json inventory objects
 
   BucketName:
     Value: !Ref pBucketName

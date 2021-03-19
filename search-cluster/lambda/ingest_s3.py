@@ -9,6 +9,8 @@ import time
 import datetime
 from dateutil import tz
 from urllib.parse import unquote
+from awsevents import AWSevent
+
 
 import logging
 logger = logging.getLogger()
@@ -29,7 +31,6 @@ if 'EXCLUDED_RESOURCE_PREFIXES' in os.environ:
     if os.environ['EXCLUDED_RESOURCE_PREFIXES'] != '':
         excluded_resource_prefixes=os.environ['EXCLUDED_RESOURCE_PREFIXES'].split(',')
 
-print( excluded_resource_prefixes )
 # Lambda execution starts here
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -45,49 +46,51 @@ def lambda_handler(event, context):
     bulk_ingest_body = ""
     count = 0
 
-    for record in event['Records']:
-        message = json.loads(record['body'])
-        if 'Records' not in message:
-            logger.error(f"Got Message with no records: {json.dumps(message, indent=2, sort_keys=True)}")
+    # we're only interested in the s3 events
+    evt = AWSevent( event )
+
+    # the last event in the list the one we are interested in
+    if "s3" not in evt.events:
+        logger.info( f'No s3 records found within event: {event}')
+        return( event )
+
+    for record in evt.events["s3"]:
+
+        bucket = record['s3']['bucket']['name']
+        obj_key = record['s3']['object']['key']
+
+        if prefix_excluded( obj_key ):
+            logger.info( f"Prefix {obj_key} excluded: skipping insertion into ES" )
             continue
-        logger.debug("records: {} message: {}".format(len(message['Records']), json.dumps(message, sort_keys=True)))
 
-        for s3_record in message['Records']:
-            bucket = s3_record['s3']['bucket']['name']
-            obj_key = s3_record['s3']['object']['key']
+        resource_to_index = get_object(bucket, obj_key)
+        if resource_to_index is None:
+            continue
 
-            if prefix_excluded( obj_key ):
-                logger.info( f"Prefix {obj_key} excluded: skipping insertion into ES" )
-                continue
+        # This is a shitty hack to get around the fact Principal can be "*" or {"AWS": "*"} in an IAM Statement
+        modified_resource_to_index = fix_principal(resource_to_index)
 
-            resource_to_index = get_object(bucket, obj_key)
-            if resource_to_index is None:
-                continue
+        # Time is required to have '.' and 6 digits of precision following.  Some items lack the precision so add it.
+        if "configurationItemCaptureTime" in modified_resource_to_index:
+            if '.' not in modified_resource_to_index[ "configurationItemCaptureTime"]:
+                modified_resource_to_index[ "configurationItemCaptureTime" ] += ".000000"
 
-            # This is a shitty hack to get around the fact Principal can be "*" or {"AWS": "*"} in an IAM Statement
-            modified_resource_to_index = fix_principal(resource_to_index)
+        # Now we need to build the ES command. We need the index and document name from the object_key
+        key_parts = obj_key.split("/")
+        # The Elastic Search document id, is the object_name minus the file suffix
+        es_id = key_parts.pop().replace(".json", "")
 
-            # Time is required to have '.' and 6 digits of precision following.  Some items lack the precision so add it.
-            if "configurationItemCaptureTime" in modified_resource_to_index:
-                if '.' not in modified_resource_to_index[ "configurationItemCaptureTime"]:
-                    modified_resource_to_index[ "configurationItemCaptureTime" ] += ".000000"
+        # The Elastic Search Index is the remaining object prefix, all lowercase with the "/" replaced by "_"
+        index = "_".join(key_parts).lower()
 
-            # Now we need to build the ES command. We need the index and document name from the object_key
-            key_parts = obj_key.split("/")
-            # The Elastic Search document id, is the object_name minus the file suffix
-            es_id = key_parts.pop().replace(".json", "")
+        # Now concat that all together for the Bulk API
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 
-            # The Elastic Search Index is the remaining object prefix, all lowercase with the "/" replaced by "_"
-            index = "_".join(key_parts).lower()
-
-            # Now concat that all together for the Bulk API
-            # https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
-
-            command = {"index": {"_index": index, "_type": "_doc", "_id": es_id}}
-            command_str = json.dumps(command, separators=(',', ':'))
-            document = json.dumps(modified_resource_to_index, separators=(',', ':'))
-            bulk_ingest_body += f"{command_str}\n{document}\n"
-            count += 1
+        command = {"index": {"_index": index, "_type": "_doc", "_id": es_id}}
+        command_str = json.dumps(command, separators=(',', ':'))
+        document = json.dumps(modified_resource_to_index, separators=(',', ':'))
+        bulk_ingest_body += f"{command_str}\n{document}\n"
+        count += 1
 
     # Don't call ES if there is nothing to do.
     if count == 0:
