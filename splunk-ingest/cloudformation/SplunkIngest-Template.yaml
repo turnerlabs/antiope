@@ -1,0 +1,264 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy the Splunk Ingest Component of Antiope
+Transform: AWS::Serverless-2016-10-31
+
+
+Parameters:
+
+  pBucketName:
+    Description: Name of the bucket to hold the images
+    Type: String
+
+  pResourcePrefix:
+    Type: String
+    Description: Resource Prefix (should relate to parent stack)
+
+  pSplunkHecUrl:
+    Type: String
+    Description: Splunk HEC URL
+
+  pSplunkIndex:
+    Type: String
+    Description: Splunk Index
+
+  pSplunkHecSecret:
+    Type: String
+    Description: HEC Token
+    Default: '{ "HecAccessToken": "NothingToSeeHere" }'
+
+  pSQSQueueEncryption:
+    Type: String
+    Description: Resource Prefix (should relate to parent stack)
+    Default: True
+    AllowedValues:
+      - True
+      - False
+
+  pAWSInventoryBucketEventSNSTopic:
+    Type: String
+    Description: S3 put event notifications from the inventory process
+
+Conditions:
+  EncryptionEnabled: !Equals [ !Ref pSQSQueueEncryption, True ]
+
+Resources:
+
+  SQSKMSKey:
+    Type: AWS::KMS::Key
+    Condition: EncryptionEnabled
+    Properties:
+      Description: !Sub ${pResourcePrefix} KMS Key in ${AWS::StackName}
+      Enabled: True
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "allow-iam"
+        Statement:
+          - Sid: "Allow everyone use of the key"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "kms:*"
+            Resource: "*"
+          - Sid: "Allow s3 use of the key"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "s3.amazonaws.com"
+                - "sqs.amazonaws.com"
+                - "lambda.amazonaws.com"
+            Action:
+              - "kms:GenerateDataKey*"
+              - "kms:Decrypt"
+            Resource: "*"
+
+  SQSKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Condition: EncryptionEnabled
+    Properties:
+      AliasName: !Sub "alias/${pResourcePrefix}-kmskey"
+      TargetKeyId: !Ref SQSKMSKey
+
+  HecAccessTokenSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Splunk HEC access token
+      Name: !Ref AWS::StackName
+      SecretString: !Ref pSplunkHecSecret
+      KmsKeyId: !If [ EncryptionEnabled, !Ref SQSKMSKeyAlias, !Ref AWS::NoValue ]
+
+  IngestLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName , /*]]
+              - !Join ['', ['arn:aws:s3:::', !Ref pBucketName ]]
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+      - PolicyName: LambdaLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: '*'
+            Action:
+            - logs:*
+            Effect: Allow
+      - PolicyName: GetMessages
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: !GetAtt SplunkIngestEventQueue.Arn
+            Action:
+            - sqs:*
+            Effect: Allow
+      - PolicyName: KMSDecrypt
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource:
+            - !If
+              - EncryptionEnabled
+              - !GetAtt SQSKMSKey.Arn
+              - !Sub "arn:aws:kms:us-east-1:${AWS::AccountId}:key/thiskeydoesntexist"
+            Action:
+            - kms:GenerateDataKey*
+            - kms:Decrypt
+            Effect: Allow
+      - PolicyName: SecretsAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource:
+              - !Ref HecAccessTokenSecret
+
+  #
+  # Ingestion Function Functions
+  #
+  SplunkIngestS3Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda
+      FunctionName: !Sub "${pResourcePrefix}"
+      Description: AWS Lamdba to pull data from S3 to Splunk index
+      Handler: handler.handler
+      Runtime: python3.8
+      MemorySize: 768
+      ReservedConcurrentExecutions: 50
+      Role: !GetAtt IngestLambdaRole.Arn
+      Environment:
+        Variables:
+          SplunkHecUrl: !Ref pSplunkHecUrl
+          SplunkIndex: !Ref pSplunkIndex
+          HecAccessTokenSecretArn: !Ref AWS::StackName
+          LOG_LEVEL: INFO
+      # Tags inherited from Stack
+
+  SplunkIngestEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsMasterKeyId:
+        Fn::If:
+          - EncryptionEnabled
+          - Ref: SQSKMSKey
+          - Ref: AWS::NoValue
+      KmsDataKeyReusePeriodSeconds:
+        Fn::If:
+          - EncryptionEnabled
+          - 86400
+          - Ref: AWS::NoValue
+      MessageRetentionPeriod: 3600
+      ReceiveMessageWaitTimeSeconds: 10
+      # RedrivePolicy:
+      #   FIXME
+      VisibilityTimeout: 300
+
+  SplunkIngestEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SplunkIngestEventQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: AllowS3
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - SQS:SendMessage
+          Resource: !GetAtt SplunkIngestEventQueue.Arn
+          Condition:
+            ArnLike:
+              aws:SourceArn:
+                - !Sub "arn:aws:s3:*:*:${pBucketName}"
+                - !Ref pAWSInventoryBucketEventSNSTopic
+
+  # subscribe to SNS topic of inspector bucket.
+  Subscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: sqs
+      TopicArn: !Ref pAWSInventoryBucketEventSNSTopic
+      Endpoint: !GetAtt SplunkIngestEventQueue.Arn
+      # RedrivePolicy:
+      #   deadLetterTargetArn: !GetAtt DeadLetterSQSQueue.Arn
+
+  SplunkIngestS3FunctionMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10 # 10 is Max
+      Enabled: True
+      EventSourceArn: !GetAtt SplunkIngestEventQueue.Arn
+      FunctionName: !GetAtt SplunkIngestS3Function.Arn
+
+  SpunkIngestEventQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      # AlarmActions:
+      #   - String
+      AlarmDescription: "Alert when Queue doesn't properly drain"
+      AlarmName: !Sub "${pResourcePrefix}-SplunkQueueFull"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt SplunkIngestEventQueue.QueueName
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      # OKActions:
+      #   - String
+      Period: 300
+      Statistic: Average
+      Threshold: 80000
+      TreatMissingData: missing
+
+Outputs:
+  StackName:
+    Description: Name of this Stack
+    Value: !Ref AWS::StackName

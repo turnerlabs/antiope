@@ -1,0 +1,3 @@
+# Include any dependencies not part of the Lambda layer here.
+# This is a good place for any dependencies that change a lot
+certifi
