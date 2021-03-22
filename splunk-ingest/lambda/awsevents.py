@@ -51,7 +51,8 @@ class AWSevent(dict):
         # AWS stripped the eventsource so we have guess
         if "TopicArn" in record:
             return( "sns" )
-
+        if "s3" in record:
+            return( "s3" )
 
     def sns(self, record):
         if "Sns" in record:

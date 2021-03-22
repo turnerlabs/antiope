@@ -9,6 +9,7 @@ import json
 import os
 import logging
 import gzip
+from urllib.parse import unquote
 from botocore.exceptions import ClientError
 
 from resourceloader import resourceloader
@@ -25,7 +26,7 @@ logging.basicConfig()
 
 # we only want to retrieve these once
 hec_token = get_secret( os.environ["HecAccessTokenSecretArn"] )[ "HecAccessToken" ]
-hec = SplunkHEC( os.environ["SplunkHecUrl"], hec_token )
+
 
 def handler( event, context ):
 
@@ -51,7 +52,8 @@ def handler( event, context ):
         logger.info( f'No s3 records found within event: {event}')
         return( event )
 
-    # the last event in the list the one we are interested in
+    # allocate the Splunk hec object
+    hec = SplunkHEC( os.environ["SplunkHecUrl"], hec_token )
 
     for record in evt.events["s3"]:
 
@@ -59,25 +61,31 @@ def handler( event, context ):
         logger.debug( "Event Message:" + json.dumps(record, sort_keys=True) )
 
         # establish object to read
-        s3Object = f's3://{record["s3"]["bucket"]["name"]}/{record["s3"]["object"]["key"]}'
+        s3Object = f's3://{record["s3"]["bucket"]["name"]}/{unquote( record["s3"]["object"]["key"] ).replace( "+", " ")}'
+
+        # load the object from s3
+        logger.debug( f'loading object: {s3Object}')
+        resource = resourceloader( src=s3Object, ).getdata().decode("utf-8")
 
         # set the meta data
         hec.set_metadata(index=os.environ["SplunkIndex"], host=s3Object, sourcetype="json")
 
-        resource = resourceloader( src=s3Object, ).getdata().decode("utf-8")
-
-        # push resource to Splunk
+        # push resource to Splunk discarding the data if we get a 503 because it is too big
         status, text = hec.batch_events( resource )
         if status != 200:
             logger.error( f'{status}, {text}')
-            raise Exception( f'Splunk returned {status}, {text}' )
+            if status != 503:
+                raise Exception( f'Splunk returned {status}, {text}' )
+            else:
+                return( event )
 
 
-# flush out the buffer
+# flush out the buffer discarding the data if we get a 503 because it is too big
     status, text = hec.send()
     if status != 200:
         logger.error( f'{status}, {text}')
-        raise Exception( f'Splunk returned {status}, {text}' )
+        if status != 503:
+            raise Exception( f'Splunk returned {status}, {text}' )
     else:
         logger.debug( f'Splunk returned {status}, {text}' )
 

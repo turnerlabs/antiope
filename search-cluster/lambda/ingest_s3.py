@@ -59,6 +59,12 @@ def lambda_handler(event, context):
         bucket = record['s3']['bucket']['name']
         obj_key = record['s3']['object']['key']
 
+        # establish object to read
+        s3Object = f's3://{record["s3"]["bucket"]["name"]}/{unquote( record["s3"]["object"]["key"] ).replace( "+", " ")}'
+
+        # load the object from s3
+        logger.debug( f'loading object: {s3Object}')
+
         if prefix_excluded( obj_key ):
             logger.info( f"Prefix {obj_key} excluded: skipping insertion into ES" )
             continue

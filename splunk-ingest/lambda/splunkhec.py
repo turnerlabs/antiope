@@ -52,11 +52,19 @@ class SplunkHEC:
             self.eventslen += eventlen
             return( 200, "Success" )
         else:
-            status, text = self.send()
-            if status == 200:
+            if len( self.events ) > 0:
+                status, text = self.send()
+                if status == 200:
+                    self.events.append( eventstr )
+                    self.eventslen += eventlen
+                return( status, text )
+            if eventlen < self.maxmsgsize:
                 self.events.append( eventstr )
                 self.eventslen += eventlen
-            return( status, text )
+                return( 200, "Success")
+            else:
+                return 503, f"Event data len {eventlen} exceeds maximum of {self.maxmsgsize}."
+
 
     """
     event data is the actual event data

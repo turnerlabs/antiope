@@ -12,7 +12,8 @@ FILES = waf-log-to-splunk.py \
 
 STATICFILES =
 
-DEPENDENCIES  = certifi
+DEPENDENCIES  = certifi \
+				urllib
 
 
 package: test clean deps zipfile
