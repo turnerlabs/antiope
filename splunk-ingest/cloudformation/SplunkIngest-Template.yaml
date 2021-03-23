@@ -168,6 +168,7 @@ Resources:
       Description: AWS Lamdba to pull data from S3 to Splunk index
       Handler: handler.handler
       Runtime: python3.8
+      Timeout: 180
       MemorySize: 768
       ReservedConcurrentExecutions: 50
       Role: !GetAtt IngestLambdaRole.Arn
