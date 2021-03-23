@@ -26,22 +26,24 @@ class AWSevent(dict):
         if "Records" in event:
             for record in event[ "Records" ]:
                 src = self.extract_source( record )
+                if src is not None:
+                    if src not in self.events:
+                        self.events[src] = []
+                    content = getattr( self, src )
+                    evt = content(record)
+                    self.events[src].append( evt )
+                    if src in self.carrier_sources:
+                        self.extract_events( evt )
+        else:
+            src = self.extract_source( event )
+            if src is not None:
                 if src not in self.events:
                     self.events[src] = []
                 content = getattr( self, src )
-                evt = content(record)
+                evt = content(event)
                 self.events[src].append( evt )
                 if src in self.carrier_sources:
                     self.extract_events( evt )
-        else:
-            src = self.extract_source( event )
-            if src not in self.events:
-                self.events[src] = []
-            content = getattr( self, src )
-            evt = content(event)
-            self.events[src].append( evt )
-            if src in self.carrier_sources:
-                self.extract_events( evt )
 
     def extract_source(self, record):
         for key in self.source_keys:
@@ -53,6 +55,7 @@ class AWSevent(dict):
             return( "sns" )
         if "s3" in record:
             return( "s3" )
+
 
     def sns(self, record):
         if "Sns" in record:

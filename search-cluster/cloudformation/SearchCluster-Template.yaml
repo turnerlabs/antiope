@@ -147,6 +147,7 @@ Resources:
                 - "s3.amazonaws.com"
                 - "sqs.amazonaws.com"
                 - "lambda.amazonaws.com"
+                - "sns.amazonaws.com"
             Action:
               - "kms:GenerateDataKey*"
               - "kms:Decrypt"
