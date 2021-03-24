@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create and Manage the Antiope S3 Bucket (and event notifications)
+
+Parameters:
+
+  pBucketName:
+    Description: Name of the Antiope Bucket to hold all the data
+    Type: String
+
+Resources:
+  AntiopeBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    # DependsOn: AntiopeBucketNotificationTopicPolicy
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Ref pBucketName
+
+
