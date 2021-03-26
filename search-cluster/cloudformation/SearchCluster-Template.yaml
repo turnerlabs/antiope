@@ -82,6 +82,10 @@ Parameters:
     Type: String
     Default: None
 
+  pExcludedResourcePrefixes:
+    Type: String
+    Description: Comma separated list of prefixes to exclude from pushing into
+    Default: ""
 
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
@@ -269,6 +273,7 @@ Resources:
           ES_DOMAIN_ENDPOINT: !GetAtt SearchClusterDomain.DomainEndpoint
           SQS_QUEUE_URL: !Ref SearchIngestEventQueue
           LOG_LEVEL: INFO
+          EXCLUDED_RESOURCE_PREFIXES: !Ref pExcludedResourcePrefixes
       # Tags inherited from Stack
 
   SearchIngestEventQueue:
