@@ -16,7 +16,11 @@ def parse_tags(tagset):
     """Convert the tagset as returned by AWS into a normal dict of {"tagkey": "tagvalue"}"""
     output = {}
     for tag in tagset:
-        output[tag['Key']] = tag['Value']
+        # aws is inconsistent with tags sometimes they use caps and sometimes not
+        if 'Key' in tag:
+            output[tag['Key']] = tag['Value']
+        if 'key' in tag:
+            output[tag['key']] = tag['value']
     return(output)
 
 
@@ -127,4 +131,3 @@ def set_debug(event, logger):
 
 class LambdaRunningOutOfTime(Exception):
     '''raised by functions when the timeout is about to be hit'''
-
