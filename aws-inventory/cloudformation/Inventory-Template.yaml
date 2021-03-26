@@ -484,6 +484,7 @@ Resources:
       Handler: inventory-iam.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
+      Timeout: 900
       Events:
         AccountInventoryTrigger:
           Type: SNS
