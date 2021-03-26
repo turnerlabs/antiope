@@ -18,7 +18,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 assume_role_link = "<a href=\"https://signin.aws.amazon.com/switchrole?account={}&roleName={}&displayName={}\">{}</a>"
-
+RESOURCE_PATH = "organizations/account"
 
 # Lambda main routine
 def handler(event, context):
@@ -69,6 +69,8 @@ def handler(event, context):
             j['assume_role_link'] = "No Cross Account Role"
         json_data['accounts'].append(j)
 
+        save_account_as_resource(a)
+
     json_data['timestamp'] = datetime.datetime.now()
     json_data['account_count'] = len(active_accounts)
     json_data['bucket'] = os.environ['INVENTORY_BUCKET']
@@ -110,3 +112,24 @@ def handler(event, context):
         raise
 
     return(event)
+
+
+def save_account_as_resource(target_account):
+
+    resource_item = {}
+    resource_item['awsAccountId']                   = target_account.account_id
+    resource_item['awsAccountName']                 = target_account.account_name
+    resource_item['resourceType']                   = "AWS::Organizations::Account"
+    resource_item['source']                         = "Antiope"
+    resource_item['ARN']                            = target_account.db_record['payer_record']['Arn']
+    resource_item['resourceCreationTime']           = target_account.db_record['payer_record']['JoinedTimestamp']
+    resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+    resource_item['configuration']                  = target_account.db_record.copy()
+    resource_item['supplementaryConfiguration']     = {}
+    resource_item['resourceId']                     = target_account.account_id
+    resource_item['resourceName']                   = target_account.account_name
+    resource_item['errors']                         = {}
+
+    save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}", resource_item)
+
+
