@@ -27,7 +27,14 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
-            discover_clusters(target_account, r)
+            try:
+                discover_clusters(target_account, r)
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDenied':
+                    logger.warning(f"Access Denied for Redshift in region {r} for account {target_account.account_name}({target_account.account_id}): {e}")
+                    continue
+                else:
+                    raise
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

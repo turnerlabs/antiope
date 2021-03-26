@@ -1,5 +1,5 @@
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 import json
 import os
 import time
@@ -27,7 +27,17 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
-            discover_notebooks(target_account, r)
+            try:
+                discover_notebooks(target_account, r)
+            except EndpointConnectionError as e:
+                # Great, Another region that was introduced without GuardDuty Support
+                logger.warning(f"EndpointConnectionError for SageMaker in region {r}")
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.warning(f"Access Denied for SageMaker in region {r} for account {target_account.account_name}({target_account.account_id}): {e}")
+                    continue
+                else:
+                    raise
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

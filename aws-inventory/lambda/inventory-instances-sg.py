@@ -41,7 +41,10 @@ def lambda_handler(event, context):
             except ClientError as e:
                 # Move onto next region if we get access denied. This is probably SCPs
                 if e.response['Error']['Code'] == 'AccessDeniedException':
-                    logger.error(f"AccessDeniedException for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id})")
+                    logger.warning(f"AccessDeniedException for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id}): {e}")
+                    continue
+                elif e.response['Error']['Code'] == 'UnauthorizedOperation':
+                    logger.warning(f"UnauthorizedOperation for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id}): {e}")
                     continue
                 else:
                     raise  # pass on to the next handlier
@@ -63,7 +66,7 @@ def process_instances(target_account, ec2_client, region):
 
     instance_profiles = get_instance_profiles(ec2_client)
     instance_reservations = get_all_instances(ec2_client)
-    logger.info("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
+    logger.debug("Found {} instance reservations for {} in {}".format(len(instance_reservations), target_account.account_id, region))
 
     # dump info about instances to S3 as json
     for reservation in instance_reservations:
@@ -93,7 +96,7 @@ def process_instances(target_account, ec2_client, region):
 def process_securitygroups(target_account, ec2_client, region):
 
     sec_groups = get_all_securitygroups(ec2_client)
-    logger.info("Found {} security groups for {} in {}".format(len(sec_groups), target_account.account_id, region))
+    logger.debug("Found {} security groups for {} in {}".format(len(sec_groups), target_account.account_id, region))
 
     # dump info about instances to S3 as json
     for sec_group in sec_groups:

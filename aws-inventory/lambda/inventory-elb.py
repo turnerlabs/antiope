@@ -31,8 +31,14 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
-            discover_elbv1(target_account, r)
-            discover_elbv2(target_account, r)
+            try:
+                discover_elbv1(target_account, r)
+                discover_elbv2(target_account, r)
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDenied':
+                    logger.warning(f"AccessDenied attempting to discover ELBs in {target_account.account_name} ({target_account.account_id}) in region {r}: {e}")
+                    continue
+
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

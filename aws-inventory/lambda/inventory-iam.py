@@ -100,7 +100,6 @@ def process_role(role, account, iam_client):
     response = iam_client.list_attached_role_policies(RoleName=role['RoleName']) # FIXME Paganation can occur.
     resource_item['supplementaryConfiguration']['AttachedPolicies'] = response['AttachedPolicies']
 
-    save_resource_to_s3(ROLE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
     # Now here is the interesting bit. What other accounts does this role trust, and do we know them?
     for s in role['AssumeRolePolicyDocument']['Statement']:
@@ -108,13 +107,15 @@ def process_role(role, account, iam_client):
             logger.error("Found an assume role policy that trusts everything!!!: {}".format(role_arn))
             # raise GameOverManGameOverException("Found an assume role policy that trusts everything!!!: {}".format(role['Arn']))
             # Put this into the resource under a specific key so we can search on these later
-            response['CriticalFinding'] == f"Found an assume role policy that trusts everything!!!: {role['Arn']}"
+            resource_item['CriticalFinding'] == f"Found an assume role policy that trusts everything!!!: {role['AssumeRolePolicyDocument']['Statement']}"
         elif 'AWS' in s['Principal']:  # This means it's trusting an AWS Account and not an AWS Service.
             if type(s['Principal']['AWS']) is list:
                 for p in s['Principal']['AWS']:
                     process_trusted_account(p, role['Arn'])
             else:
                 process_trusted_account(s['Principal']['AWS'], role['Arn'])
+
+    save_resource_to_s3(ROLE_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
 def process_trusted_account(principal, role_arn):
