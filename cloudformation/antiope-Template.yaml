@@ -343,6 +343,7 @@ Resources:
             Effect: Allow
             Resource:
               - !GetAtt LoadStepFunctionEventLambdaFunction.Arn
+              - !GetAtt ErrorReportLambdaFunction.Arn
       - PolicyName: InvokeStepFunctions
         PolicyDocument:
           Version: '2012-10-17'
@@ -522,6 +523,10 @@ Resources:
               Input:
                 AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
                 Payload.$: $
+            Next: ErrorReportLambdaFunction
+          ErrorReportLambdaFunction:
+            Type: Task
+            Resource: !GetAtt ErrorReportLambdaFunction.Arn
             End: true
           WaitForStepFunctionToFinish:
             Type : Wait
@@ -586,6 +591,130 @@ Resources:
       Threshold: 1
       TreatMissingData: missing
 
+  ErrorReportLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-dump-errors"
+      Description: Dump the Error Queue at the end of the run
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 180
+      MemorySize: 1024
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: "Allow"
+          Action:
+          - sqs:ReceiveMessage
+          - sqs:DeleteMessage
+          Resource: !GetAtt ErrorHandlerEventQueue.Arn
+        - Effect: "Allow"
+          Action:
+          - s3:PutObject
+          Resource: !Sub "arn:aws:s3:::${pBucketName}/ErrorReports/*"
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          LOG_LEVEL: INFO
+          QUEUE_URL: !Ref ErrorHandlerEventQueue
+          STACKNAME: !Ref AWS::StackName
+      InlineCode: !Sub |
+        import boto3
+        from botocore.exceptions import ClientError
+        import json
+        import os
+        import time
+        from datetime import datetime
+        from dateutil import tz
+
+        import logging
+        logger = logging.getLogger()
+        logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
+        logging.getLogger('botocore').setLevel(logging.WARNING)
+        logging.getLogger('boto3').setLevel(logging.WARNING)
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+
+        header_row = "<tr><td>Function Name</td><td>Error Time</td><td>Error Message</td><td>Function Logs</td>"
+
+
+        # Lambda main routine
+        def handler(event, context):
+            logger.info("Received event: " + json.dumps(event, sort_keys=True))
+
+            sqs_client = boto3.client('sqs')
+
+            queue_url = os.environ['QUEUE_URL']
+
+            region = os.environ['AWS_DEFAULT_REGION']
+
+            table_data = ""
+            count = 0
+
+            response = sqs_client.receive_message(
+                QueueUrl=queue_url,
+                AttributeNames=['All'],
+                MaxNumberOfMessages=10,
+                VisibilityTimeout=10,
+                WaitTimeSeconds=10,
+            )
+
+            while 'Messages' in response and len(response['Messages']) > 0:
+
+                for m in response['Messages']:
+                    # print messages
+                    # print(m['MessageId'])
+                    sent_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(m['Attributes']['SentTimestamp'])/1000))
+                    error_string = format_error(m['Body'], region, sent_time)
+                    # print(error_string)
+                    table_data += error_string
+                    count += 1
+
+                    sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=m['ReceiptHandle'])
+
+                # get more
+                response = sqs_client.receive_message(
+                    QueueUrl=queue_url,
+                    AttributeNames=['All'],
+                    MaxNumberOfMessages=10,
+                    VisibilityTimeout=30,
+                    WaitTimeSeconds=5,
+                )
+
+            html_output = f"<html><head><title>Output Report for {os.environ['QUEUE_URL']}</title></head>"
+            html_output += f"<body><h1>Output Report for {os.environ['STACKNAME']}</h1>"
+            html_output += f"<table border=1>{header_row}"
+            html_output += table_data
+            html_output += "</table>"
+            html_output += f"Total Errors: {count}</body></html>"
+
+            s3client = boto3.client('s3')
+            try:
+                object_key = f"ErrorReports/{datetime.now().strftime('%Y-%m-%d-%H-%M')}.html"
+                s3client.put_object(
+                    Body=html_output,
+                    Bucket=os.environ['INVENTORY_BUCKET'],
+                    ContentType='text/html',
+                    Key=object_key,
+                )
+            except ClientError as e:
+                logger.error("Unable to save Error Report {}: {}".format(object_key, e))
+
+            return(event)
+
+        ## End ##
+        def format_error(error_raw, region, sent_time):
+            error_json = json.loads(error_raw)
+            error_url = f"https://console.aws.amazon.com/cloudwatch/home?region={region}#logEventViewer:group={error_json['log_group_name']};stream={error_json['log_stream_name']}"
+
+            output = f"<tr><td>{error_json['function_name']}</td>\n"
+            output += f"<td>{sent_time}</td>\n"
+            output += f"<td>{error_json['message']}</td>\n"
+            output += f"<td><a href='{error_url}'>CloudWatch Logs</a></td></tr>\n"
+
+            return(output)
+        ### END OF FUNCTION ###
 
   #
   # Parms for the sub-stacks
