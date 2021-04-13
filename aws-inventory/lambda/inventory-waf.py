@@ -29,7 +29,7 @@ def lambda_handler(event, context):
         # Collect CLOUDFRONT WAFs from us-east-1
         discover_cloudfront_WAFs(target_account)
         # Now get the regional ones
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='wafv2'):
             try:
                 discover_regional_WAFs(target_account, r)
             except ClientError as e:
@@ -138,5 +138,3 @@ def process_v2_acl(client, my_WebACL, target_account, region):
                 logger.warning(message)
 
     save_resource_to_s3(WAFv2_PATH, resource_item['resourceId'], resource_item)
-
-
