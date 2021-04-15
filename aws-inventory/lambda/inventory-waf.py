@@ -28,8 +28,8 @@ def lambda_handler(event, context):
         target_account = AWSAccount(message['account_id'])
         # Collect CLOUDFRONT WAFs from us-east-1
         discover_cloudfront_WAFs(target_account)
-        # Now get the regional ones
-        for r in target_account.get_regions(service='wafv2'):
+        # Now get the regional ones - ap-northeast-3 is not supported by wafv2 04/15/2021.
+        for r in target_account.get_regions(service='wafv2', exclude=["ap-northeast-3"]):
             try:
                 discover_regional_WAFs(target_account, r)
             except ClientError as e:
