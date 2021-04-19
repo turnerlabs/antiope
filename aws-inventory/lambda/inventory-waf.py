@@ -29,7 +29,8 @@ def lambda_handler(event, context):
         # Collect CLOUDFRONT WAFs from us-east-1
         discover_cloudfront_WAFs(target_account)
         # Now get the regional ones
-        for r in target_account.get_regions(service='wafv2'):
+        # 04/19/2021 - ap-northeast-3 yields endpoint connection error
+        for r in target_account.get_regions(service='wafv2', exclude=["ap-northeast-3"]):
             try:
                 discover_regional_WAFs(target_account, r)
             except ClientError as e:
