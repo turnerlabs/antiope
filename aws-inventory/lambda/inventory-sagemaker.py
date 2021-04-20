@@ -26,7 +26,8 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+
+        for r in target_account.get_regions(service='sagemaker', exclude=["ap-northeast-3"]):
             discover_notebooks(target_account, r)
 
     except AntiopeAssumeRoleError as e:
@@ -84,4 +85,3 @@ def discover_notebooks(account, region):
             pass  # If Tags aren't present or whatever, just ignore
 
         save_resource_to_s3(NOTBOOK_RESOURCE_PATH, resource_item['resourceId'], resource_item)
-
