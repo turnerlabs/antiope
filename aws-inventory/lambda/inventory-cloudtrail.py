@@ -77,10 +77,10 @@ def discover_trails(target_account, region):
         resource_item['ARN']                            = trail['TrailARN']
         resource_item['errors']                         = {}
 
-        event_response = ct_client.get_event_selectors(TrailName=trail['TrailArn'])
+        event_response = ct_client.get_event_selectors(TrailName=trail['TrailARN'])
         resource_item['supplementaryConfiguration']['EventSelectors'] = event_response['EventSelectors']
 
-        status_response = ct_client.get_trail_status(Name=trail['Name'])
+        status_response = ct_client.get_trail_status(Name=trail['TrailARN'])
         resource_item['supplementaryConfiguration']['Status'] = status_response
         del(resource_item['supplementaryConfiguration']['Status']['ResponseMetadata'])
 
