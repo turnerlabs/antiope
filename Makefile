@@ -20,6 +20,9 @@ ifndef version
 	export version := $(shell date +%Y%b%d-%H%M)
 endif
 
+# Record GIT details
+export GIT_REPO=$(shell git config --get remote.origin.url)
+export GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 
 # Global Vars
 export DEPLOY_PREFIX=deploy-packages
@@ -70,7 +73,7 @@ endif
 ifndef LAYER_URL
 	$(error LAYER_URL is not set)
 endif
-	cft-deploy -m config-files/$(MANIFEST) --template-url $(TEMPLATE_URL) pTemplateURL=$(TEMPLATE_URL) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) --force
+	cft-deploy -m config-files/$(MANIFEST) --template-url $(TEMPLATE_URL) pTemplateURL=$(TEMPLATE_URL) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) pGitRepo=$(GIT_REPO) pGitBranch=$(GIT_BRANCH) --force
 
 # Execute the post-deploy scripts required to make it all work
 post-deploy:
@@ -97,7 +100,7 @@ endif
 ifndef template
 	$(error template is not set)
 endif
-	cft-deploy -m config-files/$(MANIFEST) --template-url $(template) pTemplateURL=$(template) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) --force
+	cft-deploy -m config-files/$(MANIFEST) --template-url $(template) pTemplateURL=$(template) pBucketName=$(BUCKET) pAWSLambdaLayerPackage=$(LAYER_URL) pGitRepo=$(GIT_REPO) pGitBranch=$(GIT_BRANCH)  --force
 
 
 #

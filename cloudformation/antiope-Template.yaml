@@ -199,6 +199,16 @@ Parameters:
     Description: HEC Token
     Default: '{ "HecAccessToken": "NothingToSeeHere" }'
 
+  pGitRepo:
+    Description: Location of resources that created this stack
+    Type: String
+    Default: Not Provided
+
+  pGitBranch:
+    Description: Name of branch from which deployed.
+    Type: String
+    Default: Not Provided
+
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
   cDeploySplunkIngest: !Equals [ !Ref pDeploySplunkIngest, True]
@@ -769,3 +779,11 @@ Outputs:
   CognitoStackName:
     Description: Name of the Nested Cognito Stack
     Value: !Ref CognitoStack
+
+  GitRepo:
+    Description: Repo from which template was deployed
+    Value: !Ref pGitRepo
+
+  GitBranch:
+    Description: Branch of repo from which template was deployed
+    Value: !Ref pGitBranch
