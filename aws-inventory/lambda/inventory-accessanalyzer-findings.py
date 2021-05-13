@@ -17,6 +17,8 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
+RESOURCE_PATH = "accessanalyzer/finding"
+
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -48,7 +50,11 @@ def lambda_handler(event, context):
             if analyzer is None:
                 logger.error(f"No Analyzers configured for {delegated_account.account_name}({delegated_account.account_id}) in {r}")
                 continue
-            output[r] = get_findings(delegated_account, client, r, analyzer)
+            findings = get_findings(delegated_account, client, r, analyzer)
+            for f in findings:
+                save_individual_finding(f, r)
+
+            output[r] = findings
 
         save_findings(output, payer_account.org_id)
 
@@ -90,7 +96,7 @@ def get_analyzer(delegated_account, client, region):
 def get_findings(delegated_account, client, region, analyzer_arn):
 
     finding_filter={
-        'isPublic': {'eq': ["true"] },
+        # 'isPublic': {'eq': ["true"] },
         'status': {'eq': ['ACTIVE'] }
     }
 
@@ -109,6 +115,24 @@ def get_findings(delegated_account, client, region, analyzer_arn):
 
     logger.info(f"Found {len(findings)} findings for {analyzer_arn} in {region}")
     return(findings)
+
+
+def save_individual_finding(finding, region):
+    item = {}
+    item['awsAccountId']                   = finding['resourceOwnerAccount']
+    # item['awsAccountName']                 = target_account.account_name  # This is done at the payer level so account _name_ is not available
+    item['resourceType']                   = "AWS::AccessAnalyzer::Finding"
+    item['source']                         = "Antiope"
+    item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+    item['awsRegion']                      = region
+    item['configuration']                  = finding
+    item['supplementaryConfiguration']     = {}
+    item['resourceCreationTime']           = finding['createdAt']
+    item['resourceId']                     = finding['id']
+    item['resourceName']                   = finding['resource']
+    item['ARN']                            = finding['resource']
+    item['errors']                         = {}
+    save_resource_to_s3(RESOURCE_PATH, item['resourceId'], item)
 
 
 def save_findings(findings, orgId):
