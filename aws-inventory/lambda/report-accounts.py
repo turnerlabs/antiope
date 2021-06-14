@@ -70,6 +70,8 @@ def handler(event, context):
             j['assume_role_link'] = "No Cross Account Role"
         json_data['accounts'].append(j)
 
+        save_account_as_resource(a)
+
     json_data['timestamp'] = datetime.datetime.now()
     json_data['account_count'] = len(active_accounts)
     json_data['bucket'] = os.environ['INVENTORY_BUCKET']
@@ -134,4 +136,3 @@ def save_account_as_resource(target_account):
         resource_item['supplementaryConfiguration']['assume_role_url'] = assume_role_url.format(target_account.account_id, role_name, target_account.account_name)
 
     save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}", resource_item)
-
