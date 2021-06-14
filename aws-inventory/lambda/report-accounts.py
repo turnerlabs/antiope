@@ -18,6 +18,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 assume_role_link = "<a href=\"https://signin.aws.amazon.com/switchrole?account={}&roleName={}&displayName={}\">{}</a>"
+assume_role_url = "https://signin.aws.amazon.com/switchrole?account={}&roleName={}&displayName={}"
 RESOURCE_PATH = "organizations/account"
 
 # Lambda main routine
@@ -130,6 +131,8 @@ def save_account_as_resource(target_account):
     resource_item['resourceName']                   = target_account.account_name
     resource_item['errors']                         = {}
 
+    if hasattr(target_account, 'cross_account_role') and target_account.cross_account_role is not None:
+        role_name = target_account.cross_account_role.split("/")[-1]
+        resource_item['supplementaryConfiguration']['assume_role_url'] = assume_role_url.format(target_account.account_id, role_name, target_account.account_name)
+
     save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}", resource_item)
-
-
