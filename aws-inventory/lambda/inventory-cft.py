@@ -39,12 +39,17 @@ def lambda_handler(event, context):
             regions = [message['region']]
 
         for r in regions:
-            cf_client = target_account.get_client('cloudformation', region=r)
-            response = cf_client.describe_stacks()
-            while 'NextToken' in response:
+            try:
+                cf_client = target_account.get_client('cloudformation', region=r)
+                response = cf_client.describe_stacks()
+                while 'NextToken' in response:
+                    process_stacks(target_account, cf_client, r, response['Stacks'], last_run_time)
+                    response = cf_client.describe_stacks(NextToken=response['NextToken'])
                 process_stacks(target_account, cf_client, r, response['Stacks'], last_run_time)
-                response = cf_client.describe_stacks(NextToken=response['NextToken'])
-            process_stacks(target_account, cf_client, r, response['Stacks'], last_run_time)
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDenied':
+                    logger.warning(f"AccessDenied attempting to describe stacks in {target_account.account_name} ({target_account.account_id}) in region {r}: {e}")
+                    continue
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
