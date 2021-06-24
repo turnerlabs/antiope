@@ -27,7 +27,7 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
 
-        for r in target_account.get_regions(service='sagemaker', exclude=["ap-northeast-3"]):
+        for r in target_account.get_regions(service='sagemaker'):
             discover_notebooks(target_account, r)
 
     except AntiopeAssumeRoleError as e:

@@ -29,7 +29,7 @@ def lambda_handler(event, context):
 
         target_account = AWSAccount(message['account_id'])
 
-        regions = target_account.get_regions()
+        regions = target_account.get_regions(service='es')
         if 'region' in message:
             regions = [message['region']]
 

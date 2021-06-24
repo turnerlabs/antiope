@@ -38,7 +38,7 @@ def lambda_handler(event, context):
         if 'region' in message:
             regions = [message['region']]
         else:
-            regions = delegated_account.get_regions()
+            regions = delegated_account.get_regions(service='accessanalyzer')
 
         output = {}
 

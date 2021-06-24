@@ -28,7 +28,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='rds'):
             discover_rds(target_account, r)
             discover_aurora(target_account, r)
 

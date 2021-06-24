@@ -27,7 +27,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='ec2'):
             discover_enis(target_account, r)
 
     except AntiopeAssumeRoleError as e:

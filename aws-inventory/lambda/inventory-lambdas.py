@@ -27,7 +27,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='lambda'):
             try:
                 discover_lambdas(target_account, r)
                 discover_lambda_layer(target_account, r)

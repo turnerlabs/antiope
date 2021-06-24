@@ -26,7 +26,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='kms'):
             try:
                 discover_keys(target_account, r)
             except ClientError as e:

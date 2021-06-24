@@ -34,7 +34,7 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
 
-        regions = target_account.get_regions()
+        regions = target_account.get_regions(service='cloudformation')
         if 'region' in message:
             regions = [message['region']]
 

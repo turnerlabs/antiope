@@ -40,7 +40,7 @@ def lambda_handler(event, context):
         # Therefore, we query for them once, and decorate them with their VIFs as we find them in each region
         dx_gws = discover_gateways(target_account)
 
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='directconnect'):
             try:
                 discover_connections(target_account, r)
                 dx_gws = discover_vifs(target_account, r, dx_gws)

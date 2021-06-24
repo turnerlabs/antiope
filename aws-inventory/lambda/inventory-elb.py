@@ -30,7 +30,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='elb'):
             discover_elbv1(target_account, r)
             discover_elbv2(target_account, r)
 

@@ -28,7 +28,7 @@ def lambda_handler(event, context):
                     
         target_account = AWSAccount(message['account_id'])
                 
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='worklink'):
         
             try:
                 discover_worklink_fleets(target_account, r)

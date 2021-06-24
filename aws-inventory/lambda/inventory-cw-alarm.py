@@ -27,7 +27,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='cloudwatch'):
             try:
                 discover_alarms(target_account, r)
             except ClientError as e:
