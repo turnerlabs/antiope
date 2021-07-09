@@ -4,22 +4,13 @@ ifndef pythonver
     pythonver ?= python3.6
 endif
 
-ifndef env
-# $(error env is not set)
-	env ?= dev
-endif
-
-include ../config-files/config.$(env)
-export
-
-
 ifndef BUCKET
 	$(error BUCKET is not set)
 endif
 
-ifndef version
-	export version := $(shell date +%Y%b%d-%H%M)
-endif
+# ifndef version
+# 	export version := $(shell date +%Y%b%d-%H%M)
+# endif
 
 export LAYER_PACKAGE=Antiope-$(env)-aws-lambda-layer-$(version).zip
 export OBJECT_KEY=$(DEPLOY_PREFIX)/$(LAYER_PACKAGE)
@@ -47,7 +38,7 @@ deps:
 
 upload:
 	aws s3 cp $(LAYER_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
-	@echo "LAYER_URL=$(OBJECT_KEY)" >> ../config.$(env)
+	@echo "LAYER_URL=$(OBJECT_KEY)" >> ../../config.$(env)
 
 pep8: $(FILES)
 	pycodestyle $^

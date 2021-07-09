@@ -239,7 +239,7 @@ Resources:
         pCustomCognitoDomain: !Ref pCognitoDomain
         pEmailAddress: !Ref pEmailAddress
         pIdentityPoolName: !Ref pIdentityPoolName
-      TemplateURL: ../cognito/cloudformation/Cognito-Template.yaml
+      TemplateURL: Cognito-Template.yaml
       TimeoutInMinutes: 30
 
   AWSInventoryStack:

@@ -1,12 +1,4 @@
 
-ifndef env
-# $(error env is not set)
-	env ?= dev
-endif
-
-include ../config-files/config.$(env)
-export
-
 # MAIN_STACK_NAME is custom to your deployment and should be the same for all Antiope Stacks
 ifndef MAIN_STACK_NAME
 	$(error MAIN_STACK_NAME is not set)
@@ -14,10 +6,6 @@ endif
 
 ifndef BUCKET
 	$(error BUCKET is not set)
-endif
-
-ifndef version
-	export version := $(shell date +%Y%b%d-%H%M)
 endif
 
 RESOURCE_PREFIX=$(MAIN_STACK_NAME)-aws-inventory

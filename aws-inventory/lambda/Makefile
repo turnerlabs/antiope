@@ -52,7 +52,8 @@ FILES =	common.py\
 		report-vpcs.py \
 		trigger_account_actions.py
 
-DEPENDENCIES=antiope
+DEPENDENCIES=antiope bin boto3 botocore dateutil jmespath s3transfer six.py urllib3
+
 
 package: test clean deps zipfile
 
@@ -61,7 +62,7 @@ package: test clean deps zipfile
 #
 
 clean:
-	rm -rf __pycache__ *.zip *.dist-info $(DEPENDENCIES)
+	rm -rf __pycache__ *.zip *.dist-info *.egg-info $(DEPENDENCIES)
 
 # # Create the package Zip. Assumes all tests were done
 zipfile:  $(FILES) html_templates
@@ -73,7 +74,7 @@ test: $(FILES)
 
 deps:
 	$(PIP) install -r requirements.txt -t . --upgrade
-	cp -a ../../antiope-aws-module/antiope .
+	$(PIP) install ../../../antiope-aws-module -t . --upgrade --no-deps
 
 
 pep8: $(FILES)
