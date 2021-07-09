@@ -33,6 +33,7 @@ FILES =	common.py\
 		inventory-redshift.py \
 		inventory-rds.py \
 		inventory-route53.py \
+		inventory-payer-costexplorer.py \
 		inventory-sagemaker.py \
 		inventory-secrets.py \
 		inventory-shield.py \

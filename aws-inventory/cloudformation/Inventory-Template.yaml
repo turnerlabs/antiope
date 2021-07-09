@@ -484,6 +484,7 @@ Resources:
       Handler: inventory-iam.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
+      Timeout: 900
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -816,12 +817,12 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-  FirehoseInventoryLambdaFunction:
+  CWAlarmInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${pResourcePrefix}-firehose-inventory"
-      Description: Inventory Kinesis Firehoses
-      Handler: inventory-firehose.lambda_handler
+      FunctionName: !Sub "${pResourcePrefix}-cw-alarm-inventory"
+      Description: Inventory Cloud Watch Alarms
+      Handler: inventory-cw-alarm.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
@@ -830,12 +831,12 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-  CWAlarmInventoryLambdaFunction:
+  FirehoseInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${pResourcePrefix}-cw-alarm-inventory"
-      Description: Inventory Cloud Watch Alarms
-      Handler: inventory-cw-alarm.lambda_handler
+      FunctionName: !Sub "${pResourcePrefix}-firehose-inventory"
+      Description: Inventory Kinesis Firehoses
+      Handler: inventory-firehose.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
@@ -855,6 +856,7 @@ Resources:
       Description: Inventory IAM Access Analyzer Org Findings
       Handler: inventory-accessanalyzer-findings.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      Timeout: 600
       CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
@@ -862,6 +864,21 @@ Resources:
           Properties:
             Topic: !Ref TriggerPayerInventoryFunctionTopic
 
+
+  CostExplorerLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-costexplorer"
+      Description: Get the cost data for each account
+      Handler: inventory-payer-costexplorer.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Timeout: 600
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerPayerInventoryFunctionTopic
 
   #
   # StateMachine
@@ -1175,6 +1192,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
+                  [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 604800, "label": "costexplorer" } ],
+
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1236,6 +1255,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
+                  [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 604800, "label": "costexplorer" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
@@ -1297,6 +1317,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 900, "label": "ia2-org-findings" } ],
+                  [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 900, "label": "costexplorer" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],

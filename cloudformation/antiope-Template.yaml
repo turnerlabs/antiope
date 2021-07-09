@@ -279,6 +279,7 @@ Resources:
           pElasticSearchVersion: !Ref pElasticSearchVersion
           pExcludedResourcePrefixes: !Ref pExcludedResourcePrefixes
           pS3EventNotificationTopicArn: !Ref pS3EventNotificationTopicArn
+
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 

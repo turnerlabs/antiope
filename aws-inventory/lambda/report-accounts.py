@@ -116,7 +116,6 @@ def handler(event, context):
 
 
 def save_account_as_resource(target_account):
-
     resource_item = {}
     resource_item['awsAccountId']                   = target_account.account_id
     resource_item['awsAccountName']                 = target_account.account_name
@@ -136,3 +135,4 @@ def save_account_as_resource(target_account):
         resource_item['supplementaryConfiguration']['assume_role_url'] = assume_role_url.format(target_account.account_id, role_name, target_account.account_name)
 
     save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}", resource_item)
+

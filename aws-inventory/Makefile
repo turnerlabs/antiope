@@ -52,6 +52,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-instances-sg-inventory \
 			$(RESOURCE_PREFIX)-kms-inventory \
 			$(RESOURCE_PREFIX)-lambdas-inventory \
+			$(RESOURCE_PREFIX)-payer-costexplorer \
 			$(RESOURCE_PREFIX)-rds-inventory \
 			$(RESOURCE_PREFIX)-route53-inventory \
 			$(RESOURCE_PREFIX)-secrets-inventory \
