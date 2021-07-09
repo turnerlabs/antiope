@@ -186,6 +186,11 @@ Parameters:
     Description: Comma separated list of prefixes to exclude from pushing into
     Default: ""
 
+  pS3EventNotificationTopicArn:
+    Description: SNS Topic from the Antiope Bucket Stack.
+    Type: String
+    Default: None
+
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
   cDeployCustomStack: !Not [ !Equals [ !Ref pDeployCustomStackStateMachineArn, "NONE"] ]
@@ -278,6 +283,7 @@ Resources:
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
           pElasticSearchVersion: !Ref pElasticSearchVersion
           pExcludedResourcePrefixes: !Ref pExcludedResourcePrefixes
+          pS3EventNotificationTopicArn: !Ref pS3EventNotificationTopicArn
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 
