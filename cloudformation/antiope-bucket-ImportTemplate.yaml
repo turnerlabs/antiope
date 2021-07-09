@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Create and Manage the Antiope S3 Bucket (and event notifications)
+Description: Template to use to import an existing Antiope Bucket before applying the main template
 
 Parameters:
 
