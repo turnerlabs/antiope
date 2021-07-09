@@ -173,13 +173,6 @@ Parameters:
     Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
     Type: String
 
-  pElasticEndpoint:
-    Description: FQDN of the Endpoint for Antiope ES Domain
-    Type: String
-
-  pElasticClusterName:
-    Description: Name of the Antiope ES Domain
-    Type: String
 
   pExcludedResourcePrefixes:
     Type: String
@@ -279,6 +272,8 @@ Resources:
           pClusterInstanceCount: !Ref pClusterInstanceCount
           pClusterInstanceType: !Ref pClusterInstanceType
           pCognitoKibanaAuthRole: !GetAtt CognitoStack.Outputs.CognitoKibanaAuthRole
+          pCognitoIdentityPoolId: !GetAtt CognitoStack.Outputs.CognitoIdentityPoolId
+          pCognitoUserPoolId: !GetAtt CognitoStack.Outputs.CognitoUserPoolId
           pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
           pElasticSearchVersion: !Ref pElasticSearchVersion

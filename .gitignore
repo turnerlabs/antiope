@@ -50,6 +50,10 @@ azure_cred.json
 # Don't commit error reports
 *-Errors.html
 
+# ignore the submodules
+antiope-aws-module/
+antiope-hunt-scripts/
+
 # Created by https://www.gitignore.io/api/osx,python
 
 ### OSX ###
@@ -181,4 +185,5 @@ ENV/
 
 
 # End of https://www.gitignore.io/api/osx,python
+
 
