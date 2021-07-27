@@ -20,3 +20,4 @@ PyYAML
 requests
 requests_aws4auth
 semver
+cftdeploy

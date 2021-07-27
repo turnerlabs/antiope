@@ -12,15 +12,9 @@ endif
 
 .PHONY: $(FUNCTIONS)
 
-# Do everything
-post-deploy:
-	./post-deploy.sh
-
 #
 # Cloudformation Targets
 #
-
-
 
 templates:
 	aws s3 sync public s3://$(BUCKET)/public

@@ -121,6 +121,12 @@ Resources:
                   - "cognito-sync:*"
                 Resource: "*"
 
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref pCustomAPIDomain
+      UserPoolId: !Ref CognitoUserPool
+
   CognitoIDPool:
     Type: 'AWS::Cognito::IdentityPool'
     Properties:
