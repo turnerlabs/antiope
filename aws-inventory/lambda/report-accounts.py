@@ -22,7 +22,7 @@ import datetime
 from mako.template import Template
 
 from antiope.aws_account import *
-from antiope.config import AccountLookupError
+from antiope.config import AntiopeAccountLookupError
 from common import *
 
 import logging
