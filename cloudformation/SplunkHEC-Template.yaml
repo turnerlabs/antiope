@@ -40,8 +40,50 @@ Parameters:
     Type: Number
     Default: 20000
 
+  pQueueEncryption:
+    Type: String
+    Description: Enable Encryption for the SQS Queue
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+Conditions:
+  EncryptionEnabled: !Equals [ !Ref pQueueEncryption, True ]
 
 Resources:
+
+  SplunkQueueKMSKey:
+    Type: AWS::KMS::Key
+    Condition: EncryptionEnabled
+    Properties:
+      Description: !Sub KMS Key for SQS in ${AWS::StackName}
+      Enabled: True
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "allow-iam"
+        Statement:
+          - Sid: "Allow everyone use of the key"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "kms:*"
+            Resource: "*"
+          - Sid: "Allow s3 use of the key"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "s3.amazonaws.com"
+                - "sqs.amazonaws.com"
+                - "lambda.amazonaws.com"
+                # Added per https://aws.amazon.com/premiumsupport/knowledge-center/sns-topic-sqs-queue-sse-cmk-policy/ to support the S3 Event->SNS->SQS workflow
+                - "sns.amazonaws.com"
+            Action:
+              - "kms:GenerateDataKey*"
+              - "kms:Decrypt"
+            Resource: "*"
 
   #
   # Ingest Lambda
@@ -239,7 +281,6 @@ Resources:
 
         ### EOF ###
 
-
   SplunkHECEventQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -248,6 +289,16 @@ Resources:
       MessageRetentionPeriod: 36000  # Any messages older than ten hours are probably out-of-date
       ReceiveMessageWaitTimeSeconds: 10
       VisibilityTimeout: 300
+      KmsMasterKeyId:
+        Fn::If:
+          - EncryptionEnabled
+          - Ref: SplunkQueueKMSKey
+          - Ref: AWS::NoValue
+      KmsDataKeyReusePeriodSeconds:
+        Fn::If:
+          - EncryptionEnabled
+          - 86400
+          - Ref: AWS::NoValue
 
   SplunkHECEventQueuePolicy:
     Type: AWS::SQS::QueuePolicy
