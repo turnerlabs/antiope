@@ -125,14 +125,6 @@ Parameters:
     Description: Cluster Instance Count
     Default: 1
 
-  pClusterEncryption:
-    Type: String
-    Description: Enable Encryption for the Elasticsearch Cluster
-    Default: False
-    AllowedValues:
-      - True
-      - False
-
   pElasticSearchVersion:
     Type: String
     Description: What version of Elasticsearch you want to use
