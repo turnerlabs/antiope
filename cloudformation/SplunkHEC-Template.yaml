@@ -141,6 +141,19 @@ Resources:
             Action:
             - secretsmanager:GetSecret*
             Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${pSplunkHECSecret}-*"
+      - PolicyName: KMSDecrypt
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource:
+            - !If
+              - EncryptionEnabled
+              - !GetAtt SplunkQueueKMSKey.Arn
+              - !Sub "arn:aws:kms:us-east-1:${AWS::AccountId}:key/thiskeydoesntexist"
+            Action:
+            - kms:GenerateDataKey*
+            - kms:Decrypt
+            Effect: Allow
 
   #
   # Ingestion Function Functions
@@ -336,14 +349,6 @@ Resources:
       Endpoint: !GetAtt SplunkHECEventQueue.Arn
       Protocol: sqs
       TopicArn: !Ref pS3EventNotificationTopicArn
-
-  # SplunkHECS3FunctionMapping:
-  #   Type: AWS::Lambda::EventSourceMapping
-  #   Properties:
-  #     BatchSize: 10 # 10 is Max
-  #     Enabled: True
-  #     EventSourceArn: !GetAtt SplunkHECEventQueue.Arn
-  #     FunctionName: !GetAtt SplunkHECS3Function.Arn
 
   SplunkHECEventQueueAlarm:
     Type: AWS::CloudWatch::Alarm

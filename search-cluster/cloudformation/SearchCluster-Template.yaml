@@ -105,7 +105,6 @@ Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
   ReIndex: !Equals [ !Ref pReIndexSettings, True ]
   SNS2SQS: !Not [ !Equals [ !Ref pS3EventNotificationTopicArn, "None"] ]
-  SQSEncryptionEnabled: !And [ !Equals [ !Ref pClusterEncryption, True ], !Equals [ !Ref pS3EventNotificationTopicArn, "None"] ]
 
 Resources:
 
@@ -180,6 +179,8 @@ Resources:
                 - "s3.amazonaws.com"
                 - "sqs.amazonaws.com"
                 - "lambda.amazonaws.com"
+                # Added per https://aws.amazon.com/premiumsupport/knowledge-center/sns-topic-sqs-queue-sse-cmk-policy/ to support the S3 Event->SNS->SQS workflow
+                - "sns.amazonaws.com"
             Action:
               - "kms:GenerateDataKey*"
               - "kms:Decrypt"
@@ -295,18 +296,22 @@ Resources:
     Properties:
       # Note: SNS to SQS doesn't work if KMS is enabled. Since this SQS Queue only contains
       # Account ID, Bucket and Object names, it's reasonably safe to not encrypt. YYMV
-      # We only support SQS Encryption if Encryption is enabled and SNS support is not.
+
+      # According to https://aws.amazon.com/premiumsupport/knowledge-center/sns-topic-sqs-queue-sse-cmk-policy/
+      # This is now supported on a KMS CMK
       KmsMasterKeyId:
         Fn::If:
-          - SQSEncryptionEnabled
+          - EncryptionEnabled
           - Ref: SearchClusterKMSKey
           - Ref: AWS::NoValue
       KmsDataKeyReusePeriodSeconds:
         Fn::If:
-          - SQSEncryptionEnabled
+          - EncryptionEnabled
           - 86400
           - Ref: AWS::NoValue
-      MessageRetentionPeriod: !If [ ReIndex, 10800, 3600]  # Any messages older than an hour are probably out-of-date
+
+      # Any messages older than an hour are probably out-of-date
+      MessageRetentionPeriod: !If [ ReIndex, 10800, 3600]
       ReceiveMessageWaitTimeSeconds: 10
       # RedrivePolicy:
       #   FIXME
