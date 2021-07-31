@@ -10,14 +10,17 @@
 1. Create an [S3 Bucket](docs/AntiopeBucket.md) to act as the Antiope bucket. A CloudFormation template exists to do this.
     * **It is important that the bucket be created in the region you intend to run Antiope.**
     * This bucket contains all the packaged code, discovered resources and Reports.
-1. You'll need cftdeploy python package & scripts:
+1. You'll need [cft-deploy](https://github.com/jchrisfarris/cft-deploy) python package & scripts:
     * ```pip3 install cftdeploy```
 1. Deploy a Cross Account role in all payer & child accounts you want to inventory.
-    * One is provided in the `cloudformation/SecurityCrossAccountRoleTemplate.yaml` CloudFormation template
+    * One is provided in the `docs/cloudformation/SecurityCrossAccountRoleTemplate.yaml` CloudFormation template
 1. Clone child repos
     * git clone https://github.com/WarnerMedia/antiope-aws-module.git
     * git clone https://github.com/WarnerMedia/antiope-hunt-scripts
 
+## Antiope-Local Repo
+
+Antiope is now designed to be deployed from a customized private git repository you keep in your own internal git server/cloud. You should follow the instructions for the [antiope-local](https://github.com/jchrisfarris/antiope-local) repo.
 
 
 ## Config File
@@ -25,12 +28,11 @@ Antiope deploys via SAM, Makefiles, cft-deploy and some AWS CLI commands inside 
 
 The config file is sourced by the makefiles to construct the stack name and to determine the S3 bucket and region Antiope will use. The file should look like this:
 ```bash
-export MAIN_STACK_NAME=yourcompany-antiope
-export BUCKET=antiope-bucket # (created above)
+export MAIN_STACK_NAME=YOURCOMPANY-antiope-ENVIRONMENT
+export BUCKET=YOURCOMPANY-antiope
 export AWS_DEFAULT_REGION=us-east-1
-export MANIFEST=ENV-Manifest.yaml
-export MAIN_STACK_NAME=yourcompany-antiope-dev
-export CUSTOM_MANIFEST=dev-custom-Manifest.yaml
+export MANIFEST=Antiope-ENVIRONMENT-Manifest.yaml
+export CUSTOM_PREFIX=YOURCOMPANY-Custom-Antiope
 ```
 I recommending picking something very unique for `MAIN_STACK_NAME`. yourcompany-antiope is a good choice
 
@@ -45,22 +47,7 @@ The `make layer` command will append the Lambda Layer S3 Prefix to the config fi
 ## Manifest Files
 In addition to that config file, each Antiope Module needs a [CloudFormation "manifest" file](https://github.com/jchrisfarris/cft-deploy#user-content-manifest-files).
 
-A Sample Manifest can be found in docs/sample-manifests. You can copy the sample and place them in the root directory with the correct name (defined in your config file).
-
-## Easy install Instructions
-The top-level make file lists all of the targets you can execute.
-
-If you're looking to install everything, `make install env=prod` will source the config.prod file and create the Cognito, AWS Inventory and Search Cluster stacks (if configured to do so).
-
-### Post deploy scripts
-The `make install` target will also run post-deploy scripts. If you're looking to just push a new version of code, `make deploy` skips these post-deploy steps.
-
-Post deploy scripts are necessary to configure the last bits of Cognito and ElasticSearch that cannot be done easily in Cloudformation. These include
-1. Adding the custom domain to the Cognito User Pool
-2. Enabling the S3 Event to trigger the ingestion of new resources into ElasticSearch
-3. Enabling Cognito for ElasticSearch authentication
-4. Creating the ElasticSearch mappings for all the indexes.
-
+The [Antiope-Local](https://github.com/jchrisfarris/antiope-local) has sample manifests to use
 
 ## Deploying Antiope-Azure and Antiope-GCP
 
@@ -72,7 +59,7 @@ Antiope supports the idea of a Custom stack with functions that relate to your e
 
 You can also subscribe custom functions to the Inventory Trigger topics for the AWS Accounts or AWS Organizational Payers, which will be run during the main inventory phase.
 
-A sample custom function code is in the docs/sample-custom-stack
+Custom Stack code should be part of your [Antiope-Local](https://github.com/jchrisfarris/antiope-local), and can be deployed via `make custom-deploy` or `make custom-promote` make targets.
 
 
 ## Post-Install
@@ -84,11 +71,6 @@ A sample custom function code is in the docs/sample-custom-stack
 TODO - Log Expiration
 In the aws-inventory and search-cluster directories, the `make expire-logs env=prod` command will set a 5 day retention period for the CloudWatch logs for the lambda. Otherwise the retention is indefinite.
 
-
-## If something goes wrong
-Not all the configuration for Antiope can be done via CloudFormation. There are some AWS features that CloudFormation doesn't or cannot support. These are typically done in the post-deploy scripts. For example, the Cognito Identity pool is given a custom login URL based on ${MAIN_STACK_NAME}. Since these are global across AWS, it is possible this will fail due to the ${MAIN_STACK_NAME} being in use.
-
-The search cluster has quite a few post-install steps. One enables the Kibana auth to Cognito, another creates the bucket notification configuration so s3 put events are sent to SQS. Finally one pre-creates all the ElasticSearch mappings.
 
 ## Other Make Targets (for development)
 
