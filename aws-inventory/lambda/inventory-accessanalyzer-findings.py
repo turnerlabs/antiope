@@ -111,7 +111,7 @@ def get_analyzer(delegated_account, client, region):
 def get_findings(delegated_account, client, region, analyzer_arn):
 
     finding_filter={
-        # 'isPublic': {'eq': ["true"] },
+        'isPublic': {'eq': ["true"] },
         'status': {'eq': ['ACTIVE'] }
     }
 
