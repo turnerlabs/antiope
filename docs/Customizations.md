@@ -25,7 +25,9 @@ TODO: Document these.
 
 **Note:** Do not put your Enterprise stack into the main Antiope Repo. The Enterprise stack is meant to include things that probably don't need to be open-sourced.
 
-A sample framework for a company custom stack is in `docs/sample-custom-stack`
+A sample framework for a company custom stack is in the [antiope-local](https://github.com/jchrisfarris/antiope-local) repo.
+
+The provided [Sample Manifest](https://github.com/jchrisfarris/antiope-local/blob/main/Manifests/SAMPLE-antiope-custom-Manifest.yaml) demonstrates how [cft-deploy](https://github.com/jchrisfarris/cft-deploy) is leveraged to source the resources from one stack as parameters of another stack.
 
 ### Deployment Order
 
