@@ -26,7 +26,9 @@ Resources:
   AntiopeBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
-    DependsOn: AntiopeBucketNotificationTopicPolicy
+    DependsOn:
+      - AntiopeBucketNotificationTopicPolicy
+      - CloudSploitNotificationTopicPolicy
     Properties:
       AccessControl: Private
       BucketEncryption:
