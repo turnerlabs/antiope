@@ -166,12 +166,12 @@ def discover_buckets(account, context):
         #     if e.response['Error']['Code'] != 'NoSuchWebsiteConfiguration':
         #         resource_item['errors']['Website'] = e
 
-        # try:
-        #     response = s3_client.get_bucket_logging(Bucket=bucket_name)
-        #     if 'LoggingEnabled' in response:
-        #         resource_item['supplementaryConfiguration']['Logging'] = response['LoggingEnabled']
-        # except ClientError as e:
-        #     resource_item['errors']['Logging'] = e
+        try:
+            response = s3_client.get_bucket_logging(Bucket=bucket_name)
+            if 'LoggingEnabled' in response:
+                resource_item['supplementaryConfiguration']['Logging'] = response['LoggingEnabled']
+        except ClientError as e:
+            resource_item['errors']['Logging'] = e
 
         # try:
         #     response = s3_client.get_bucket_cors(Bucket=bucket_name)
