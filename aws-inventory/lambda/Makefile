@@ -79,7 +79,7 @@ clean:
 
 # # Create the package Zip. Assumes all tests were done
 zipfile:  $(FILES) html_templates
-	cp -a ../../antiope-aws-module/antiope .
+	cp -a ../../../antiope-aws-module/antiope .
 	zip -r $(LAMBDA_PACKAGE) $^ $(DEPENDENCIES)
 
 test: $(FILES)
