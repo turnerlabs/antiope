@@ -60,7 +60,17 @@ def lambda_handler(event, context):
                 resource_item['source']                         = "Antiope"
 
                 for domain_name in list_domains(es_client, target_account, r):
-                    response = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+                    try:
+                        response = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+                    except ClientError as e:
+                        if e.response['Error']['Code'] == "ThrottlingException":
+                            # Wait a second and try again
+                            from time import sleep
+                            sleep(1)
+                            response = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+                        else:
+                            raise
+
                     domain = response['DomainStatus']
 
                     resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())

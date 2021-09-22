@@ -98,7 +98,8 @@ def discover_trails(target_account, region):
 
         try:
             event_response = ct_client.get_event_selectors(TrailName=trail['Name'])
-            resource_item['supplementaryConfiguration']['EventSelectors'] = event_response['EventSelectors']
+            if 'EventSelectors' in event_response:
+                resource_item['supplementaryConfiguration']['EventSelectors'] = event_response['EventSelectors']
         except ClientError as e:
             if e.response['Error']['Code'] == 'TrailNotFoundException':
                 resource_item['errors']['EventSelectors'] = e
