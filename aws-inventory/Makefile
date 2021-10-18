@@ -72,6 +72,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-trigger-inventory \
 			$(RESOURCE_PREFIX)-vpc-inventory \
 			$(RESOURCE_PREFIX)-waf-inventory \
+			$(RESOURCE_PREFIX)-wafv1-inventory \
 			$(RESOURCE_PREFIX)-worklink-inventory
 
 .PHONY: $(FUNCTIONS)

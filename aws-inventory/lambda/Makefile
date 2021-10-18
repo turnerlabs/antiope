@@ -56,6 +56,7 @@ FILES =	common.py\
 		inventory-vpc.py \
 		inventory-transit-gateway.py \
 		inventory-waf.py \
+		inventory-wafv1.py \
 		inventory-worklink.py \
 		new_account_handler.py \
 		pull_organization_data.py \

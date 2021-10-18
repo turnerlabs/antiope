@@ -817,6 +817,20 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
+  
+  Wafv1InventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-wafv1-inventory"
+      Description: Inventory AWS WAFv1
+      Handler: inventory-wafv1.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   ShieldInventoryLambdaFunction:
     Type: AWS::Serverless::Function
@@ -1175,7 +1189,7 @@ Resources:
               "width": 6,
               "height": 3,
               "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueueURL};prefix=)\n"
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueueURL};prefix=)\n"
               }
             },
             {
@@ -1226,6 +1240,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 604800, "label": "waf-inventory" } ],
+                  [ "...", "${pResourcePrefix}-wafv1-inventory", { "stat": "Sum", "period": 604800, "label": "wafv1-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 604800, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
@@ -1288,6 +1303,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 604800, "label": "waf-inventory" } ],
+                  [ "...", "${pResourcePrefix}-wafv1-inventory", { "stat": "Sum", "period": 604800, "label": "wafv1-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 604800, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
@@ -1350,6 +1366,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 900, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 900, "label": "waf-inventory" } ],
+                  [ "...", "${pResourcePrefix}-wafv1-inventory", { "stat": "Sum", "period": 900, "label": "wafv1-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 900, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 900, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
