@@ -79,6 +79,8 @@ def discover_keys(target_account, region):
         response = client.list_keys(Marker=response['NextMarker'])
     keys += response['Keys']
 
+    logger.info(f"Found {len(keys)} keys in {target_account.account_name}({target_account.account_id})")
+
     for k in keys:
         process_key(client, k['KeyArn'], target_account, region)
 

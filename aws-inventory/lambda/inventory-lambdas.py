@@ -80,7 +80,7 @@ def discover_lambdas(target_account, region):
         response = client.list_functions(Marker=response['NextMarker'])
     lambdas += response['Functions']
 
-    logger.debug(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
+    logger.info(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
 
     for l in lambdas:
         process_lambda(client, l, target_account, region)
@@ -109,9 +109,10 @@ def process_lambda(client, mylambda, target_account, region):
         if 'Policy' in response:
             resource_item['supplementaryConfiguration']['Policy']    = json.loads(response['Policy'])
     except ClientError as e:
-        message = f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}"
-        resource_item['errors']['Policy'] = message
-        logger.warning(message)
+        if e.response['Error']['Code'] != "ResourceNotFoundException":
+            message = f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}"
+            resource_item['errors']['Policy'] = message
+            logger.warning(message)
 
     save_resource_to_s3(FUNC_PATH, resource_item['resourceId'], resource_item)
 
