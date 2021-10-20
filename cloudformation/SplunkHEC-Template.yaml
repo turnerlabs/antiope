@@ -221,17 +221,17 @@ Resources:
               if resource_to_index is None:
                 continue
 
-              push_event(resource_to_index)
+              push_event(resource_to_index, s3_record['s3']['bucket']['name'])
               count += 1
 
           logger.info(f"Wrote {count} resources to Splunk")
           return()
 
 
-        def push_event(message):
+        def push_event(message, bucket):
 
           headers = {'Authorization': 'Splunk '+ hec_data['HECToken']}
-          payload = { "host": hec_data['HECEndpoint'], "event": message }
+          payload = { "host": bucket, "event": message, "sourcetype": "_json" }
           data=json.dumps(payload, default=str)
 
           try:
