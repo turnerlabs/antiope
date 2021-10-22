@@ -332,6 +332,20 @@ Resources:
   #
   # Parallel Execution Functions (on each account)
   #
+  AccountInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-account-inventory"
+      Description: Pull account specific data elements
+      Handler: inventory-account.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
   VpcInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -387,7 +401,6 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
-
 
   ENIInventoryLambdaFunction:
     Type: AWS::Serverless::Function
@@ -499,7 +512,20 @@ Resources:
       Handler: inventory-iam.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
-      Timeout: 900
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
+  IAMUserInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-iam-user-inventory"
+      Description: Inventory IAM Roles & Users
+      Handler: inventory-iam-user.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
           Type: SNS
@@ -817,7 +843,7 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
-  
+
   Wafv1InventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1202,6 +1228,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-account-inventory", { "stat": "Sum", "period": 604800, "label": "account-inventory" } ],
                   [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
@@ -1224,6 +1251,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 604800, "label": "costexplorer" } ],
 
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-user-inventory", { "stat": "Sum", "period": 604800, "label": "iam-user-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
                   [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
@@ -1266,6 +1294,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-account-inventory", { "stat": "Sum", "period": 604800, "label": "account-inventory" } ],
                   [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
@@ -1287,6 +1316,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 604800, "label": "costexplorer" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-user-inventory", { "stat": "Sum", "period": 604800, "label": "iam-user-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
                   [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
@@ -1329,6 +1359,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-account-inventory", { "stat": "Sum", "period": 900, "label": "account-inventory" } ],
                   [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
                   [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 900, "label": "bucket-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
@@ -1350,6 +1381,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 900, "label": "ia2-org-findings" } ],
                   [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 900, "label": "costexplorer" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-user-inventory", { "stat": "Sum", "period": 900, "label": "iam-user-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
                   [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 900, "label": "lambdas-inventory" } ],
