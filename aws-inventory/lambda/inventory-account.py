@@ -81,29 +81,40 @@ def lambda_handler(event, context):
                 raise
 
         # Gather what regions are enabled
-        resource_item['supplementaryConfiguration']['Regions'] = ec2_client.describe_regions(AllRegions=True)['Regions']
+        resource_item['supplementaryConfiguration']['Regions'] = {} # structure this array into a dict for cleaner json
+        all_regions = ec2_client.describe_regions(AllRegions=True)['Regions']
+        for r in all_regions:
+            resource_item['supplementaryConfiguration']['Regions'][r['RegionName']] = r
 
         # Iterate the regions to find weird Wavelength and LocalZones that might be enabled
         zones = {}
+        zone_errors = {}
         enabled_regions = target_account.get_regions()  # we can only ask about AZs in enabled regions
         for r in enabled_regions:
-            regional_client = target_account.get_client("ec2", region=r)
-            zones[r] = regional_client.describe_availability_zones(AllAvailabilityZones=True)['AvailabilityZones']
-        resource_item['supplementaryConfiguration']['AvailabilityZones'] = zones
+            try:
+                regional_client = target_account.get_client("ec2", region=r)
+                regional_zones = regional_client.describe_availability_zones(AllAvailabilityZones=True)['AvailabilityZones']
+                zones[r] = {} # structure this array into a dict for cleaner json
+                for z in regional_zones:
+                    zones[r][z['ZoneName']] = z
+            except ClientError as e:
+                # If the antiope account isn't enabled for the region, then it can't do the cross-account AssumeRole.
+                if e.response['Error']['Code'] == 'UnauthorizedOperation':
+                    zone_errors[r] = f"Antiope doesn't have proper permissions to region {r} in account ({message['account_id']}): {e}"
+                    logger.error(zone_errors[r])
 
+        resource_item['supplementaryConfiguration']['AvailabilityZones'] = zones
+        if zone_errors != {}:
+            resource_item['errors']['AvailabilityZones'] = zone_errors
 
         save_resource_to_s3(RESOURCE_PATH, f"{target_account.account_id}", resource_item)
-
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
     except ClientError as e:
-        if e.response['Error']['Code'] == 'ResourceNotFoundException':
-            logger.debug(f"Account {target_account.account_name} ({target_account.account_id}) is not subscribed to Shield Advanced")
-            return(event)
         if e.response['Error']['Code'] == 'UnauthorizedOperation':
-            logger.error("Antiope doesn't have proper permissions to this account")
+            logger.error(f"Antiope doesn't have proper permissions to account ({message['account_id']}): {e}")
             return(event)
         logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
         capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
