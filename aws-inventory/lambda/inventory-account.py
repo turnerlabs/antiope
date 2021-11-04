@@ -66,19 +66,23 @@ def lambda_handler(event, context):
             role_name = target_account.cross_account_role.split("/")[-1]
             resource_item['supplementaryConfiguration']['assume_role_url'] = assume_role_url.format(target_account.account_id, role_name, target_account.account_name)
 
+
         try:
             contact_ddb_attrib = {}
             for contact_type in CONTACT_TYPES:
-                contact = client.get_alternate_contact(AccountId=target_account.account_id, AlternateContactType=contact_type)
+                contact = client.get_alternate_contact(AlternateContactType=contact_type)
+                del contact['ResponseMetadata']
                 resource_item['supplementaryConfiguration'][f"AlternateContact-{contact_type}"] = contact
                 contact_ddb_attrib[contact_type] = contact
             target_account.update_attribute("AlternateContacts", contact_ddb_attrib)
         except ClientError as e:
-            if e.response['Error']['Code'] == 'UnauthorizedOperation' or e.response['Error']['Code'] == 'AccessDeniedException':
-                logger.error("Antiope doesn't have proper permissions to this account or permission to the AccountAPI")
+            if e.response['Error']['Code'] == 'AccessDeniedException':
+                logger.error(f"Antiope doesn't have proper permissions to this account or permission to the AccountAPI: {e}")
+                resource_item['errors']['AlternateContacts'] = f"Antiope doesn't have proper permissions to this account or permission to the AccountAPI: {e}"
                 pass
             else:
                 raise
+
 
         # Gather what regions are enabled
         resource_item['supplementaryConfiguration']['Regions'] = {} # structure this array into a dict for cleaner json
