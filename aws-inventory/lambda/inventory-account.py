@@ -67,22 +67,25 @@ def lambda_handler(event, context):
             resource_item['supplementaryConfiguration']['assume_role_url'] = assume_role_url.format(target_account.account_id, role_name, target_account.account_name)
 
 
-        try:
-            contact_ddb_attrib = {}
-            for contact_type in CONTACT_TYPES:
+
+        contact_ddb_attrib = {}
+        for contact_type in CONTACT_TYPES:
+            try:
                 contact = client.get_alternate_contact(AlternateContactType=contact_type)
                 del contact['ResponseMetadata']
-                resource_item['supplementaryConfiguration'][f"AlternateContact-{contact_type}"] = contact
+                resource_item['supplementaryConfiguration'][f"AlternateContact-{contact_type}"] = contact['AlternateContact']
                 contact_ddb_attrib[contact_type] = contact
-            target_account.update_attribute("AlternateContacts", contact_ddb_attrib)
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'AccessDeniedException':
-                logger.error(f"Antiope doesn't have proper permissions to this account or permission to the AccountAPI: {e}")
-                resource_item['errors']['AlternateContacts'] = f"Antiope doesn't have proper permissions to this account or permission to the AccountAPI: {e}"
-                pass
-            else:
-                raise
-
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.error(f"Antiope doesn't have proper permissions to this account or permission to the AccountAPI: {e}")
+                    resource_item['errors']['AlternateContacts'] = f"Antiope doesn't have proper permissions to this account or permission to the AccountAPI: {e}"
+                    pass
+                elif e.response['Error']['Code'] == 'ResourceNotFoundException':
+                    logger.error(f"{message['account_id']} doesn't have an AlternateContact of type {contact_type}")
+                    resource_item['errors'][f"AlternateContacts-{contact_type}"] = f"{message['account_id']} doesn't have an AlternateContact of type {contact_type}"
+                else:
+                    raise
+        target_account.update_attribute("AlternateContacts", contact_ddb_attrib)
 
         # Gather what regions are enabled
         resource_item['supplementaryConfiguration']['Regions'] = {} # structure this array into a dict for cleaner json
