@@ -33,7 +33,6 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
-USER_RESOURCE_PATH = "iam/user"
 ROLE_RESOURCE_PATH = "iam/role"
 SAML_RESOURCE_PATH = "iam/saml"
 
@@ -46,7 +45,6 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         discover_roles(target_account)
-        discover_users(target_account)
         discover_saml_provider(target_account)
         fetch_credential_report(target_account, message)
 
@@ -165,58 +163,6 @@ def process_trusted_account(principal, role_arn):
             )
         except ClientError as e:
             raise AccountUpdateError(u"Unable to create {}: {}".format(a[u'Name'], e))
-
-
-def discover_users(account):
-    '''
-        Queries AWS to determine IAM Users exist in an AWS Account
-    '''
-    users = []
-
-    iam_client = account.get_client('iam')
-    response = iam_client.list_users()
-    while 'IsTruncated' in response and response['IsTruncated'] is True:  # Gotta Catch 'em all!
-        users += response['Users']
-        response = iam_client.list_users(Marker=response['Marker'])
-    users += response['Users']
-
-    resource_item = {}
-    resource_item['awsAccountId']                   = account.account_id
-    resource_item['awsAccountName']                 = account.account_name
-    resource_item['resourceType']                   = "AWS::IAM::User"
-    resource_item['source']                         = "Antiope"
-
-    for user in users:
-        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
-        resource_item['configuration']                  = user
-        if 'Tags' in user:
-            resource_item['tags']                           = parse_tags(user['Tags'])
-        resource_item['supplementaryConfiguration']     = {}
-        resource_item['resourceId']                     = user['UserId']
-        resource_item['resourceName']                   = user['UserName']
-        resource_item['ARN']                            = user['Arn']
-        resource_item['resourceCreationTime']           = user['CreateDate']
-        resource_item['errors']                         = {}
-
-        response = iam_client.list_mfa_devices(UserName=user['UserName'])
-        if 'MFADevices' in response and len(response['MFADevices']) > 0:
-            resource_item['supplementaryConfiguration']['MFADevice'] = response['MFADevices'][0]
-
-        response = iam_client.list_access_keys(UserName=user['UserName'])
-        if 'AccessKeyMetadata' in response and len(response['AccessKeyMetadata']) > 0:
-            resource_item['supplementaryConfiguration']['AccessKeyMetadata'] = response['AccessKeyMetadata']
-
-        try:
-            response = iam_client.get_login_profile(UserName=user['UserName'])
-            if 'LoginProfile' in response:
-                resource_item['supplementaryConfiguration']['LoginProfile'] = response["LoginProfile"]
-        except ClientError as e:
-            if e.response['Error']['Code'] == "NoSuchEntity":
-                pass
-            else:
-                raise
-
-        save_resource_to_s3(USER_RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
 
 def discover_saml_provider(account):

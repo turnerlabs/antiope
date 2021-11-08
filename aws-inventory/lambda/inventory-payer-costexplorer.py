@@ -101,33 +101,3 @@ def lambda_handler(event, context):
         # capture_error(message, context, e, "General Exception for {}: {}".format(message['payer_id'], e))
         raise
 
-
-if __name__ == '__main__':
-
-
-    # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-
-    logger.setLevel(logging.DEBUG)
-
-    # create formatter
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    formatter = logging.Formatter(f"%(levelname)s - %(message)s")
-    # add formatter to ch
-    ch.setFormatter(formatter)
-    # add ch to logger
-    logger.addHandler(ch)
-
-    # # Sanity check region
-    # if args.region:
-    #     os.environ['AWS_DEFAULT_REGION'] = args.region
-
-    # if 'AWS_DEFAULT_REGION' not in os.environ:
-    #     logger.error("AWS_DEFAULT_REGION Not set. Aborting...")
-    #     exit(1)
-
-    try:
-        lambda_handler({}, {})
-    except KeyboardInterrupt:
-        exit(1)
