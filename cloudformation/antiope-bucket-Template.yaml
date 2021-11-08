@@ -61,6 +61,24 @@ Resources:
                     Value: "CloudSploit/latest-results/"
                   - Name: suffix
                     Value: ".json"
+          - Event: 's3:ObjectCreated:*'
+            Topic: !Ref ResourceNotificationTopic
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "GCP-Resources/"
+                  - Name: suffix
+                    Value: ".json"
+          - Event: 's3:ObjectCreated:*'
+            Topic: !Ref ResourceNotificationTopic
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "Azure-Resources/"
+                  - Name: suffix
+                    Value: ".json"
       OwnershipControls:
         Rules:
         - ObjectOwnership: BucketOwnerPreferred
