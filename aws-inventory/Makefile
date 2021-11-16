@@ -65,6 +65,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-rds-inventory \
 			$(RESOURCE_PREFIX)-route53-inventory \
 			$(RESOURCE_PREFIX)-secrets-inventory \
+			$(RESOURCE_PREFIX)-ses-inventory \
 			$(RESOURCE_PREFIX)-shield-inventory \
 			$(RESOURCE_PREFIX)-sqs-inventory \
 			$(RESOURCE_PREFIX)-ssm-inventory \

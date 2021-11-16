@@ -51,6 +51,7 @@ FILES =	common.py\
 		inventory-payer-costexplorer.py \
 		inventory-sagemaker.py \
 		inventory-secrets.py \
+		inventory-ses.py \
 		inventory-shield.py \
 		inventory-ssm.py \
 		inventory-support-cases.py \

@@ -816,6 +816,20 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  SESInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-ses-inventory"
+      Description: Inventory SES Verified Identities
+      Handler: inventory-ses.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
   RedshiftInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1260,6 +1274,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ses-inventory", { "stat": "Sum", "period": 604800, "label": "ses-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
@@ -1325,6 +1340,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ses-inventory", { "stat": "Sum", "period": 604800, "label": "ses-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
@@ -1390,6 +1406,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 900, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ses-inventory", { "stat": "Sum", "period": 900, "label": "ses-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 900, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
