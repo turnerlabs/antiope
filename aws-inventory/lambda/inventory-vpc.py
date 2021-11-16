@@ -108,6 +108,10 @@ def discover_vpcs(target_account, region):
         if 'FlowLogs' in response and len(response['FlowLogs']) > 0:
             resource_item['supplementaryConfiguration']['FlowLogs'] = response['FlowLogs'][0]
 
+        response = ec2_client.describe_vpc_endpoints(Filters=[{'Name': 'vpc-id', 'Values': [v['VpcId']]}])
+        if 'VpcEndpoints' in response and len(response['VpcEndpoints']) > 0:
+            resource_item['supplementaryConfiguration']['VpcEndpoints'] = response['VpcEndpoints'][0]
+
         # We also save the VPCs to a DDB Table
         ddb_item = {
             'vpc_id':               v['VpcId'],
