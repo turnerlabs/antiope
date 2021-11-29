@@ -239,7 +239,7 @@ Resources:
       CodeUri: ../lambda
       FunctionName: !Sub "${pResourcePrefix}-ingest-s3"
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
-      Handler: ingest_s3.lambda_handler
+      Handler: handler.handler
       Runtime: python3.6
       Timeout: !If [ ReIndex, 900, 180]
       MemorySize: 768
