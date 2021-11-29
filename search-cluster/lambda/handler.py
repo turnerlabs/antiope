@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-    waf_log_to_splunk.py:  Triggered by SNS topic attached to S3 bucket where AWS Inspector FINDING_REPORTED events
-                            are saved by finding-reported lambda.  Writes finding to Splunk index.  Token and secret
-                            are stored in secrets manager.
+    handler.py:  Triggered by SNS topic attached to S3 bucket where an s3 create events are sent.
+                            
 """
 import json
 import os
@@ -66,7 +65,7 @@ def handler( event, context ):
         logger.debug( "Event Message:" + json.dumps(record, sort_keys=True) )
 
         if prefix_excluded( record["s3"]["object"]["key"] ):
-            logger.info( f'Prefix {record["s3"]["object"]["key"]} excluded: skipping insertion into ES' )
+            logger.warning( f'Prefix {record["s3"]["object"]["key"]} excluded: skipping insertion into ES' )
             continue
 
         # establish object to read
@@ -92,8 +91,6 @@ def handler( event, context ):
             doc_id = key_parts.pop().replace(".json", "")
             index = "_".join(key_parts)
         
-   
-        print( f'{index} {doc_id}')
         if index not in all_es_indexes:
             if "azure" in index:
                 mkAzureResourceIndex(es.es, index)
@@ -122,7 +119,7 @@ def mkAzureResourceIndex(es, index):
                                                 })
     es.index(index=".kibana", doc_type="doc", id=f"index-pattern:{index}", document={
                                                                                         "index-pattern": {
-                                                                                            "title": es_index,
+                                                                                            "title": index,
                                                                                             "timeFieldName": "configurationItemCaptureTime"
                                                                                         },
                                                                                         "type": "index-pattern"
