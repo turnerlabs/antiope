@@ -100,7 +100,8 @@ def handler( event, context ):
             if "azure" in index:
                 mkAzureResourceIndex(es.es, index)
             else:
-                logger.debug( f'S3 key produced unknown index  = {index}, s3key =  {record["s3"]["object"]["key"]}')
+                logger.debug( f'S3 key produced unknown index = {index}, s3key = {record["s3"]["object"]["key"]}')
+                return( event )
         try:
             es.es.index(index=index, id=doc_id, document=resource)
         except Exception as e:
