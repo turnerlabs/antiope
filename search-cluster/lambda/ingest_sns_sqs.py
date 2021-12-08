@@ -55,7 +55,8 @@ def lambda_handler(event, context):
             sns_message2 = json.loads(sns_message['Message'])
             s3_record_list = sns_message2['Records']
         else:
-            s3_record_list = message['Records']
+            # These are requeued messages
+            s3_record_list = sns_message['Records']
 
 
         for s3_record in s3_record_list:

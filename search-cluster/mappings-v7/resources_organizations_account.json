@@ -38,21 +38,14 @@
           "type": "keyword"
         },
         "configuration": {
-          "type": "object",
-          "properties": {
-            "SecretVersionsToStages": {
-              "dynamic": false,
-              "properties": {}
-            }
-          }
+          "type": "object"
         },
         "configurationItemCaptureTime": {
           "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
           "type": "date"
         },
         "errors": {
-          "type": "object",
-          "enabled": false
+          "type": "object"
         },
         "resourceId": {
           "fields": {
@@ -91,7 +84,8 @@
           "type": "keyword"
         },
         "supplementaryConfiguration": {
-          "type": "object"
+          "type": "object",
+          "enabled": false
         },
         "tags": {
           "type": "object",
@@ -102,4 +96,5 @@
         "antiope_mapping_version": "2019-03-27"
       }
   }
+
 }

@@ -59,7 +59,11 @@ def main(args, logger):
     es_idx=es.indices
     if args.index:
         logger.info(f"Deleting {args.index}")
-        es_idx.delete(index=args.index)
+        try:
+            es_idx.delete(index=args.index)
+        except Exception as e:
+            print(f"Error Deleting {args.index}: {e}")
+            exit(1)
     else:
         ans = input(f"You are about to delete all the indices in {args.domain}. Are you sure? (type 'yes' to proceed) ").lower().strip()
         if ans != "yes":

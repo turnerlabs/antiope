@@ -80,6 +80,7 @@ Parameters:
     Description: What version of Elasticsearch you want to use
     Default: "7.9"  # Latest as of 2020-12-02
     AllowedValues:
+      - "7.10"
       - "7.9"
       - "7.8"
       - "7.7"
