@@ -45,7 +45,8 @@
           "type": "date"
         },
         "errors": {
-          "type": "object"
+          "type": "object",
+          "enabled": false
         },
         "resourceId": {
           "fields": {
