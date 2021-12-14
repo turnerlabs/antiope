@@ -73,6 +73,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-ta-inventory \
 			$(RESOURCE_PREFIX)-transit-gw-inventory \
 			$(RESOURCE_PREFIX)-trigger-inventory \
+			$(RESOURCE_PREFIX)-vault-inventory \
 			$(RESOURCE_PREFIX)-vpc-inventory \
 			$(RESOURCE_PREFIX)-waf-inventory \
 			$(RESOURCE_PREFIX)-wafv1-inventory \

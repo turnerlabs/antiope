@@ -31,6 +31,7 @@ fi
 # An index is defined based on the S3 path the object is found in. "resouces_$service_$resourceType"
 INDICES="	resources_accessanalyzer_analyzer
 			resources_accessanalyzer_finding
+			resources_backup_backupvault
 			resources_cloudformation_stack
 			resources_cloudfront_distribution
 			resources_cloudtrail_trail

@@ -57,6 +57,7 @@ FILES =	common.py\
 		inventory-support-cases.py \
 		inventory-trusted-advisor.py \
 		inventory-vpc.py \
+		inventory-vault.py \
 		inventory-transit-gateway.py \
 		inventory-waf.py \
 		inventory-wafv1.py \
