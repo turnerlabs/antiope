@@ -199,6 +199,10 @@ Parameters:
     Description: HEC Token
     Default: '{ "HecAccessToken": "NothingToSeeHere" }'
 
+  pAzureInventoryBucketEventSNSTopicARN:
+    Type: String
+    Description: S3 put event notifications from the inventory process
+
   pGitRepo:
     Description: Location of resources that created this stack
     Type: String
@@ -306,6 +310,7 @@ Resources:
             Fn::GetAtt:
             - AWSInventoryStack
             - Outputs.AWSInventoryBucketEventSNSTopic
+          pAzureInventoryBucketEventSNSTopic: !Ref pAzureInventoryBucketEventSNSTopicARN
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 

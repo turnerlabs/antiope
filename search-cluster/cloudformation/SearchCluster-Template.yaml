@@ -78,6 +78,10 @@ Parameters:
     Type: String
     Description: S3 put event notifications from the inventory process
 
+  pAzureInventoryBucketEventSNSTopic:
+    Type: String
+    Description: S3 put event notifications from the inventory process
+
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
   ReIndex: !Equals [ !Ref pReIndexSettings, True ]
@@ -297,6 +301,7 @@ Resources:
               aws:SourceArn:
                 - !Sub "arn:aws:s3:*:*:${pBucketName}"
                 - !Ref pAWSInventoryBucketEventSNSTopic
+                - !Ref pAzureInventoryBucketEventSNSTopic
 
   # subscribe to SNS topic of inspector bucket.
   Subscription:
