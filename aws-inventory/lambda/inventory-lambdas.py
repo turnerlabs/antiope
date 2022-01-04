@@ -74,10 +74,10 @@ def discover_lambdas(target_account, region):
 
     lambdas = []
     client = target_account.get_client('lambda', region=region)
-    response = client.list_functions()
+    response = client.list_functions(MaxItems=50)
     while 'NextMarker' in response:  # Gotta Catch 'em all!
         lambdas += response['Functions']
-        response = client.list_functions(Marker=response['NextMarker'])
+        response = client.list_functions(MaxItems=50, Marker=response['NextMarker'])
     lambdas += response['Functions']
 
     logger.info(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
