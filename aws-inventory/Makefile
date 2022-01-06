@@ -46,6 +46,8 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-ebs-vol-inventory \
 			$(RESOURCE_PREFIX)-ecr-inventory \
 			$(RESOURCE_PREFIX)-ecs-inventory \
+			$(RESOURCE_PREFIX)-eks-inventory \
+			${RESOURCE_PREFIX}-elastic-beanstalk-inventory \
 			$(RESOURCE_PREFIX)-elb-inventory \
 			$(RESOURCE_PREFIX)-eni-inventory \
 			$(RESOURCE_PREFIX)-es-inventory \
@@ -69,6 +71,7 @@ FUNCTIONS = $(RESOURCE_PREFIX)-pull-organization-data \
 			$(RESOURCE_PREFIX)-shield-inventory \
 			$(RESOURCE_PREFIX)-sqs-inventory \
 			$(RESOURCE_PREFIX)-ssm-inventory \
+			${RESOURCE_PREFIX}-storage-gateway-inventory \
 			$(RESOURCE_PREFIX)-support-inventory \
 			$(RESOURCE_PREFIX)-ta-inventory \
 			$(RESOURCE_PREFIX)-transit-gw-inventory \

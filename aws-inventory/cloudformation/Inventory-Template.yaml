@@ -829,6 +829,48 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
+  
+  StorageGatewayInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-storage-gateway-inventory"
+      Description: Inventory Storage Gateway Verified Identities
+      Handler: inventory-storage-gateway.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+  
+  EKSInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-eks-inventory"
+      Description: Inventory Storage Gateway Verified Identities
+      Handler: inventory-eks.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+  
+  ElasticBeanstalkInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-elastic-beanstalk-inventory"
+      Description: Inventory Elastic Beanstalk Verified Identities
+      Handler: inventory-elasticbeanstalk.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   RedshiftInventoryLambdaFunction:
     Type: AWS::Serverless::Function

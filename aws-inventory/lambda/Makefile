@@ -34,6 +34,8 @@ FILES =	common.py\
 		inventory-ebs-volume.py \
 		inventory-ecr.py \
 		inventory-ecs.py \
+		inventory-eks.py \
+		inventory-elasticbeanstalk.py \
 		inventory-elb.py \
 		inventory-eni.py \
 		inventory-es.py \
@@ -54,6 +56,7 @@ FILES =	common.py\
 		inventory-ses.py \
 		inventory-shield.py \
 		inventory-ssm.py \
+		inventory-storage-gateway.py
 		inventory-support-cases.py \
 		inventory-trusted-advisor.py \
 		inventory-vpc.py \
