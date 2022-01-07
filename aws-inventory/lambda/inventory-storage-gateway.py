@@ -69,28 +69,31 @@ def lambda_handler(event, context):
 
 def discover_storage_gateways(target_account, region):
     '''Discover all Storage Gateways'''
-
+    sgw_list = []
 
     sgw_client = target_account.get_client('storagegateway', region=region)
     response = sgw_client.list_gateways()
     while 'Marker' in response:  # Gotta Catch 'em all!
-        for sgws in response.get("Gateways"):
-            sgw = sgw_client.describe_gateway_information(GatewayARN=sgws.get("GatewayARN"))
-            resource_item = {
-                "awsAccountId":                 target_account.account_id,
-                "awsAccountName":               target_account.account_name,
-                "resourceType":                 TYPE,
-                "configurationItemCaptureTime": str(datetime.datetime.now()),
-                "awsRegion":                    region,
-                "configuration":                sgw,
-                "supplementaryConfiguration":   {},
-                "resourceName":                 sgw.get("GatewayName"),
-                "resourceId":                   sgw.get('GatewayId'),
-                "ARN":                          sgw.get("GatewayARN"),
-                "resourceCreationTime":         sgw.get("DateCreated", None),
-                "errors":                       {}
-            }
+        
         response = sgw_client.list_gateways(Marker=response.get("Marker"))
+    sgw_list.append(response.get("Gateways"))
+    for sgws in response.get("Gateways"):
+        sgw = sgw_client.describe_gateway_information(GatewayARN=sgws.get("GatewayARN"))
+        resource_item = {
+            "awsAccountId":                 target_account.account_id,
+            "awsAccountName":               target_account.account_name,
+            "resourceType":                 TYPE,
+            "configurationItemCaptureTime": str(datetime.datetime.now()),
+            "awsRegion":                    region,
+            "configuration":                sgw,
+            "supplementaryConfiguration":   {},
+            "resourceName":                 sgw.get("GatewayName"),
+            "resourceId":                   sgw.get('GatewayId'),
+            "ARN":                          sgw.get("GatewayARN"),
+            "resourceCreationTime":         sgw.get("DateCreated", None),
+            "errors":                       {}
+        }
+    
 
-        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
+    save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 

@@ -69,25 +69,29 @@ def lambda_handler(event, context):
 
 
 def discover_eks_clusters(account, region):
+    eks_list = []
     eks_client = account.get_client("eks", region=region)
     response = eks_client.list_clusters()
     while "nextToken" in response:
-        for cluster in response.get("clusters"):
-            eks_cluster = eks_client.describe_cluster(name=cluster)
-            resource_item = {
-                "awsAccountId":                 account.account_id,
-                "awsAccountName":               account.account_name,
-                "resourceType":                 TYPE,
-                "configurationItemCaptureTime": str(datetime.datetime.now()),
-                "awsRegion":                    region,
-                "configuration":                eks_cluster,
-                "supplementaryConfiguration":   {},
-                "resourceName":                 eks_cluster.get("name"),
-                "resourceId":                   f"{account.acount_id}-{region}-{eks_cluster.get('name')}",
-                "ARN":                          eks_cluster.get("arn"),
-                "resourceCreationTime":         eks_cluster.get("createAt"),
-                "errors":                       {}
-            }
-            save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
-        response = eks_cluster.list_clusters(nextToken=response.get("nextToken"))
+        eks_list.append(response.get("clusters"))
+        response = eks_client.list_clusters(nextToken=response.get("nextToken"))
+    eks_list.append(response.get("clusters"))
+
+    for cluster in eks_list:
+        eks_cluster = eks_client.describe_cluster(name=cluster)
+        resource_item = {
+            "awsAccountId":                 account.account_id,
+            "awsAccountName":               account.account_name,
+            "resourceType":                 TYPE,
+            "configurationItemCaptureTime": str(datetime.datetime.now()),
+            "awsRegion":                    region,
+            "configuration":                eks_cluster,
+            "supplementaryConfiguration":   {},
+            "resourceName":                 eks_cluster.get("name"),
+            "resourceId":                   f"{account.acount_id}-{region}-{eks_cluster.get('name')}",
+            "ARN":                          eks_cluster.get("arn"),
+            "resourceCreationTime":         eks_cluster.get("createAt"),
+            "errors":                       {}
+        }
+        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
