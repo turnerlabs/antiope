@@ -74,6 +74,7 @@ def discover_storage_gateways(target_account, region):
     sgw_client = target_account.get_client('storagegateway', region=region)
     response = sgw_client.list_gateways()
     while 'Marker' in response:  # Gotta Catch 'em all!
+        sgw_list.append(response.get("Gateways"))
         response = sgw_client.list_gateways(Marker=response.get("Marker"))
     sgw_list.append(response.get("Gateways"))
     for sgws in response.get("Gateways"):
@@ -89,7 +90,7 @@ def discover_storage_gateways(target_account, region):
             "resourceName":                 sgw.get("GatewayName"),
             "resourceId":                   sgw.get('GatewayId'),
             "ARN":                          sgw.get("GatewayARN"),
-            "resourceCreationTime":         sgw.get("DateCreated", None),
+            "resourceCreationTime":         sgw.get("DateCreated", None), # Does not exist
             "errors":                       {}
         }
     
