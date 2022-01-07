@@ -94,5 +94,5 @@ def discover_storage_gateways(target_account, region):
         }
     
 
-    save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
+        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
 
