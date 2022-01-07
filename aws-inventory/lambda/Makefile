@@ -56,7 +56,7 @@ FILES =	common.py\
 		inventory-ses.py \
 		inventory-shield.py \
 		inventory-ssm.py \
-		inventory-storage-gateway.py
+		inventory-storage-gateway.py \
 		inventory-support-cases.py \
 		inventory-trusted-advisor.py \
 		inventory-vpc.py \

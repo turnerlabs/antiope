@@ -80,7 +80,7 @@ def discover_elastic_beanstalk_applications(target_account:str, region:str):
     except ClientError as error:
         logger.error(f"Elastic Beanstalk Describe Application Error: {error}")
         return
-    for app in apps:
+    for app in apps.get("Applications"):
         resource_item = {
             "awsAccountId":                 target_account.account_id,
             "awsAccountName":               target_account.account_name,
@@ -107,7 +107,7 @@ def discover_elastic_beanstalk_environments(target_account:str, region:str):
     except ClientError as error:
         logger.error(f"Elastic Beanstalk Describe Environments Error: {error}")
         return 
-    for env in envs:
+    for env in envs.get("Environments"):
         resource_item = {
             "awsAccountId":                 target_account.account_id,
             "awsAccountName":               target_account.account_name,
