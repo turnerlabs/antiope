@@ -90,7 +90,7 @@ def discover_elastic_beanstalk_applications(target_account:str, region:str):
             "configuration":                app,
             "supplementaryConfiguration":   {},
             "resourceName":                 app.get("ApplicationName"),
-            "resourceId":                   f"{target_account.acount_id}-{region}-{app.get('ApplicationName')}",
+            "resourceId":                   f"{target_account.account_id}-{region}-{app.get('ApplicationName')}",
             "ARN":                          app.get("ApplicationArn"),
             "resourceCreationTime":         app.get("DateCreated"),
             "errors":                       {}
