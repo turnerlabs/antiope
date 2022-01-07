@@ -32,7 +32,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 RESOURCE_PATH = "storage_gateway/gateway"
-TYPE = "AWS::ElasticLoadBalancingV2::LoadBalancer"
+TYPE = "AWS::StorageGateway::Gateway"
 
 
 def lambda_handler(event, context):
@@ -85,7 +85,7 @@ def discover_storage_gateways(target_account, region):
                 "configuration":                sgw,
                 "supplementaryConfiguration":   {},
                 "resourceName":                 sgw.get("GatewayName"),
-                "resourceId":                   f"{target_account.acount_id}-{region}-{sgw.get('GatewayName')}",
+                "resourceId":                   f"{target_account.acount_id}-{region}-{sgw.get('GatewayId')}",
                 "ARN":                          sgw.get("GatewayARN"),
                 "resourceCreationTime":         sgw.get("DateCreated", None),
                 "errors":                       {}

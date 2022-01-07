@@ -834,7 +834,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub "${pResourcePrefix}-storage-gateway-inventory"
-      Description: Inventory Storage Gateway Verified Identities
+      Description: Inventory Storage Gateway
       Handler: inventory-storage-gateway.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
@@ -848,7 +848,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub "${pResourcePrefix}-eks-inventory"
-      Description: Inventory Storage Gateway Verified Identities
+      Description: Inventory Kubernetes 
       Handler: inventory-eks.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
@@ -862,7 +862,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub "${pResourcePrefix}-elastic-beanstalk-inventory"
-      Description: Inventory Elastic Beanstalk Verified Identities
+      Description: Inventory Elastic Beanstalk
       Handler: inventory-elasticbeanstalk.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
@@ -1309,6 +1309,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 604800, "label": "eks-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elasticbeanstalk-inventory", { "stat": "Sum", "period": 604800, "label": "elasticbeanstalk-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
@@ -1332,6 +1334,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ses-inventory", { "stat": "Sum", "period": 604800, "label": "ses-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-storage-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "storage-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
@@ -1376,6 +1379,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 604800, "label": "eks-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elasticbeanstalk-inventory", { "stat": "Sum", "period": 604800, "label": "elasticbeanstalk-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
@@ -1398,6 +1403,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ses-inventory", { "stat": "Sum", "period": 604800, "label": "ses-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-storage-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "storage-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
@@ -1442,6 +1448,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Maximum", "period": 60, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Maximum", "period": 60, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Maximum", "period": 60, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 604800, "label": "eks-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elasticbeanstalk-inventory", { "stat": "Sum", "period": 604800, "label": "elasticbeanstalk-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Maximum", "period": 60, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Maximum", "period": 60, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Maximum", "period": 60, "label": "es-inventory" } ],
@@ -1463,6 +1471,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Maximum", "period": 60, "label": "secrets-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Maximum", "period": 60, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Maximum", "period": 60, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-storage-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "storage-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Maximum", "period": 60, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Maximum", "period": 60, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Maximum", "period": 60, "label": "trigger-inventory" } ],

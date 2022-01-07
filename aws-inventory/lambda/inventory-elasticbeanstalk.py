@@ -31,8 +31,12 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
-RESOURCE_PATH = "eb/application"
-TYPE = "AWS::ElasticBeanstalk::Application"
+APPLICATION_RESOURCE_PATH = "eb/application"
+APPLICATION_TYPE = "AWS::ElasticBeanstalk::Application"
+
+
+ENVIRONMENT_RESOURCE_PATH = "eb/environment"
+ENVIRONMENT_TYPE = "AWS::ElasticBeanstalk::Environment"
 
 
 def lambda_handler(event, context):
@@ -80,7 +84,7 @@ def discover_elastic_beanstalk_applications(target_account:str, region:str):
         resource_item = {
             "awsAccountId":                 target_account.account_id,
             "awsAccountName":               target_account.account_name,
-            "resourceType":                 TYPE,
+            "resourceType":                 APPLICATION_TYPE,
             "configurationItemCaptureTime": str(datetime.datetime.now()),
             "awsRegion":                    region,
             "configuration":                app,
@@ -92,7 +96,7 @@ def discover_elastic_beanstalk_applications(target_account:str, region:str):
             "errors":                       {}
         }
 
-        save_resource_to_s3(RESOURCE_PATH, resource_item.get("resourceId"), resource_item)
+        save_resource_to_s3(APPLICATION_RESOURCE_PATH, resource_item.get("resourceId"), resource_item)
 
 
 def discover_elastic_beanstalk_environments(target_account:str, region:str):
@@ -107,16 +111,16 @@ def discover_elastic_beanstalk_environments(target_account:str, region:str):
         resource_item = {
             "awsAccountId":                 target_account.account_id,
             "awsAccountName":               target_account.account_name,
-            "resourceType":                 TYPE,
+            "resourceType":                 ENVIRONMENT_TYPE,
             "configurationItemCaptureTime": str(datetime.datetime.now()),
             "awsRegion":                    region,
             "configuration":                env,
             "supplementaryConfiguration":   {},
             "resourceName":                 env.get("EnvironmentName"),
-            "resourceId":                   f"{target_account.acount_id}-{region}-{env.get('EnvironmentName')}",
+            "resourceId":                   f"{target_account.acount_id}-{region}-{env.get('EnvironmentId')}",
             "ARN":                          env.get("EnvironmentArn"),
             "resourceCreationTime":         env.get("DateCreated"),
             "errors":                       {}
         }
 
-        save_resource_to_s3(RESOURCE_PATH, resource_item.get("resourceId"), resource_item)
+        save_resource_to_s3(ENVIRONMENT_RESOURCE_PATH, resource_item.get("resourceId"), resource_item)
