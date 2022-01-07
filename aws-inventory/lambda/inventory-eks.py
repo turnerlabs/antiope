@@ -76,7 +76,8 @@ def discover_eks_clusters(account, region):
         for cluster in response.get("clusters"):
             eks_list.append(cluster)
         response = eks_client.list_clusters(nextToken=response.get("nextToken"))
-    eks_list.append(response.get("clusters"))
+    for cluster in response.get("clusters"):
+            eks_list.append(cluster)
 
     for cluster in eks_list:
         eks_cluster = eks_client.describe_cluster(name=cluster)
