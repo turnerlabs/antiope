@@ -73,7 +73,8 @@ def discover_eks_clusters(account, region):
     eks_client = account.get_client("eks", region=region)
     response = eks_client.list_clusters()
     while "nextToken" in response:
-        eks_list.append(response.get("clusters"))
+        for cluster in response.get("clusters"):
+            eks_list.append(cluster)
         response = eks_client.list_clusters(nextToken=response.get("nextToken"))
     eks_list.append(response.get("clusters"))
 
