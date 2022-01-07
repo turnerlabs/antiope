@@ -80,7 +80,7 @@ def discover_eks_clusters(account, region):
             eks_list.append(cluster)
 
     for cluster in eks_list:
-        eks_cluster = eks_client.describe_cluster(name=cluster)
+        eks_cluster = eks_client.describe_cluster(name=cluster).get("cluster")
         resource_item = {
             "awsAccountId":                 account.account_id,
             "awsAccountName":               account.account_name,
