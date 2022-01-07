@@ -90,7 +90,7 @@ def discover_eks_clusters(account, region):
             "configuration":                eks_cluster,
             "supplementaryConfiguration":   {},
             "resourceName":                 eks_cluster.get("name"),
-            "resourceId":                   f"{account.acount_id}-{region}-{eks_cluster.get('name')}",
+            "resourceId":                   f"{account.account_id}-{region}-{eks_cluster.get('name')}",
             "ARN":                          eks_cluster.get("arn"),
             "resourceCreationTime":         eks_cluster.get("createAt"),
             "errors":                       {}
