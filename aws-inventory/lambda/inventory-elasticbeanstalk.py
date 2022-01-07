@@ -117,7 +117,7 @@ def discover_elastic_beanstalk_environments(target_account:str, region:str):
             "configuration":                env,
             "supplementaryConfiguration":   {},
             "resourceName":                 env.get("EnvironmentName"),
-            "resourceId":                   f"{target_account.acount_id}-{region}-{env.get('EnvironmentId')}",
+            "resourceId":                   env.get('EnvironmentId'),
             "ARN":                          env.get("EnvironmentArn"),
             "resourceCreationTime":         env.get("DateCreated"),
             "errors":                       {}
