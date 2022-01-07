@@ -92,7 +92,7 @@ def discover_eks_clusters(account, region):
             "resourceName":                 eks_cluster.get("name"),
             "resourceId":                   f"{account.account_id}-{region}-{eks_cluster.get('name')}",
             "ARN":                          eks_cluster.get("arn"),
-            "resourceCreationTime":         eks_cluster.get("createAt"),
+            "resourceCreationTime":         eks_cluster.get("createdAt"),
             "errors":                       {}
         }
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
