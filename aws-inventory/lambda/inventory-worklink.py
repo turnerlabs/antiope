@@ -1,3 +1,17 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
 from botocore.exceptions import ClientError, EndpointConnectionError
 import json
@@ -25,14 +39,14 @@ def lambda_handler(event, context):
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
 
     try:
-                    
+
         target_account = AWSAccount(message['account_id'])
-                
+
         for r in target_account.get_regions():
-        
+
             try:
                 discover_worklink_fleets(target_account, r)
-    
+
             except ClientError as e:
                 # Move onto next region if we get access denied. This is probably SCPs.
                 if e.response['Error']['Code'] == 'AccessDeniedException':
@@ -40,38 +54,38 @@ def lambda_handler(event, context):
                     continue
                 else:
                     raise
-        
+
             except EndpointConnectionError as e:
                 # Move onto next region if we get an endpoint connection error.  This is probably due to the region not being supported.
                 logger.error(f"EndpointConnectionError for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id})")
                 continue
-       
+
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
-    
+
     except ClientError as e:
         if e.response['Error']['Code'] == 'UnauthorizedOperation':
             logger.error("Antiope doesn't have proper permissions to this account")
             return(event)
-        
+
         logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
         capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
-    
+
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
         raise
-    
+
 def discover_worklink_fleets(target_account, region):
     '''Iterate accross all regions to discover worklink fleets'''
-    
+
     worklink_client = target_account.get_client('worklink', region=region)
     response = worklink_client.list_fleets()
-    
+
     if response['FleetSummaryList']:
-        
+
         for fleet in response['FleetSummaryList']:
 
             resource_item = {}
@@ -87,37 +101,37 @@ def discover_worklink_fleets(target_account, region):
             resource_item['resourceCreationTime']           = fleet['CreatedTime']
             resource_item['Arn']                            = fleet['FleetArn']
             resource_item['errors']                         = {}
-            
+
             if 'Tags' in fleet:
                 resource_item['tags']                       = parse_tags(fleet['Tags'])
-                
+
             # Obtain the domains configured as part of the fleet and add as part of the supplementary configuration.
             domains = discover_fleet_domains(worklink_client, fleet['FleetArn'])
-            
+
             if domains:
                 resource_item['supplementaryConfiguration']['Domains'] = domains
-            
+
             # Obtain the devices configured as part of the fleet and add as part of the supplementary configuration.
             devices = discover_fleet_devices(worklink_client, fleet['FleetArn'])
-            
+
             if devices:
                 resource_item['supplementaryConfiguration']['Devices'] = devices
-            
+
             # Obtain the website authorities configured as part of the fleet and add as part of the supplementary configuration.
             authorities = discover_fleet_certificate_authorities(worklink_client, fleet['FleetArn'])
-            
+
             if authorities:
                 resource_item['supplementaryConfiguration']['WebsiteCertificateAuthorities'] = authorities
-            
+
             # Obtain the authorization providers configured as part of the fleet and add as part of the supplementary configuration.
             auth_providers = discover_fleet_authorization_providers(worklink_client, fleet['FleetArn'])
-            
+
             if auth_providers:
                 resource_item['supplementaryConfiguration']['WebsiteAuthorizationProviders'] = auth_providers
-            
+
             # Save files to S3
             save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
-           
+
             logger.info("Discovered Worklink configuration ({}) in account {} for region {}".format(fleet['FleetName'], target_account.account_id, region))
             logger.debug("Data: {}".format(resource_item))
 
@@ -126,63 +140,63 @@ def discover_worklink_fleets(target_account, region):
 
 
 def discover_fleet_domains(worklink_client, arn):
-    
+
     items_list = worklink_client.list_domains(
         FleetArn=arn
     )
-    
+
     if items_list['Domains']:
-        
+
         details = {}
-        
+
         for item in items_list['Domains']:
-            
+
             data = worklink_client.describe_domain(
                 FleetArn=arn,
                 DomainName=item['DomainName']
             )
-        
+
             details[item['DomainName']] = data
-        
+
         return(details)
-    
+
     else:
         return(items_list['Domains'])
 
 
 def discover_fleet_devices(worklink_client, arn):
-    
+
     # Obtain a list of devices
     items_list = worklink_client.list_devices(
         FleetArn=arn
     )
-        
+
     # Obtain the device specific details
     if items_list['Devices']:
-        
+
         details = {}
-        
+
         for item in items_list['Devices']:
-            
+
             data = worklink_client.describe_device(
                 FleetArn=arn,
                 DeviceId=item['DeviceId']
             )
-                        
+
             details[item['DeviceId']] = data
-        
+
         return(details)
-    
+
     else:
         return(items_list['Devices'])
 
 
 def discover_fleet_certificate_authorities(worklink_client, arn):
-    
+
     items_list = worklink_client.list_website_certificate_authorities(
         FleetArn=arn
     )
-        
+
     if items_list['WebsiteCertificateAuthorities']:
 
         details = {}
@@ -204,9 +218,9 @@ def discover_fleet_certificate_authorities(worklink_client, arn):
 
 
 def discover_fleet_authorization_providers(worklink_client, arn):
-    
+
     data = worklink_client.list_website_authorization_providers(
         FleetArn=arn
     )
-    
+
     return(data['WebsiteAuthorizationProviders'])

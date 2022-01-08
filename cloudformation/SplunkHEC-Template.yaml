@@ -1,0 +1,384 @@
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy Splunk HEC push support for Antiope
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+
+  pBucketName:
+    Description: Name of the Antiope Bucket
+    Type: String
+
+  pAWSInventoryLambdaLayer:
+    Description: ARN Antiope AWS Lambda Layer
+    Type: String
+
+  pSplunkHECSecret:
+    Description: Name of the AWS Secrets Manager secret with the HEC Token & Endpoint
+    Type: String
+
+  pS3EventNotificationTopicArn:
+    Description: SNS Topic for the Splunk Ingest SQS Queue to subscribe to.
+    Type: String
+    Default: None
+
+  pSQSMessageAlarmThreshold:
+    Description: If the Queue contains more than this number of message, fire an alarm
+    Type: Number
+    Default: 20000
+
+  pQueueEncryption:
+    Type: String
+    Description: Enable Encryption for the SQS Queue
+    Default: False
+    AllowedValues:
+      - True
+      - False
+
+Conditions:
+  EncryptionEnabled: !Equals [ !Ref pQueueEncryption, True ]
+
+Resources:
+
+  SplunkQueueKMSKey:
+    Type: AWS::KMS::Key
+    Condition: EncryptionEnabled
+    Properties:
+      Description: !Sub KMS Key for SQS in ${AWS::StackName}
+      Enabled: True
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "allow-iam"
+        Statement:
+          - Sid: "Allow everyone use of the key"
+            Effect: "Allow"
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "kms:*"
+            Resource: "*"
+          - Sid: "Allow s3 use of the key"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "s3.amazonaws.com"
+                - "sqs.amazonaws.com"
+                - "lambda.amazonaws.com"
+                # Added per https://aws.amazon.com/premiumsupport/knowledge-center/sns-topic-sqs-queue-sse-cmk-policy/ to support the S3 Event->SNS->SQS workflow
+                - "sns.amazonaws.com"
+            Action:
+              - "kms:GenerateDataKey*"
+              - "kms:Decrypt"
+            Resource: "*"
+
+  #
+  # Ingest Lambda
+  #
+  IngestLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: S3Access
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:*
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${pBucketName}/*"
+              - !Sub "arn:aws:s3:::${pBucketName}"
+          - Action:
+            - s3:ListAllMyBuckets
+            - s3:GetBucketLocation
+            Effect: Allow
+            Resource: '*'
+      - PolicyName: LambdaLogging
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: '*'
+            Action:
+            - logs:*
+            Effect: Allow
+      - PolicyName: GetMessages
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource: !GetAtt SplunkHECEventQueue.Arn
+            Action:
+            - sqs:*
+            Effect: Allow
+      - PolicyName: GetSecret
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - secretsmanager:GetSecret*
+            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${pSplunkHECSecret}-*"
+      - PolicyName: KMSDecrypt
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Resource:
+            - !If
+              - EncryptionEnabled
+              - !GetAtt SplunkQueueKMSKey.Arn
+              - !Sub "arn:aws:kms:us-east-1:${AWS::AccountId}:key/thiskeydoesntexist"
+            Action:
+            - kms:GenerateDataKey*
+            - kms:Decrypt
+            Effect: Allow
+
+  #
+  # Ingestion Function Functions
+  #
+  SplunkHECS3Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-push-to-splunk"
+      Description: AWS Lamdba to pull data from S3 to index into Splunk
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 180
+      MemorySize: 1024
+      Role: !GetAtt IngestLambdaRole.Arn
+      Layers:
+        - !Ref pAWSInventoryLambdaLayer
+      ReservedConcurrentExecutions: 5  # Limit the concurrency on this function to avoid slamming Splunk too hard
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          SQS_QUEUE_URL: !Ref SplunkHECEventQueue
+          LOG_LEVEL: INFO
+          HEC_DATA: !Ref pSplunkHECSecret
+          SECRET_REGION: !Ref AWS::Region
+      Events:
+        BatchWriteResources:
+          Type: SQS
+          Properties:
+            BatchSize: 500
+            MaximumBatchingWindowInSeconds: 30
+            Queue: !GetAtt SplunkHECEventQueue.Arn
+      InlineCode: |
+        import json
+        import os
+        import boto3
+        from botocore.exceptions import ClientError
+        import urllib3
+        from urllib.parse import unquote
+
+        import logging
+        logger = logging.getLogger()
+        logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
+        logging.getLogger('botocore').setLevel(logging.WARNING)
+        logging.getLogger('boto3').setLevel(logging.WARNING)
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+        def handler(event, _context):
+          logger.debug("Received event: " + json.dumps(event, sort_keys=True))
+
+          if hec_data is None:
+            logger.critical(f"Unable to fetch secret {os.environ['HEC_DATA']}")
+            raise Exception
+          logger.debug(f"HEC Endpoint: {hec_data['HECEndpoint']}")
+          count = 0
+          s3 = boto3.client('s3')
+
+          # Multiple layers of nesting to unpack with S3 Events, to SNS to SQS
+          for sns_record in event['Records']:
+            sns_message = json.loads(sns_record['body'])
+            sns_message2 = json.loads(sns_message['Message'])
+            logger.debug(f"sns_message2: {sns_message2}")
+
+            for s3_record in sns_message2['Records']:
+              resource_to_index = get_object(s3_record['s3']['bucket']['name'], s3_record['s3']['object']['key'], s3)
+              if resource_to_index is None:
+                continue
+
+              push_event(resource_to_index, s3_record['s3']['bucket']['name'])
+              count += 1
+
+          logger.info(f"Wrote {count} resources to Splunk")
+          return()
+
+
+        def push_event(message, bucket):
+
+          headers = {'Authorization': 'Splunk '+ hec_data['HECToken']}
+          payload = { "host": bucket, "event": message, "sourcetype": "_json" }
+          data=json.dumps(payload, default=str)
+
+          try:
+            logger.debug(f"Sending data {data} to {hec_data['HECEndpoint']}")
+            r = http.request('POST', hec_data['HECEndpoint'], headers=headers, body=data)
+            if r.status != 200:
+              logger.critical(f"Error: {r.data}")
+              raise(Exception(f"HEC Error: {r.data}"))
+            else:
+              logger.debug(f"Success: {r.data}")
+          except Exception as e:
+            logger.critical(f"Error: {e}")
+            raise
+
+        def get_secret(secret_name, region):
+          # Create a Secrets Manager client
+          session = boto3.session.Session()
+          client = session.client(service_name='secretsmanager', region_name=region)
+
+          try:
+            get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+          except ClientError as e:
+            logger.critical(f"Client error {e} getting secret")
+            raise e
+
+          else:
+            # Decrypts secret using the associated KMS CMK.
+            # Depending on whether the secret is a string or binary, one of these
+            # fields will be populated.
+            if 'SecretString' in get_secret_value_response:
+              secret = get_secret_value_response['SecretString']
+              return json.loads(secret)
+            else:
+              decoded_binary_secret = base64.b64decode(get_secret_value_response['SecretBinary'])
+              return(decoded_binary_secret)
+          return None
+
+        # Get the secret once per lambda container rather than on each invocation.
+        hec_data = get_secret(os.environ['HEC_DATA'], os.environ['SECRET_REGION'])
+        if hec_data is None:
+          logger.critical(f"Unable to fetch secret {os.environ['HEC_DATA']}")
+          raise Exception
+        # Reuse the PoolManager across invocations
+        http = urllib3.PoolManager()
+
+        def get_object(bucket, obj_key, s3):
+          '''get the object to index from S3 and return the parsed json'''
+          try:
+            response = s3.get_object(
+              Bucket=bucket,
+              Key=unquote(obj_key)
+            )
+            return(json.loads(response['Body'].read()))
+          except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchKey':
+              logger.error("Unable to find resource s3://{}/{}".format(bucket, obj_key))
+            else:
+              logger.error("Error getting resource s3://{}/{}: {}".format(bucket, obj_key, e))
+            return(None)
+
+        ### EOF ###
+
+  SplunkHECEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      # Note: SNS to SQS doesn't work if KMS is enabled. Since this SQS Queue only contains
+      # Account ID, Bucket and Object names, it's reasonably safe to not encrypt. YYMV
+      MessageRetentionPeriod: 36000  # Any messages older than ten hours are probably out-of-date
+      ReceiveMessageWaitTimeSeconds: 10
+      VisibilityTimeout: 300
+      KmsMasterKeyId:
+        Fn::If:
+          - EncryptionEnabled
+          - Ref: SplunkQueueKMSKey
+          - Ref: AWS::NoValue
+      KmsDataKeyReusePeriodSeconds:
+        Fn::If:
+          - EncryptionEnabled
+          - 86400
+          - Ref: AWS::NoValue
+
+  SplunkHECEventQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref SplunkHECEventQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: AllowS3
+        Statement:
+        - Sid: AllowS3EventNotification
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - SQS:SendMessage
+          Resource: !GetAtt SplunkHECEventQueue.Arn
+          Condition:
+            ArnLike:
+              aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+        - Sid: Allow-SNS-SendMessage
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - SQS:SendMessage
+          Resource: !GetAtt SplunkHECEventQueue.Arn
+          Condition:
+            ArnEquals:
+              aws:SourceArn: !Ref pS3EventNotificationTopicArn
+
+  SplunkHECQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt SplunkHECEventQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref pS3EventNotificationTopicArn
+
+  SplunkHECEventQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      ActionsEnabled: True
+      # AlarmActions:
+      #   - TODO
+      AlarmDescription: "Alert when Queue doesn't properly drain"
+      AlarmName: !Sub "${AWS::StackName}-SearchQueueFull"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt SplunkHECEventQueue.QueueName
+      EvaluationPeriods: 1
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Period: 300
+      Statistic: Average
+      Threshold: !Ref pSQSMessageAlarmThreshold
+      TreatMissingData: missing
+
+Outputs:
+  StackName:
+    Description: Name of this Stack
+    Value: !Ref AWS::StackName
+
+  SplunkHECEventQueueArn:
+    Description: Arn of the SQS Queue S3 should send new events notifications to
+    Value: !GetAtt SplunkHECEventQueue.Arn
+
+  SplunkHECEventQueueUrl:
+    Description: Arn of the SQS Queue S3 should send new events notifications to
+    Value: !Ref SplunkHECEventQueue

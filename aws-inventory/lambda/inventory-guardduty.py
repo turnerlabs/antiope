@@ -1,5 +1,20 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 import json
 import os
 import time
@@ -28,7 +43,16 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
-            discover_detectors(target_account, r)
+            try:
+                discover_detectors(target_account, r)
+            except EndpointConnectionError as e:
+                # Great, Another region that was introduced without GuardDuty Support
+                logger.warning(f"EndpointConnectionError for GuardDuty in region {r}")
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.warning(f"AccessDeniedException for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id}): {e}")
+                else:
+                    raise
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -59,6 +83,7 @@ def discover_detectors(target_account, region):
 
     for d in detector_ids:
         process_detector(client, d, target_account, region)
+
 
 
 def process_detector(client, detector_id, target_account, region):

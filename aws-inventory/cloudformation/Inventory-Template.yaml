@@ -1,3 +1,18 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploy the AWS Inventory Component of Antiope
 Transform: AWS::Serverless-2016-10-31
@@ -317,6 +332,20 @@ Resources:
   #
   # Parallel Execution Functions (on each account)
   #
+  AccountInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-account-inventory"
+      Description: Pull account specific data elements
+      Handler: inventory-account.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
   VpcInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -372,7 +401,6 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
-
 
   ENIInventoryLambdaFunction:
     Type: AWS::Serverless::Function
@@ -482,6 +510,20 @@ Resources:
       FunctionName: !Sub "${pResourcePrefix}-iam-inventory"
       Description: Inventory IAM Roles & Users
       Handler: inventory-iam.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
+  IAMUserInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-iam-user-inventory"
+      Description: Inventory IAM Roles & Users
+      Handler: inventory-iam-user.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
@@ -774,6 +816,62 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  SESInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-ses-inventory"
+      Description: Inventory SES Verified Identities
+      Handler: inventory-ses.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+  
+  StorageGatewayInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-storage-gateway-inventory"
+      Description: Inventory Storage Gateway
+      Handler: inventory-storage-gateway.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+  
+  EKSInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-eks-inventory"
+      Description: Inventory Kubernetes 
+      Handler: inventory-eks.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+  
+  ElasticBeanstalkInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-elastic-beanstalk-inventory"
+      Description: Inventory Elastic Beanstalk
+      Handler: inventory-elasticbeanstalk.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
   RedshiftInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -802,12 +900,12 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-  ShieldInventoryLambdaFunction:
+  Wafv1InventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${pResourcePrefix}-shield-inventory"
-      Description: Inventory Shield Advanced settings
-      Handler: inventory-shield.lambda_handler
+      FunctionName: !Sub "${pResourcePrefix}-wafv1-inventory"
+      Description: Inventory AWS WAFv1
+      Handler: inventory-wafv1.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
@@ -816,12 +914,12 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-  FirehoseInventoryLambdaFunction:
+  ShieldInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "${pResourcePrefix}-firehose-inventory"
-      Description: Inventory Kinesis Firehoses
-      Handler: inventory-firehose.lambda_handler
+      FunctionName: !Sub "${pResourcePrefix}-shield-inventory"
+      Description: Inventory Shield Advanced settings
+      Handler: inventory-shield.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
@@ -844,6 +942,33 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  FirehoseInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-firehose-inventory"
+      Description: Inventory Kinesis Firehoses
+      Handler: inventory-firehose.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
+  VaultInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-vault-inventory"
+      Description: Discovery AWS Backup Vaults
+      Handler: inventory-vault.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
 
   #
   # Parallel Execution Functions (on each PAYER)
@@ -855,6 +980,7 @@ Resources:
       Description: Inventory IAM Access Analyzer Org Findings
       Handler: inventory-accessanalyzer-findings.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
+      Timeout: 600
       CodeUri: ../lambda
       Events:
         AccountInventoryTrigger:
@@ -862,6 +988,21 @@ Resources:
           Properties:
             Topic: !Ref TriggerPayerInventoryFunctionTopic
 
+
+  CostExplorerLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-costexplorer"
+      Description: Get the cost data for each account
+      Handler: inventory-payer-costexplorer.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      Timeout: 600
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerPayerInventoryFunctionTopic
 
   #
   # StateMachine
@@ -1143,7 +1284,7 @@ Resources:
               "width": 6,
               "height": 3,
               "properties": {
-                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Trigger Event](https://console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#rules:name=${!TriggerStateMachine})\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueueURL};prefix=)\n"
+                "markdown": "\n# Quick Links\n* [StateMachine](https://console.aws.amazon.com/states/home?region=${AWS::Region}#/statemachines/view/${InventoryProcessStateMachine})\n* [S3 Bucket](https://s3.console.aws.amazon.com/s3/buckets/${pBucketName}/?region=${AWS::Region}&tab=overview)\n* [Error SQS Queue](https://console.aws.amazon.com/sqs/home?region=${AWS::Region}#queue-browser:selected=${pErrorHandlerEventQueueURL};prefix=)\n"
               }
             },
             {
@@ -1156,6 +1297,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Invocations", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-account-inventory", { "stat": "Sum", "period": 604800, "label": "account-inventory" } ],
                   [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
@@ -1167,6 +1309,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 604800, "label": "eks-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elasticbeanstalk-inventory", { "stat": "Sum", "period": 604800, "label": "elasticbeanstalk-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
@@ -1175,7 +1319,10 @@ Resources:
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
+                  [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 604800, "label": "costexplorer" } ],
+
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-user-inventory", { "stat": "Sum", "period": 604800, "label": "iam-user-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
                   [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
@@ -1184,14 +1331,17 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ses-inventory", { "stat": "Sum", "period": 604800, "label": "ses-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-storage-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "storage-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 604800, "label": "waf-inventory" } ],
+                  [ "...", "${pResourcePrefix}-wafv1-inventory", { "stat": "Sum", "period": 604800, "label": "wafv1-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 604800, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
@@ -1217,6 +1367,7 @@ Resources:
                 "view": "singleValue",
                 "metrics": [
                   [ "AWS/Lambda", "Errors", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 604800, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-account-inventory", { "stat": "Sum", "period": 604800, "label": "account-inventory" } ],
                   [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 604800, "label": "ami-inventory" } ],
                   [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 604800, "label": "bucket-inventory" } ],
                   [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 604800, "label": "cloudformation-inventory" } ],
@@ -1228,6 +1379,8 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 604800, "label": "eks-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elasticbeanstalk-inventory", { "stat": "Sum", "period": 604800, "label": "elasticbeanstalk-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
@@ -1236,7 +1389,9 @@ Resources:
                   [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 604800, "label": "health-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 604800, "label": "ia2-analyzer-inventory" } ],
                   [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 604800, "label": "ia2-org-findings" } ],
+                  [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Sum", "period": 604800, "label": "costexplorer" } ],
                   [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 604800, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-user-inventory", { "stat": "Sum", "period": 604800, "label": "iam-user-inventory" } ],
                   [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 604800, "label": "instances-securitygroups-inventory" } ],
                   [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 604800, "label": "kms-inventory" } ],
                   [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 604800, "label": "lambdas-inventory" } ],
@@ -1245,14 +1400,17 @@ Resources:
                   [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 604800, "label": "route53-inventory" } ],
                   [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 604800, "label": "sagemaker-inventory" } ],
                   [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 604800, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ses-inventory", { "stat": "Sum", "period": 604800, "label": "ses-inventory" } ],
                   [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 604800, "label": "shield-inventory" } ],
                   [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 604800, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-storage-gateway-inventory", { "stat": "Sum", "period": 604800, "label": "storage-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 604800, "label": "support-inventory" } ],
                   [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 604800, "label": "ta-inventory" } ],
                   [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 604800, "label": "trigger-inventory" } ],
                   [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 604800, "label": "vpc-inventory" } ],
                   [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 604800, "label": "transit-gateway-inventory" } ],
                   [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 604800, "label": "waf-inventory" } ],
+                  [ "...", "${pResourcePrefix}-wafv1-inventory", { "stat": "Sum", "period": 604800, "label": "wafv1-inventory" } ],
                   [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 604800, "label": "worklink-inventory" } ],
                   [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 604800, "label": "client-vpn-inventory" } ],
                   [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 604800, "label": "get-billing-data" } ],
@@ -1271,70 +1429,77 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 24,
+              "y": 30,
               "width": 24,
               "height": 6,
               "properties": {
                 "view": "singleValue",
                 "metrics": [
-                  [ "AWS/Lambda", "Errors", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Sum", "period": 900, "label": "pull-organization-data"} ],
-                  [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Sum", "period": 900, "label": "ami-inventory" } ],
-                  [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Sum", "period": 900, "label": "bucket-inventory" } ],
-                  [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Sum", "period": 900, "label": "cloudformation-inventory" } ],
-                  [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Sum", "period": 900, "label": "cloudfront-inventory" } ],
-                  [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Sum", "period": 900, "label": "cloudtrail-inventory" } ],
-                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Sum", "period": 900, "label": "cw-alarm-inventory" } ],
-                  [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Sum", "period": 900, "label": "dx-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Sum", "period": 900, "label": "ebs-vol-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 900, "label": "ebs-snap-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 900, "label": "ecr-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 900, "label": "ecs-inventory" } ],
-                  [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 900, "label": "elb-inventory" } ],
-                  [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
-                  [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
-                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Sum", "period": 900, "label": "firehose-inventory" } ],
-                  [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Sum", "period": 900, "label": "guardduty-inventory" } ],
-                  [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Sum", "period": 900, "label": "health-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Sum", "period": 900, "label": "ia2-analyzer-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Sum", "period": 900, "label": "ia2-org-findings" } ],
-                  [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Sum", "period": 900, "label": "iam-inventory" } ],
-                  [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Sum", "period": 900, "label": "instances-securitygroups-inventory" } ],
-                  [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Sum", "period": 900, "label": "kms-inventory" } ],
-                  [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Sum", "period": 900, "label": "lambdas-inventory" } ],
-                  [ "...", "${pResourcePrefix}-redshift-inventory", { "stat": "Sum", "period": 900, "label": "redshift-inventory" } ],
-                  [ "...", "${pResourcePrefix}-rds-inventory", { "stat": "Sum", "period": 900, "label": "rds-inventory" } ],
-                  [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Sum", "period": 900, "label": "route53-inventory" } ],
-                  [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Sum", "period": 900, "label": "sagemaker-inventory" } ],
-                  [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Sum", "period": 900, "label": "secrets-inventory" } ],
-                  [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Sum", "period": 900, "label": "shield-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Sum", "period": 900, "label": "ssm-inventory" } ],
-                  [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Sum", "period": 900, "label": "support-inventory" } ],
-                  [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Sum", "period": 900, "label": "ta-inventory" } ],
-                  [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Sum", "period": 900, "label": "trigger-inventory" } ],
-                  [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Sum", "period": 900, "label": "vpc-inventory" } ],
-                  [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Sum", "period": 900, "label": "transit-gateway-inventory" } ],
-                  [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Sum", "period": 900, "label": "waf-inventory" } ],
-                  [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Sum", "period": 900, "label": "worklink-inventory" } ],
-                  [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Sum", "period": 900, "label": "client-vpn-inventory" } ],
-                  [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Sum", "period": 900, "label": "get-billing-data" } ],
-                  [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Sum", "period": 900, "label": "new_account_handler" } ],
-                  [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Sum", "period": 900, "label": "create-account-report" } ],
-                  [ "...", "${pResourcePrefix}-create-cred-report", { "stat": "Sum", "period": 900, "label": "create-cred-report" } ],
-                  [ "...", "${pResourcePrefix}-create-foreign-account-report", { "stat": "Sum", "period": 900, "label": "create-foreign-account-report" } ],
-                  [ "...", "${pResourcePrefix}-create-vpc-report", { "stat": "Sum", "period": 900, "label": "create-vpc-report" } ],
-                  [ "...", "${pResourcePrefix}-error-handler", { "stat": "Sum", "period": 900, "label": "error-handler" } ]
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${pResourcePrefix}-pull-organization-data", { "stat": "Maximum", "period": 60, "label": "pull-organization-data"} ],
+                  [ "...", "${pResourcePrefix}-account-inventory", { "stat": "Maximum", "period": 60, "label": "account-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ami-inventory", { "stat": "Maximum", "period": 60, "label": "ami-inventory" } ],
+                  [ "...", "${pResourcePrefix}-bucket-inventory", { "stat": "Maximum", "period": 60, "label": "bucket-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudformation-inventory", { "stat": "Maximum", "period": 60, "label": "cloudformation-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudfront-inventory", { "stat": "Maximum", "period": 60, "label": "cloudfront-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cloudtrail-inventory", { "stat": "Maximum", "period": 60, "label": "cloudtrail-inventory" } ],
+                  [ "...", "${pResourcePrefix}-cw-alarm-inventory", { "stat": "Maximum", "period": 60, "label": "cw-alarm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-dx-inventory", { "stat": "Maximum", "period": 60, "label": "dx-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-vol-inventory", { "stat": "Maximum", "period": 60, "label": "ebs-vol-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Maximum", "period": 60, "label": "ebs-snap-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Maximum", "period": 60, "label": "ecr-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Maximum", "period": 60, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 60, "label": "eks-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elasticbeanstalk-inventory", { "stat": "Sum", "period": 60, "label": "elasticbeanstalk-inventory" } ],
+                  [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Maximum", "period": 60, "label": "elb-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Maximum", "period": 60, "label": "eni-inventory" } ],
+                  [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Maximum", "period": 60, "label": "es-inventory" } ],
+                  [ "...", "${pResourcePrefix}-firehose-inventory", { "stat": "Maximum", "period": 60, "label": "firehose-inventory" } ],
+                  [ "...", "${pResourcePrefix}-guardduty-inventory", { "stat": "Maximum", "period": 60, "label": "guardduty-inventory" } ],
+                  [ "...", "${pResourcePrefix}-health-inventory", { "stat": "Maximum", "period": 60, "label": "health-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-analyzer-inventory", { "stat": "Maximum", "period": 60, "label": "ia2-analyzer-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ia2-org-findings", { "stat": "Maximum", "period": 60, "label": "ia2-org-findings" } ],
+                  [ "...", "${pResourcePrefix}-costexplorer", { "stat": "Maximum", "period": 60, "label": "costexplorer" } ],
+                  [ "...", "${pResourcePrefix}-iam-inventory", { "stat": "Maximum", "period": 60, "label": "iam-inventory" } ],
+                  [ "...", "${pResourcePrefix}-iam-user-inventory", { "stat": "Maximum", "period": 60, "label": "iam-user-inventory" } ],
+                  [ "...", "${pResourcePrefix}-instances-sg-inventory", { "stat": "Maximum", "period": 60, "label": "instances-securitygroups-inventory" } ],
+                  [ "...", "${pResourcePrefix}-kms-inventory", { "stat": "Maximum", "period": 60, "label": "kms-inventory" } ],
+                  [ "...", "${pResourcePrefix}-lambdas-inventory", { "stat": "Maximum", "period": 60, "label": "lambdas-inventory" } ],
+                  [ "...", "${pResourcePrefix}-redshift-inventory", { "stat": "Maximum", "period": 60, "label": "redshift-inventory" } ],
+                  [ "...", "${pResourcePrefix}-rds-inventory", { "stat": "Maximum", "period": 60, "label": "rds-inventory" } ],
+                  [ "...", "${pResourcePrefix}-route53-inventory", { "stat": "Maximum", "period": 60, "label": "route53-inventory" } ],
+                  [ "...", "${pResourcePrefix}-sagemaker-inventory", { "stat": "Maximum", "period": 60, "label": "sagemaker-inventory" } ],
+                  [ "...", "${pResourcePrefix}-secrets-inventory", { "stat": "Maximum", "period": 60, "label": "secrets-inventory" } ],
+                  [ "...", "${pResourcePrefix}-shield-inventory", { "stat": "Maximum", "period": 60, "label": "shield-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ssm-inventory", { "stat": "Maximum", "period": 60, "label": "ssm-inventory" } ],
+                  [ "...", "${pResourcePrefix}-storage-gateway-inventory", { "stat": "Sum", "period": 60, "label": "storage-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-support-inventory", { "stat": "Maximum", "period": 60, "label": "support-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ta-inventory", { "stat": "Maximum", "period": 60, "label": "ta-inventory" } ],
+                  [ "...", "${pResourcePrefix}-trigger-inventory", { "stat": "Maximum", "period": 60, "label": "trigger-inventory" } ],
+                  [ "...", "${pResourcePrefix}-vpc-inventory", { "stat": "Maximum", "period": 60, "label": "vpc-inventory" } ],
+                  [ "...", "${pResourcePrefix}-transit-gw-inventory", { "stat": "Maximum", "period": 60, "label": "transit-gateway-inventory" } ],
+                  [ "...", "${pResourcePrefix}-waf-inventory", { "stat": "Maximum", "period": 60, "label": "waf-inventory" } ],
+                  [ "...", "${pResourcePrefix}-wafv1-inventory", { "stat": "Maximum", "period": 60, "label": "wafv1-inventory" } ],
+                  [ "...", "${pResourcePrefix}-worklink-inventory", { "stat": "Maximum", "period": 60, "label": "worklink-inventory" } ],
+                  [ "...", "${pResourcePrefix}-client-vpn-inventory", { "stat": "Maximum", "period": 60, "label": "client-vpn-inventory" } ],
+                  [ "...", "${pResourcePrefix}-get-billing-data", { "stat": "Maximum", "period": 60, "label": "get-billing-data" } ],
+                  [ "...", "${pResourcePrefix}-new_account_handler", { "stat": "Maximum", "period": 60, "label": "new_account_handler" } ],
+                  [ "...", "${pResourcePrefix}-create-account-report", { "stat": "Maximum", "period": 60, "label": "create-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-cred-report", { "stat": "Maximum", "period": 60, "label": "create-cred-report" } ],
+                  [ "...", "${pResourcePrefix}-create-foreign-account-report", { "stat": "Maximum", "period": 60, "label": "create-foreign-account-report" } ],
+                  [ "...", "${pResourcePrefix}-create-vpc-report", { "stat": "Maximum", "period": 60, "label": "create-vpc-report" } ],
+                  [ "...", "${pResourcePrefix}-error-handler", { "stat": "Maximum", "period": 60, "label": "error-handler" } ]
                 ],
                 "region": "${AWS::Region}",
                 "view": "timeSeries",
                 "stacked": false,
-                "title": "Lambda Errors",
+                "title": "Lambda Duration",
                 "period": 300
               }
             },
             {
               "type": "metric",
               "x": 0,
-              "y": 27,
+              "y": 36,
               "width": 12,
               "height": 3,
               "properties": {
@@ -1355,7 +1520,7 @@ Resources:
             {
               "type": "metric",
               "x": 12,
-              "y": 30,
+              "y": 36,
               "width": 12,
               "height": 3,
               "properties": {
@@ -1374,7 +1539,7 @@ Resources:
               "title": "DynamoDB Activity",
               "type": "metric",
               "x": 0,
-              "y": 33,
+              "y": 39,
               "width": 24,
               "height": 9,
               "properties": {
@@ -1396,7 +1561,7 @@ Resources:
             {
               "type": "metric",
               "x": 0,
-              "y": 42,
+              "y": 48,
               "width": 12,
               "height": 3,
               "properties": {
@@ -1411,7 +1576,7 @@ Resources:
             {
               "type": "metric",
               "x": 12,
-              "y": 42,
+              "y": 48,
               "width": 12,
               "height": 3,
               "properties": {

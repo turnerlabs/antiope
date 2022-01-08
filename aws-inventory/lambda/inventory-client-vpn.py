@@ -1,5 +1,20 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 import json
 import os
 import time
@@ -26,12 +41,12 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-         
+
         for r in target_account.get_regions():
-                
+
             try:
                 discover_client_vpn_endpoints(target_account, r)
-                
+
             except ClientError as e:
                 # Move onto next region if we get access denied. This is probably SCPs
                 if e.response['Error']['Code'] == 'AccessDeniedException':
@@ -40,22 +55,25 @@ def lambda_handler(event, context):
                 elif e.response['Error']['Code'] == 'UnauthorizedOperation':
                     logger.error(f"UnauthorizedOperation for region {r} in function {context.function_name} for {target_account.account_name}({target_account.account_id})")
                     continue
+                elif e.response['Error']['Code'] == 'InvalidAction':
+                    logger.error(f"Cannot get VPN Endpoints in region {r}: {e}")
+                    continue
                 else:
                     raise  # pass on to the next handler
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
         return()
-    
+
     except ClientError as e:
         if e.response['Error']['Code'] == 'UnauthorizedOperation':
             logger.error("Antiope doesn't have proper permissions to this account")
             return(event)
-        
+
         logger.critical("AWS Error getting info for {}: {}".format(message['account_id'], e))
         capture_error(message, context, e, "ClientError for {}: {}".format(message['account_id'], e))
         raise
-    
+
     except Exception as e:
         logger.critical("{}\nMessage: {}\nContext: {}".format(e, message, vars(context)))
         capture_error(message, context, e, "General Exception for {}: {}".format(message['account_id'], e))
@@ -63,14 +81,15 @@ def lambda_handler(event, context):
 
 def discover_client_vpn_endpoints(target_account, region):
     '''Iterate accross all regions to discover client vpn endpoints'''
-    
+
+
     ec2_client = target_account.get_client('ec2', region=region)
     response = ec2_client.describe_client_vpn_endpoints()
-    
+
     if response['ClientVpnEndpoints']:
-        
+
         for cvpn in response['ClientVpnEndpoints']:
-            
+
             resource_item = {}
             resource_item['awsAccountId']                   = target_account.account_id
             resource_item['awsAccountName']                 = target_account.account_name
@@ -83,44 +102,44 @@ def discover_client_vpn_endpoints(target_account, region):
             resource_item['resourceId']                     = cvpn['ClientVpnEndpointId']
             resource_item['resourceCreationTime']           = cvpn['CreationTime']
             resource_item['errors']                         = {}
-        
+
             if 'Tags' in cvpn:
                 resource_item['tags']                       = parse_tags(cvpn['Tags'])
 
            # Get any active VPN connections to the endpoint and add as part of the supplementary configuration.
             connections = discover_client_vpn_connections(ec2_client, cvpn['ClientVpnEndpointId'])
             resource_item['supplementaryConfiguration']['Connections'] = connections
-    
+
             # Obtain other network configuration associated with the VPN endpoint and add as part of the supplementary configuration.
             routes = discover_client_vpn_routes(ec2_client, cvpn['ClientVpnEndpointId'])
             resource_item['supplementaryConfiguration']['Routes'] = routes
-    
+
             targets = discover_client_vpn_targets(ec2_client, cvpn['ClientVpnEndpointId'])
             resource_item['supplementaryConfiguration']['ClientVpnTargetNetworks'] = targets
-            
+
             # Save files to S3
             save_resource_to_s3(RESOURCE_PATH, cvpn['ClientVpnEndpointId'], resource_item)
-       
+
             logger.info("Discovered Client VPN connection ({}) in account {} for region {}".format(cvpn['ClientVpnEndpointId'], target_account.account_id, region))
             logger.debug("Data: {}".format(resource_item))
     else:
         logger.debug("No Client VPN connections found for account {} in region {}".format(target_account.account_id, region))
-    
+
 def discover_client_vpn_connections(ec2_client, vpnId):
     '''Get client VPN endpoint configuration based on the endpointId'''
-    
+
     response = ec2_client.describe_client_vpn_connections(
             ClientVpnEndpointId=vpnId,
         )
-    
+
     return(response['Connections'])
 
 def discover_client_vpn_routes(ec2_client, vpnId):
-    '''Get client VPN routes configuration based on the endpointId'''   
+    '''Get client VPN routes configuration based on the endpointId'''
     response = ec2_client.describe_client_vpn_routes(
             ClientVpnEndpointId=vpnId,
         )
-    
+
     return(response['Routes'])
 
 def discover_client_vpn_targets(ec2_client, vpnId):
@@ -128,5 +147,5 @@ def discover_client_vpn_targets(ec2_client, vpnId):
     response = ec2_client.describe_client_vpn_target_networks(
             ClientVpnEndpointId=vpnId,
         )
-    
+
     return(response['ClientVpnTargetNetworks'])

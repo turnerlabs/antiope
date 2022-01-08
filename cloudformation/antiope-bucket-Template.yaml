@@ -1,3 +1,17 @@
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Create and Manage the Antiope S3 Bucket (and event notifications)
 
@@ -12,7 +26,9 @@ Resources:
   AntiopeBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
-    DependsOn: AntiopeBucketNotificationTopicPolicy
+    DependsOn:
+      - AntiopeBucketNotificationTopicPolicy
+      - CloudSploitNotificationTopicPolicy
     Properties:
       AccessControl: Private
       BucketEncryption:
@@ -36,6 +52,33 @@ Resources:
                     Value: "Resources/"
                   - Name: suffix
                     Value: ".json"
+          - Event: 's3:ObjectCreated:*'
+            Topic: !Ref CloudSploitNotificationTopic
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "CloudSploit/latest-results/"
+                  - Name: suffix
+                    Value: ".json"
+          - Event: 's3:ObjectCreated:*'
+            Topic: !Ref ResourceNotificationTopic
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "GCP-Resources/"
+                  - Name: suffix
+                    Value: ".json"
+          - Event: 's3:ObjectCreated:*'
+            Topic: !Ref ResourceNotificationTopic
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "Azure-Resources/"
+                  - Name: suffix
+                    Value: ".json"
       OwnershipControls:
         Rules:
         - ObjectOwnership: BucketOwnerPreferred
@@ -54,7 +97,7 @@ Resources:
       DisplayName: !Sub "Destination of PutObject calls from ${pBucketName}"
       TopicName: !Sub "${pBucketName}-Resources-PutObject"
 
-  # This Policy can be reused for any future Topics
+  # Policy statement must apply to a single resource!
   AntiopeBucketNotificationTopicPolicy:
     Type: AWS::SNS::TopicPolicy
     Properties:
@@ -78,6 +121,36 @@ Resources:
             StringEquals:
               aws:SourceAccount: !Ref AWS::AccountId
 
+  CloudSploitNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: !Sub "Destination of PutObject calls from ${pBucketName}/CloudSploit"
+      TopicName: !Sub "${pBucketName}-CloudSploit-PutObject"
+
+  CloudSploitNotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref CloudSploitNotificationTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: AllowAntiopeBucket
+        Statement:
+        - Sid: AllowAntiopeBucketPublish
+          Effect: Allow
+          Principal:
+            AWS: "*"
+          Action:
+          - SNS:Publish
+          Resource:
+          - !Ref CloudSploitNotificationTopic
+          Condition:
+            ArnLike:
+              aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+            StringEquals:
+              aws:SourceAccount: !Ref AWS::AccountId
+
+
 Outputs:
 
   Bucket:
@@ -99,3 +172,11 @@ Outputs:
   ResourceNotificationTopicName:
     Value: !GetAtt ResourceNotificationTopic.TopicName
     Description: Name of the Topic where Resources PutObject events are Sent
+
+  CloudsploitNotificationTopicArn:
+    Value: !Ref CloudSploitNotificationTopic
+    Description: ARN of the Topic where CloudSploit PutObject events are Sent
+
+  CloudsploitNotificationTopicName:
+    Value: !GetAtt CloudSploitNotificationTopic.TopicName
+    Description: Name of the Topic where CloudSploit PutObject events are Sent

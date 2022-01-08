@@ -1,3 +1,18 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
 import os
 import time
@@ -27,8 +42,8 @@ def parse_tags(tagset):
 def save_resource_to_s3(prefix, resource_id, resource):
     """Saves the resource to S3 in prefix with the object name of resource_id.json"""
     if "/" in resource_id:
-        logger.error(f"{resource_id} contains a / character and cannot be safely stored in S3 under {prefix}")
-        resource_id.replace("/", "-")
+        logger.warning(f"{resource_id} contains a / character and cannot be safely stored in S3 under {prefix}")
+        resource_id = resource_id.replace("/", "-")
 
     s3client = boto3.client('s3')
     try:

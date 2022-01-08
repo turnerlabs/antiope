@@ -1,3 +1,18 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Master Stack to Deploy all of Antiope
 Transform: AWS::Serverless-2016-10-31
@@ -110,14 +125,6 @@ Parameters:
     Description: Cluster Instance Count
     Default: 1
 
-  pClusterEncryption:
-    Type: String
-    Description: Enable Encryption for the Elasticsearch Cluster
-    Default: False
-    AllowedValues:
-      - True
-      - False
-
   pElasticSearchVersion:
     Type: String
     Description: What version of Elasticsearch you want to use
@@ -173,18 +180,16 @@ Parameters:
     Description: URL to the Transformed Template this stack was deployed with (for promotion to another environment)
     Type: String
 
-  pElasticEndpoint:
-    Description: FQDN of the Endpoint for Antiope ES Domain
-    Type: String
-
-  pElasticClusterName:
-    Description: Name of the Antiope ES Domain
-    Type: String
 
   pExcludedResourcePrefixes:
     Type: String
     Description: Comma separated list of prefixes to exclude from pushing into
     Default: ""
+
+  pS3EventNotificationTopicArn:
+    Description: SNS Topic from the Antiope Bucket Stack.
+    Type: String
+    Default: None
 
 Conditions:
   cDeployElasticSearch: !Equals [ !Ref pDeployElasticSearch, True]
@@ -241,7 +246,7 @@ Resources:
         pCustomCognitoDomain: !Ref pCognitoDomain
         pEmailAddress: !Ref pEmailAddress
         pIdentityPoolName: !Ref pIdentityPoolName
-      TemplateURL: ../cognito/cloudformation/Cognito-Template.yaml
+      TemplateURL: Cognito-Template.yaml
       TimeoutInMinutes: 30
 
   AWSInventoryStack:
@@ -274,10 +279,14 @@ Resources:
           pClusterInstanceCount: !Ref pClusterInstanceCount
           pClusterInstanceType: !Ref pClusterInstanceType
           pCognitoKibanaAuthRole: !GetAtt CognitoStack.Outputs.CognitoKibanaAuthRole
+          pCognitoIdentityPoolId: !GetAtt CognitoStack.Outputs.CognitoIdentityPoolId
+          pCognitoUserPoolId: !GetAtt CognitoStack.Outputs.CognitoUserPoolId
           pDomainName: !Ref AWS::StackName
           pResourcePrefix: !Sub "${AWS::StackName}-search-cluster"
           pElasticSearchVersion: !Ref pElasticSearchVersion
           pExcludedResourcePrefixes: !Ref pExcludedResourcePrefixes
+          pS3EventNotificationTopicArn: !Ref pS3EventNotificationTopicArn
+
       TemplateURL: ../search-cluster/cloudformation/SearchCluster-Template.yaml
       TimeoutInMinutes: 30
 
@@ -343,6 +352,7 @@ Resources:
             Effect: Allow
             Resource:
               - !GetAtt LoadStepFunctionEventLambdaFunction.Arn
+              - !GetAtt ErrorReportLambdaFunction.Arn
       - PolicyName: InvokeStepFunctions
         PolicyDocument:
           Version: '2012-10-17'
@@ -522,6 +532,10 @@ Resources:
               Input:
                 AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: $$.Execution.Id
                 Payload.$: $
+            Next: ErrorReportLambdaFunction
+          ErrorReportLambdaFunction:
+            Type: Task
+            Resource: !GetAtt ErrorReportLambdaFunction.Arn
             End: true
           WaitForStepFunctionToFinish:
             Type : Wait
@@ -586,6 +600,130 @@ Resources:
       Threshold: 1
       TreatMissingData: missing
 
+  ErrorReportLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-dump-errors"
+      Description: Dump the Error Queue at the end of the run
+      Handler: index.handler
+      Runtime: python3.6
+      Timeout: 180
+      MemorySize: 1024
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: "Allow"
+          Action:
+          - sqs:ReceiveMessage
+          - sqs:DeleteMessage
+          Resource: !GetAtt ErrorHandlerEventQueue.Arn
+        - Effect: "Allow"
+          Action:
+          - s3:PutObject
+          Resource: !Sub "arn:aws:s3:::${pBucketName}/ErrorReports/*"
+      Environment:
+        Variables:
+          INVENTORY_BUCKET: !Ref pBucketName
+          LOG_LEVEL: INFO
+          QUEUE_URL: !Ref ErrorHandlerEventQueue
+          STACKNAME: !Ref AWS::StackName
+      InlineCode: !Sub |
+        import boto3
+        from botocore.exceptions import ClientError
+        import json
+        import os
+        import time
+        from datetime import datetime
+        from dateutil import tz
+
+        import logging
+        logger = logging.getLogger()
+        logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
+        logging.getLogger('botocore').setLevel(logging.WARNING)
+        logging.getLogger('boto3').setLevel(logging.WARNING)
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+
+        header_row = "<tr><td>Function Name</td><td>Error Time</td><td>Error Message</td><td>Function Logs</td>"
+
+
+        # Lambda main routine
+        def handler(event, context):
+            logger.info("Received event: " + json.dumps(event, sort_keys=True))
+
+            sqs_client = boto3.client('sqs')
+
+            queue_url = os.environ['QUEUE_URL']
+
+            region = os.environ['AWS_DEFAULT_REGION']
+
+            table_data = ""
+            count = 0
+
+            response = sqs_client.receive_message(
+                QueueUrl=queue_url,
+                AttributeNames=['All'],
+                MaxNumberOfMessages=10,
+                VisibilityTimeout=10,
+                WaitTimeSeconds=10,
+            )
+
+            while 'Messages' in response and len(response['Messages']) > 0:
+
+                for m in response['Messages']:
+                    # print messages
+                    # print(m['MessageId'])
+                    sent_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(int(m['Attributes']['SentTimestamp'])/1000))
+                    error_string = format_error(m['Body'], region, sent_time)
+                    # print(error_string)
+                    table_data += error_string
+                    count += 1
+
+                    sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=m['ReceiptHandle'])
+
+                # get more
+                response = sqs_client.receive_message(
+                    QueueUrl=queue_url,
+                    AttributeNames=['All'],
+                    MaxNumberOfMessages=10,
+                    VisibilityTimeout=30,
+                    WaitTimeSeconds=5,
+                )
+
+            html_output = f"<html><head><title>Output Report for {os.environ['QUEUE_URL']}</title></head>"
+            html_output += f"<body><h1>Output Report for {os.environ['STACKNAME']}</h1>"
+            html_output += f"<table border=1>{header_row}"
+            html_output += table_data
+            html_output += "</table>"
+            html_output += f"Total Errors: {count}</body></html>"
+
+            s3client = boto3.client('s3')
+            try:
+                object_key = f"ErrorReports/{datetime.now().strftime('%Y-%m-%d-%H-%M')}.html"
+                s3client.put_object(
+                    Body=html_output,
+                    Bucket=os.environ['INVENTORY_BUCKET'],
+                    ContentType='text/html',
+                    Key=object_key,
+                )
+            except ClientError as e:
+                logger.error("Unable to save Error Report {}: {}".format(object_key, e))
+
+            return(event)
+
+        ## End ##
+        def format_error(error_raw, region, sent_time):
+            error_json = json.loads(error_raw)
+            error_url = f"https://console.aws.amazon.com/cloudwatch/home?region={region}#logEventViewer:group={error_json['log_group_name']};stream={error_json['log_stream_name']}"
+
+            output = f"<tr><td>{error_json['function_name']}</td>\n"
+            output += f"<td>{sent_time}</td>\n"
+            output += f"<td>{error_json['message']}</td>\n"
+            output += f"<td><a href='{error_url}'>CloudWatch Logs</a></td></tr>\n"
+
+            return(output)
+        ### END OF FUNCTION ###
 
   #
   # Parms for the sub-stacks

@@ -1,3 +1,18 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
 from botocore.exceptions import ClientError
 import json
@@ -7,7 +22,7 @@ import datetime
 from mako.template import Template
 
 from antiope.aws_account import *
-from antiope.config import AccountLookupError
+from antiope.config import AntiopeAccountLookupError
 from common import *
 
 import logging
@@ -18,7 +33,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 assume_role_link = "<a href=\"https://signin.aws.amazon.com/switchrole?account={}&roleName={}&displayName={}\">{}</a>"
-
+assume_role_url = "https://signin.aws.amazon.com/switchrole?account={}&roleName={}&displayName={}"
 
 # Lambda main routine
 def handler(event, context):
@@ -110,3 +125,7 @@ def handler(event, context):
         raise
 
     return(event)
+
+
+
+

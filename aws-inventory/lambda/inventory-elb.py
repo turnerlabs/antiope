@@ -1,3 +1,17 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import boto3
 from botocore.exceptions import ClientError
@@ -31,8 +45,14 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
-            discover_elbv1(target_account, r)
-            discover_elbv2(target_account, r)
+            try:
+                discover_elbv1(target_account, r)
+                discover_elbv2(target_account, r)
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDenied':
+                    logger.warning(f"AccessDenied attempting to discover ELBs in {target_account.account_name} ({target_account.account_id}) in region {r}: {e}")
+                    continue
+
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))

@@ -1,3 +1,17 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
 from botocore.exceptions import ClientError
 import json
@@ -83,6 +97,21 @@ def discover_vpcs(target_account, region):
         resource_item['resourceId']                     = v['VpcId']
         resource_item['errors']                         = {}
 
+        response = ec2_client.describe_flow_logs(
+            Filters=[
+                {
+                    'Name': 'resource-id',
+                    'Values': [v['VpcId']]
+                }
+            ]
+        )
+        if 'FlowLogs' in response and len(response['FlowLogs']) > 0:
+            resource_item['supplementaryConfiguration']['FlowLogs'] = response['FlowLogs'][0]
+
+        response = ec2_client.describe_vpc_endpoints(Filters=[{'Name': 'vpc-id', 'Values': [v['VpcId']]}])
+        if 'VpcEndpoints' in response and len(response['VpcEndpoints']) > 0:
+            resource_item['supplementaryConfiguration']['VpcEndpoints'] = response['VpcEndpoints'][0]
+
         # We also save the VPCs to a DDB Table
         ddb_item = {
             'vpc_id':               v['VpcId'],
@@ -122,6 +151,7 @@ def discover_vpcs(target_account, region):
 
         # We should cache the VPC Instance count in DDB
         ddb_item['instance_states'] = query_instances(ec2_client, v['VpcId'])
+        resource_item['supplementaryConfiguration']['InstanceStates'] = ddb_item['instance_states']
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
         logger.info("Discovered VPC ({}) in {}\nData: {}".format(v['VpcId'], target_account.account_id, json.dumps(ddb_item, sort_keys=True)))

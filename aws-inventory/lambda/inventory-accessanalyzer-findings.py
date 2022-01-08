@@ -1,3 +1,18 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
 from botocore.exceptions import ClientError
 import json
@@ -16,6 +31,8 @@ logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+RESOURCE_PATH = "accessanalyzer/finding"
 
 
 def lambda_handler(event, context):
@@ -48,7 +65,11 @@ def lambda_handler(event, context):
             if analyzer is None:
                 logger.error(f"No Analyzers configured for {delegated_account.account_name}({delegated_account.account_id}) in {r}")
                 continue
-            output[r] = get_findings(delegated_account, client, r, analyzer)
+            findings = get_findings(delegated_account, client, r, analyzer)
+            for f in findings:
+                save_individual_finding(f, r)
+
+            output[r] = findings
 
         save_findings(output, payer_account.org_id)
 
@@ -109,6 +130,24 @@ def get_findings(delegated_account, client, region, analyzer_arn):
 
     logger.info(f"Found {len(findings)} findings for {analyzer_arn} in {region}")
     return(findings)
+
+
+def save_individual_finding(finding, region):
+    item = {}
+    item['awsAccountId']                   = finding['resourceOwnerAccount']
+    # item['awsAccountName']                 = target_account.account_name  # This is done at the payer level so account _name_ is not available
+    item['resourceType']                   = "AWS::AccessAnalyzer::Finding"
+    item['source']                         = "Antiope"
+    item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+    item['awsRegion']                      = region
+    item['configuration']                  = finding
+    item['supplementaryConfiguration']     = {}
+    item['resourceCreationTime']           = finding['createdAt']
+    item['resourceId']                     = finding['id']
+    item['resourceName']                   = finding['resource']
+    item['ARN']                            = finding['resource']
+    item['errors']                         = {}
+    save_resource_to_s3(RESOURCE_PATH, item['resourceId'], item)
 
 
 def save_findings(findings, orgId):

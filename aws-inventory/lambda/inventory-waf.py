@@ -1,5 +1,19 @@
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 import json
 import os
 import time
@@ -39,6 +53,9 @@ def lambda_handler(event, context):
                     continue
                 else:
                     raise  # pass on to the next handlier
+            except EndpointConnectionError as e:
+                # Great, Another region that was introduced without GuardDuty Support
+                logger.warning(f"EndpointConnectionError for WAF in region {r}")
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -72,6 +89,7 @@ def discover_regional_WAFs(target_account, region):
     for acl in web_acls:
         response = client.get_web_acl(Name=acl['Name'], Scope='REGIONAL', Id=acl['Id'])
         process_v2_acl(client, response['WebACL'], target_account, region)
+
 
 def discover_cloudfront_WAFs(target_account):
     '''Find and process all the CLOUDFRONT AWS WAFv2 (via us-east-1)'''

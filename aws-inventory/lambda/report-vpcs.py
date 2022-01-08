@@ -1,3 +1,17 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
 from botocore.exceptions import ClientError
 import json
@@ -84,26 +98,3 @@ def handler(event, context):
 
     return(event)
 
-
-if __name__ == '__main__':
-
-    # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-
-    # create formatter
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-    # add formatter to ch
-    ch.setFormatter(formatter)
-    # add ch to logger
-    logger.addHandler(ch)
-
-    os.environ['VPC_TABLE'] = "turner-antiope-dev-aws-inventory-vpc-inventory"
-    os.environ['ACCOUNT_TABLE'] = "turner-antiope-dev-aws-inventory-accounts"
-    os.environ['INVENTORY_BUCKET'] = "turner-antiope-dev"
-    os.environ['ROLE_NAME'] = "GTO-ISO-Audit"
-    os.environ['ROLE_SESSION_NAME'] = "Antiope"
-
-    handler({}, {})

@@ -1,3 +1,18 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
 from botocore.exceptions import ClientError
 import json
@@ -112,45 +127,4 @@ def save_report_to_s3(event, tmp_csv):
     csvfile.close()
 
 
-if __name__ == '__main__':
 
-    # Process Arguments
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", help="print debugging info", action='store_true')
-    parser.add_argument("--error", help="print error info only", action='store_true')
-    parser.add_argument("--timestamp", help="Timestamp To generate report from", required=True)
-
-    args = parser.parse_args()
-
-    # Logging idea stolen from: https://docs.python.org/3/howto/logging.html#configuring-logging
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    if args.debug:
-        ch.setLevel(logging.DEBUG)
-        logging.getLogger('elasticsearch').setLevel(logging.DEBUG)
-        DEBUG = True
-    elif args.error:
-        ch.setLevel(logging.ERROR)
-    else:
-        ch.setLevel(logging.INFO)
-
-    # create formatter
-    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-    # add formatter to ch
-    ch.setFormatter(formatter)
-    # add ch to logger
-    logger.addHandler(ch)
-
-    os.environ['VPC_TABLE'] = "warnermedia-antiope-prod-aws-inventory-vpc-inventory"
-    os.environ['ACCOUNT_TABLE'] = "warnermedia-antiope-prod-aws-inventory-accounts"
-    os.environ['INVENTORY_BUCKET'] = "warnermedia-antiope"
-    os.environ['ROLE_NAME'] = "wmcso-audit"
-    os.environ['ROLE_SESSION_NAME'] = "Antiope"
-
-    event = {
-        'timestamp': args.timestamp
-    }
-
-    handler(event, {})

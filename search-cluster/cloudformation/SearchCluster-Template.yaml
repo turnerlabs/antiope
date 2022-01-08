@@ -1,7 +1,21 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploy the Search Cluster Component of Antiope
 Transform: AWS::Serverless-2016-10-31
-
 
 Parameters:
 
@@ -41,6 +55,14 @@ Parameters:
     Type: String
     Description: ARN for the Kibana Cognito Auth role (Created by the Cognito Stack)
 
+  pCognitoIdentityPoolId:
+    Type: String
+    Description: Identity Pool ID from the Cognito Stack
+
+  pCognitoUserPoolId:
+    Type: String
+    Description: User Pool ID from the Cognito Stack
+
   pReIndexSettings:
     Type: String
     Description: Set this to True to enable greater capacity for ReIndex
@@ -58,6 +80,7 @@ Parameters:
     Description: What version of Elasticsearch you want to use
     Default: "7.9"  # Latest as of 2020-12-02
     AllowedValues:
+      - "7.10"
       - "7.9"
       - "7.8"
       - "7.7"
@@ -69,6 +92,11 @@ Parameters:
       - "6.4"
       - "6.3"
 
+  pS3EventNotificationTopicArn:
+    Description: SNS Topic for the Elasticsearch SQS Queue to subscribe to.
+    Type: String
+    Default: None
+
   pExcludedResourcePrefixes:
     Type: String
     Description: Comma separated list of prefixes to exclude from pushing into
@@ -77,7 +105,7 @@ Parameters:
 Conditions:
   EncryptionEnabled: !Equals [ !Ref pClusterEncryption, True ]
   ReIndex: !Equals [ !Ref pReIndexSettings, True ]
-
+  SNS2SQS: !Not [ !Equals [ !Ref pS3EventNotificationTopicArn, "None"] ]
 
 Resources:
 
@@ -116,7 +144,16 @@ Resources:
       NodeToNodeEncryptionOptions:
         Enabled: !Ref pClusterEncryption
       SnapshotOptions:
-        AutomatedSnapshotStartHour: 0
+        AutomatedSnapshotStartHour: "0"
+      DomainEndpointOptions:
+        EnforceHTTPS: True
+        TLSSecurityPolicy: Policy-Min-TLS-1-2-2019-07
+      # I can now do this in Cloudformation woot!
+      CognitoOptions:
+          Enabled: True
+          IdentityPoolId: !Ref pCognitoIdentityPoolId
+          RoleArn: !GetAtt ESEnableCognitoRole.Arn
+          UserPoolId: !Ref pCognitoUserPoolId
 
   SearchClusterKMSKey:
     Type: AWS::KMS::Key
@@ -143,6 +180,8 @@ Resources:
                 - "s3.amazonaws.com"
                 - "sqs.amazonaws.com"
                 - "lambda.amazonaws.com"
+                # Added per https://aws.amazon.com/premiumsupport/knowledge-center/sns-topic-sqs-queue-sse-cmk-policy/ to support the S3 Event->SNS->SQS workflow
+                - "sns.amazonaws.com"
             Action:
               - "kms:GenerateDataKey*"
               - "kms:Decrypt"
@@ -234,7 +273,7 @@ Resources:
       CodeUri: ../lambda
       FunctionName: !Sub "${pResourcePrefix}-ingest-s3"
       Description: AWS Lamdba to pull data from S3 to index into Elasticsearch
-      Handler: ingest_s3.lambda_handler
+      Handler: !If [ SNS2SQS, ingest_sns_sqs.lambda_handler, ingest_sqs_direct.lambda_handler ]
       Runtime: python3.6
       Timeout: !If [ ReIndex, 900, 180]
       MemorySize: 768
@@ -256,6 +295,11 @@ Resources:
   SearchIngestEventQueue:
     Type: AWS::SQS::Queue
     Properties:
+      # Note: SNS to SQS doesn't work if KMS is enabled. Since this SQS Queue only contains
+      # Account ID, Bucket and Object names, it's reasonably safe to not encrypt. YYMV
+
+      # According to https://aws.amazon.com/premiumsupport/knowledge-center/sns-topic-sqs-queue-sse-cmk-policy/
+      # This is now supported on a KMS CMK
       KmsMasterKeyId:
         Fn::If:
           - EncryptionEnabled
@@ -266,7 +310,9 @@ Resources:
           - EncryptionEnabled
           - 86400
           - Ref: AWS::NoValue
-      MessageRetentionPeriod: !If [ ReIndex, 10800, 3600]  # Any messages older than an hour are probably out-of-date
+
+      # Any messages older than an hour are probably out-of-date
+      MessageRetentionPeriod: !If [ ReIndex, 10800, 3600]
       ReceiveMessageWaitTimeSeconds: 10
       # RedrivePolicy:
       #   FIXME
@@ -281,7 +327,8 @@ Resources:
         Version: '2012-10-17'
         Id: AllowS3
         Statement:
-        - Effect: Allow
+        - Sid: AllowS3EventNotification
+          Effect: Allow
           Principal:
             AWS: '*'
           Action:
@@ -290,6 +337,26 @@ Resources:
           Condition:
             ArnLike:
               aws:SourceArn: !Sub "arn:aws:s3:*:*:${pBucketName}"
+        - !If
+          - SNS2SQS
+          - Sid: Allow-SNS-SendMessage
+            Effect: Allow
+            Principal: "*"
+            Action:
+            - sqs:SendMessage
+            Resource: !GetAtt SearchIngestEventQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref pS3EventNotificationTopicArn
+          - !Ref AWS::NoValue
+
+  SearchIngestQueueSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: SNS2SQS
+    Properties:
+      Endpoint: !GetAtt SearchIngestEventQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref pS3EventNotificationTopicArn
 
   SearchIngestS3FunctionMapping:
     Type: AWS::Lambda::EventSourceMapping

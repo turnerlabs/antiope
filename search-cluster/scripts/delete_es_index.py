@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from dateutil import tz
 from elasticsearch import Elasticsearch, RequestsHttpConnection, ElasticsearchException, RequestError, NotFoundError
@@ -46,7 +59,11 @@ def main(args, logger):
     es_idx=es.indices
     if args.index:
         logger.info(f"Deleting {args.index}")
-        es_idx.delete(index=args.index)
+        try:
+            es_idx.delete(index=args.index)
+        except Exception as e:
+            print(f"Error Deleting {args.index}: {e}")
+            exit(1)
     else:
         ans = input(f"You are about to delete all the indices in {args.domain}. Are you sure? (type 'yes' to proceed) ").lower().strip()
         if ans != "yes":

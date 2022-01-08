@@ -23,7 +23,7 @@ All resources are dropped as individual json files into the S3 Bucket of your ch
 ## What you can do with what it collects
 Right now, the primary function of the collection is to solve the needle-in-the-haystack problem. By aggregating all the resources across all accounts & regions into a single place finding resources like IP addresses becomes much easier. Antiope is also starting to track where inter-account trust is occurring and creating a record of accounts outside your organization that are trusted by one or more accounts in your organization.
 
-Finally, the elastic search cluster is being used as a data repository for threat hunting scripts to find things like open Elastic Search or de-referenced CloudFront origins. Those hunting scripts can be found in antiope/search-cluster/scripts/hunt-*
+Finally, the elastic search cluster is being used as a data repository for threat hunting scripts to find things like open Elastic Search or de-referenced CloudFront origins. Those hunting scripts can be found in the [antiope-hunt-scripts](https://github.com/jchrisfarris/antiope-hunt-scripts) repo.
 
 
 # Modular Structure
@@ -40,9 +40,6 @@ This stack creates the (optional) Amazon Elastic Search cluster for searching th
 
 ## GCP Inventory Stack
 Currently a work-in-progress, this stack replicates the aws-inventory stack functionality for GCP Projects.
-
-## Compliance Stack
-This will be a future addition to Antiope where Turner open-sources the Cloud Security Scorecards we've built for creating executive and technical owner visibility into security issues in each account.
 
 ## Local Customizations
 Because the trigger if inventory and account detection is based on SNS Topics and state machines, it is easy to add your own enterprises customizations into the Antiope fold. We're just implementing this now so more details will be here soon.
@@ -68,3 +65,7 @@ Most resources use the normal resource prefix (vpc- for VPC, i- for Instances, e
 * hostedzone - Domains hosted in Route53. There can be multiple hosted zones with the same domain name, so the HostedZone ID is used
 * role - IAM Roles. These are not globally unique, so the account_id is part of the object name
 * user - IAM Users. These are not globally unique, so the account_id is part of the object name
+
+
+# Getting Started
+To get started with Antiope, you should go follow the directions in the [antiope-local](https://github.com/jchrisfarris/antiope-local) repo. This will create a new private repo for the Antiope configuration files and any customizations you want to do. This repo will then be referenced as a git submodule.

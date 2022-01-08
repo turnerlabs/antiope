@@ -1,3 +1,17 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import boto3
 from botocore.exceptions import ClientError
 import json
@@ -60,13 +74,13 @@ def discover_lambdas(target_account, region):
 
     lambdas = []
     client = target_account.get_client('lambda', region=region)
-    response = client.list_functions()
+    response = client.list_functions(MaxItems=50)
     while 'NextMarker' in response:  # Gotta Catch 'em all!
         lambdas += response['Functions']
-        response = client.list_functions(Marker=response['NextMarker'])
+        response = client.list_functions(MaxItems=50, Marker=response['NextMarker'])
     lambdas += response['Functions']
 
-    logger.debug(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
+    logger.info(f"Discovered {len(lambdas)} Lambda in {target_account.account_name}")
 
     for l in lambdas:
         process_lambda(client, l, target_account, region)
@@ -95,9 +109,10 @@ def process_lambda(client, mylambda, target_account, region):
         if 'Policy' in response:
             resource_item['supplementaryConfiguration']['Policy']    = json.loads(response['Policy'])
     except ClientError as e:
-        message = f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}"
-        resource_item['errors']['Policy'] = message
-        logger.warning(message)
+        if e.response['Error']['Code'] != "ResourceNotFoundException":
+            message = f"Error getting the Policy for function {mylambda['FunctionName']} in {region} for {target_account.account_name}: {e}"
+            resource_item['errors']['Policy'] = message
+            logger.warning(message)
 
     save_resource_to_s3(FUNC_PATH, resource_item['resourceId'], resource_item)
 

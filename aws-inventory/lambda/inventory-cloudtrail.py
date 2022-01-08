@@ -1,3 +1,17 @@
+# Copyright 2019-2020 Turner Broadcasting Inc. / WarnerMedia
+# Copyright 2021 Chris Farris <chrisf@primeharbor.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import boto3
 from botocore.exceptions import ClientError
@@ -30,7 +44,12 @@ def lambda_handler(event, context):
     try:
         target_account = AWSAccount(message['account_id'])
         for r in target_account.get_regions():
-            discover_trails(target_account, r)
+            try:
+                discover_trails(target_account, r)
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    logger.warning(f"AccessDeniedException attempting to describe_trails in {target_account.account_name} ({target_account.account_id}) in region {r}: {e}")
+                    continue
 
     except AntiopeAssumeRoleError as e:
         logger.error("Unable to assume role into account {}({})".format(target_account.account_name, target_account.account_id))
@@ -77,11 +96,20 @@ def discover_trails(target_account, region):
         resource_item['ARN']                            = trail['TrailARN']
         resource_item['errors']                         = {}
 
-        event_response = ct_client.get_event_selectors(TrailName=trail['Name'])
-        resource_item['supplementaryConfiguration']['EventSelectors'] = event_response['EventSelectors']
+        try:
+            event_response = ct_client.get_event_selectors(TrailName=trail['Name'])
+            if 'EventSelectors' in event_response:
+                resource_item['supplementaryConfiguration']['EventSelectors'] = event_response['EventSelectors']
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'TrailNotFoundException':
+                resource_item['errors']['EventSelectors'] = e
 
-        status_response = ct_client.get_trail_status(Name=trail['Name'])
-        resource_item['supplementaryConfiguration']['Status'] = status_response
-        del(resource_item['supplementaryConfiguration']['Status']['ResponseMetadata'])
+        try:
+            status_response = ct_client.get_trail_status(Name=trail['Name'])
+            resource_item['supplementaryConfiguration']['Status'] = status_response
+            del(resource_item['supplementaryConfiguration']['Status']['ResponseMetadata'])
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'TrailNotFoundException':
+                resource_item['errors']['Status'] = e
 
         save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
