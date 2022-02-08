@@ -97,11 +97,9 @@ def handler( event, context ):
             index = "_".join(key_parts)
         
         if index not in all_es_indexes:
-            if "azure" in index:
-                mkAzureResourceIndex(es.es, index)
-            else:
-                logger.debug( f'S3 key produced unknown index = {index}, s3key = {record["s3"]["object"]["key"]}')
-                return( event )
+            logger.debug( f'S3 key requires new index = {index}, s3key = {record["s3"]["object"]["key"]}')
+            mkResourceIndex( es.es, index )
+            
         try:
             es.es.index(index=index, id=doc_id, document=resource)
         except Exception as e:
@@ -116,16 +114,30 @@ def prefix_excluded(s3key):
             return True
     return False
 
-def mkAzureResourceIndex(es, index):
-    es.indices.create( index=index, mappings={ "_doc": {
-                                                        "properties":{
-                                                            "configurationItemCaptureTime": {
-                                                            "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
-                                                            "type": "date"
-                                                            }
-                                                        }
-                                                    }
-                                                })
+def mkResourceIndex(es, index):
+    supported_es_versions = ['6','7']
+    # load a default mappings file for the index if a mappings file doesn't exist within mappings/$version
+    es_major_version = es.info()["version"]["number"][0]
+    if es_major_version not in supported_es_versions:
+        logger.error( f'Version {es_major_version} is not a supported version.  Supported versions are {" & ".join(supported_es_versions)}')
+        return
+
+    mapping_path = f'./mappings/v{es_major_version}'
+    if not os.path.exists( f'{mapping_path}/{index}.json' ):
+        logger.debug( f'{mapping_path}/{index}.json mappings file does not exist.')
+        if index.startswith( "resources" ):
+            mapping_file = f'{mapping_path}/resources_default.json'
+        else:
+            mapping_file = f'{mapping_path}/{index.split( "_" )[0]}_resources_default.json'
+        
+    logger.debug( f'Laoding mappings file {mapping_file} to create index {index}.' )
+
+    with open(mapping_file, 'r') as f:
+            mapping_json = json.loads( f.read() )
+
+    
+    es.indices.create( index=index, mappings=mapping_json["mappings"])
+
     es.index(index=".kibana", doc_type="doc", id=f"index-pattern:{index}", document={
                                                                                         "index-pattern": {
                                                                                             "title": index,
@@ -133,7 +145,6 @@ def mkAzureResourceIndex(es, index):
                                                                                         },
                                                                                         "type": "index-pattern"
                                                                                         })
-
 def fix_principal(json_doc):
     """
     WTF are we doing here? Good Question!

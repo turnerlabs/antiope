@@ -1,0 +1,12 @@
+{ 
+"mappings": {
+    "_doc": {
+      "properties": {
+        "configurationItemCaptureTime": {
+          "format": "yyyy-MM-dd HH:mm:ss.SSSSSS",
+          "type": "date"
+        }
+      }
+    }
+  }
+}

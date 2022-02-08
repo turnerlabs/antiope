@@ -53,7 +53,7 @@ class AwsElasticSearch(dict):
                 verify_certs=self.opts["verify_certs"],
                 connection_class=self.opts["connection_class"]
             )
-    
+
     def extract_credentials_from_env(self):
         credentials = boto3.Session().get_credentials()
         self.opts["creds"] = AWS4Auth(
@@ -93,8 +93,10 @@ class AwsElasticSearch(dict):
         return(output)
 
     def Insert(self, body, opts=None):
-
         self.es.bulk(body, index=self.opts["index"], headers=self.opts["headers"])
+    
+    def GetInfo(self):
+        return( self.info )
 
     def ListIndexes(self):
         return(self.es.indices.get_alias("*"))

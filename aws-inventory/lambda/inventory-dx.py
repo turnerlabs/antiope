@@ -13,20 +13,23 @@ from common import *
 
 import logging
 logger = logging.getLogger()
+for name in logging.Logger.manager.loggerDict.keys():
+    if ('boto' in name) or ('urllib3' in name) or ('s3transfer' in name) or ('boto3' in name) or ('botocore' in name) or ('nose' in name) or ('elasticsearch' in name):
+        logging.getLogger(name).setLevel(logging.WARNING)
 logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
-logging.getLogger('botocore').setLevel(logging.WARNING)
-logging.getLogger('boto3').setLevel(logging.WARNING)
-logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.basicConfig()
+
 
 CONNECTION_PATH = "dx/connection"
 VIF_PATH = "dx/vif"
 GW_PATH = "dx/gw"
+VGW_PATH = "dx/vgw"
 
 # These are NOT AWS Standard Types - DirectConnect is not provided by Config or Cloudformation, so I'm having to guess here.
 CONNECTION_TYPE = "AWS::DX::DXCON"
 VIF_TYPE = "AWS::DX::DXVIF"
 GW_TYPE = "AWS::DX::DXGW"
-
+VGW_TYPE = "AWS::DX::DXVGW"
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -42,6 +45,7 @@ def lambda_handler(event, context):
 
         for r in target_account.get_regions(service='directconnect'):
             try:
+                discover_virtual_gateways(target_account, r)
                 discover_connections(target_account, r)
                 dx_gws = discover_vifs(target_account, r, dx_gws)
             except ClientError as e:
@@ -163,3 +167,25 @@ def discover_gateways(target_account):
         output[c['directConnectGatewayId']] = resource_item
 
     return(output)
+
+def discover_virtual_gateways(target_account, region):
+    ''' Inventory all the Direct Connect Virtual Gateways '''
+
+    dx_client = target_account.get_client('directconnect', region=region)
+    response = dx_client.describe_virtual_gateways()
+
+    resource_item = {}
+    resource_item['awsAccountId']                   = target_account.account_id
+    resource_item['awsAccountName']                 = target_account.account_name
+    resource_item['resourceType']                   = VGW_TYPE
+    resource_item['source']                         = "Antiope"
+
+    for c in response['virtualGateways']:
+        resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
+        resource_item['configuration']                  = c
+        resource_item['supplementaryConfiguration']     = {}
+        resource_item['resourceId']                     = c['virtualGatewayId']
+        resource_item['errors']                         = {}
+        logger.debug( f'writing out to {VGW_PATH}')
+
+        save_resource_to_s3(VGW_PATH, resource_item['resourceId'], resource_item)
