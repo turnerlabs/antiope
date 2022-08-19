@@ -70,7 +70,7 @@ Conditions:
 
 Globals:
   Function:
-    Runtime: python3.6
+    Runtime: python3.9
     MemorySize: !Ref pDefaultLambdaSize
     Timeout: !Ref pMaxLambdaDuration
     Layers:
@@ -331,20 +331,6 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
-  EKSInventoryLambdaFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "${pResourcePrefix}-eks-inventory"
-      Description: AWS Lamdba to populate a table with info on all EKSs
-      Handler: inventory-eks.lambda_handler
-      Role: !GetAtt InventoryLambdaRole.Arn
-      CodeUri: ../lambda
-      Events:
-        AccountInventoryTrigger:
-          Type: SNS
-          Properties:
-            Topic: !Ref TriggerAccountInventoryFunctionTopic
-
   TransitGWInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -510,6 +496,20 @@ Resources:
       FunctionName: !Sub "${pResourcePrefix}-ecs-inventory"
       Description: Inventory ECS Clusters & Tasks
       Handler: inventory-ecs.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
+  EKSInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-eks-inventory"
+      Description: AWS Lamdba to populate a table with info on all EKSs
+      Handler: inventory-eks.lambda_handler
       Role: !GetAtt InventoryLambdaRole.Arn
       CodeUri: ../lambda
       Events:
