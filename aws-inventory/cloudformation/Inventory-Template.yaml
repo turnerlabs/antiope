@@ -331,6 +331,20 @@ Resources:
           Properties:
             Topic: !Ref TriggerAccountInventoryFunctionTopic
 
+  EKSInventoryLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${pResourcePrefix}-eks-inventory"
+      Description: AWS Lamdba to populate a table with info on all VPCs
+      Handler: inventory-eks.lambda_handler
+      Role: !GetAtt InventoryLambdaRole.Arn
+      CodeUri: ../lambda
+      Events:
+        AccountInventoryTrigger:
+          Type: SNS
+          Properties:
+            Topic: !Ref TriggerAccountInventoryFunctionTopic
+
   TransitGWInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1232,6 +1246,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 604800, "label": "eks-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
@@ -1293,6 +1308,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 604800, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 604800, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 604800, "label": "eks-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 604800, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 604800, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 604800, "label": "es-inventory" } ],
@@ -1354,6 +1370,7 @@ Resources:
                   [ "...", "${pResourcePrefix}-ebs-snap-inventory", { "stat": "Sum", "period": 900, "label": "ebs-snap-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecr-inventory", { "stat": "Sum", "period": 900, "label": "ecr-inventory" } ],
                   [ "...", "${pResourcePrefix}-ecs-inventory", { "stat": "Sum", "period": 900, "label": "ecs-inventory" } ],
+                  [ "...", "${pResourcePrefix}-eks-inventory", { "stat": "Sum", "period": 900, "label": "eks-inventory" } ],
                   [ "...", "${pResourcePrefix}-elb-inventory", { "stat": "Sum", "period": 900, "label": "elb-inventory" } ],
                   [ "...", "${pResourcePrefix}-eni-inventory", { "stat": "Sum", "period": 900, "label": "eni-inventory" } ],
                   [ "...", "${pResourcePrefix}-es-inventory", { "stat": "Sum", "period": 900, "label": "es-inventory" } ],
