@@ -26,7 +26,7 @@ def lambda_handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-
+        
         for r in target_account.get_regions(exclude=["ap-northeast-3"]):
 
             try:

@@ -179,7 +179,8 @@ def discover_virtual_gateways(target_account, region):
     resource_item['awsAccountName']                 = target_account.account_name
     resource_item['resourceType']                   = VGW_TYPE
     resource_item['source']                         = "Antiope"
-
+    resource_item['awsRegion']                      = region
+    
     for c in response['virtualGateways']:
         resource_item['configurationItemCaptureTime']   = str(datetime.datetime.now())
         resource_item['configuration']                  = c

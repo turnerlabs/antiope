@@ -41,7 +41,7 @@ def handler(event, context):
 
     try:
         target_account = AWSAccount(message['account_id'])
-        for r in target_account.get_regions():
+        for r in target_account.get_regions(service='eks'):
             try:
                 discover_eks_clusters(target_account, r)
             except ClientError as e:
@@ -101,5 +101,4 @@ def discover_eks_clusters(account, region):
         else:
             resource_item['tags'] = eks_cluster['tags']
 
-        print(f'{resource_item}')
-        #save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
+        save_resource_to_s3(RESOURCE_PATH, resource_item['resourceId'], resource_item)
