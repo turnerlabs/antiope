@@ -34,7 +34,7 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 RESOURCE_PATH = "eks/cluster"
 TYPE = "AWS::EKS::Cluster"
 
-def handler(event, context):
+def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
     message = json.loads(event['Records'][0]['Sns']['Message'])
     logger.info("Received message: " + json.dumps(message, sort_keys=True))
