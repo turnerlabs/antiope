@@ -507,6 +507,7 @@ Resources:
   EKSInventoryLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
+      Runtime: python3.9
       FunctionName: !Sub "${pResourcePrefix}-eks-inventory"
       Description: AWS Lamdba to populate a table with info on all EKSs
       Handler: inventory-eks.lambda_handler
