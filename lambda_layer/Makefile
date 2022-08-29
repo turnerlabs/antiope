@@ -1,7 +1,7 @@
 
 ifndef pythonver
 # $(error env is not set)
-    pythonver ?= python3.6
+    pythonver ?= python3.9
 endif
 
 ifndef env
@@ -43,7 +43,7 @@ zipfile:
 	zip -r $(LAYER_PACKAGE) python
 
 deps:
-	$(PIP) install -r requirements.txt -t python/lib/python3.6/site-packages/ --upgrade
+	$(PIP) install -r requirements.txt -t python/lib/$(pythonver)/site-packages/ --upgrade
 
 upload:
 	aws s3 cp $(LAYER_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
