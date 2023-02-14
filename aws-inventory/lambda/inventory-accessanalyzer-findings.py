@@ -16,7 +16,10 @@ logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.basicConfig()
 
+## 02/06/2023 - began failing consistently for one of our payers in use-east-1 added time.sleeps to fix.
+## 
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
@@ -41,14 +44,16 @@ def lambda_handler(event, context):
             regions = delegated_account.get_regions(service='accessanalyzer')
 
         output = {}
-
+        #regions=[ 'us-east-1' ]
         for r in regions:
             client = delegated_account.get_client('accessanalyzer', region=r)
             analyzer = get_analyzer(delegated_account, client, r)
             if analyzer is None:
                 logger.error(f"No Analyzers configured for {delegated_account.account_name}({delegated_account.account_id}) in {r}")
                 continue
+            
             output[r] = get_findings(delegated_account, client, r, analyzer)
+            time.sleep(1)
 
         save_findings(output, payer_account.org_id)
 
@@ -98,11 +103,15 @@ def get_findings(delegated_account, client, region, analyzer_arn):
     if region != "us-east-1":
         finding_filter['resourceType'] = {'neq': ['AWS::IAM::Role']}
 
+    logger.info( f"Searching {analyzer_arn} in {region}")
+
     findings = []
     response = client.list_findings(analyzerArn=analyzer_arn, maxResults=100, filter=finding_filter)
     while 'nextToken' in response:
+        logger.info( f"findings {len(response['findings'])}")
         for f in response['findings']:
             findings.append(f)
+        time.sleep(.1)
         response = client.list_findings(analyzerArn=analyzer_arn, maxResults=100, filter=finding_filter, nextToken=response['nextToken'])
     for f in response['findings']:
         findings.append(f)
