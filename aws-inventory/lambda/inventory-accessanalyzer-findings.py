@@ -18,8 +18,7 @@ logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.basicConfig()
 
-## 02/06/2023 - began failing consistently for one of our payers in use-east-1 added time.sleeps to fix.
-## 
+## 02/06/2023 - began failing consistently for one of our payers in us-east-1 added time.sleeps to fix.
 
 def lambda_handler(event, context):
     logger.debug("Received event: " + json.dumps(event, sort_keys=True))
