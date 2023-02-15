@@ -43,7 +43,8 @@ zipfile:
 	zip -r $(LAYER_PACKAGE) python
 
 deps:
-	$(PIP) install -r requirements.txt -t python/lib/$(pythonver)/site-packages/ --upgrade
+	#$(PIP) install -r requirements.txt -t python/lib/$(pythonver)/site-packages/ --upgrade
+	$(PIP) install -r requirements.txt -t python/ --upgrade
 
 upload:
 	aws s3 cp $(LAYER_PACKAGE) s3://$(BUCKET)/$(OBJECT_KEY)
