@@ -75,7 +75,7 @@ def handler( event, context ):
         if status != 200:
             logger.error( f'{status}, {text}')
             if status != 503:
-                raise Exception( f'Splunk returned {status}, {text}' )
+                raise Exception( f'Splunk returned {status}, {s3Object} {text}' )
             else:
                 return( event )
 
