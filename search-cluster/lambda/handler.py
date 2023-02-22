@@ -10,7 +10,6 @@ import hashlib
 from urllib.parse import unquote
 from botocore.exceptions import ClientError
 
-
 from resourceloader import resourceloader
 from awssecret import get_secret
 from awselasticsearch import AwsElasticSearch

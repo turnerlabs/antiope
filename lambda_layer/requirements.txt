@@ -4,4 +4,4 @@ mako
 boto3
 requests
 requests_aws4auth
-elasticsearch==7.14.0
+elasticsearch==7.15.2
