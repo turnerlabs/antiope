@@ -135,7 +135,7 @@ Resources:
             - !Sub "${VpcInventoryDBTable.Arn}/index/*"
             - !GetAtt HistoricalBillingDataTable.Arn
             - !Sub "${HistoricalBillingDataTable.Arn}/index/*"
-            - "arn:aws:dynamodb:us-east-1:980451846322:table/antiope-legacy-discovery-payer-accounts",
+            - "arn:aws:dynamodb:us-east-1:980451846322:table/antiope-legacy-discovery-payer-accounts"
             Action:
             - dynamodb:*
             Effect: Allow
