@@ -7,6 +7,7 @@ import datetime
 
 from antiope.aws_account import *
 from common import *
+from resourceloader import resourceloader
 
 import logging
 logger = logging.getLogger()
@@ -15,6 +16,11 @@ logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
+# here we extract Legacy Discovery accounts so we don't scan them since 
+# they are already being scanned by Discovery's Antiope as well as Divvy Cloud.
+discovery_payer_id = "563384844144"
+data = resourceloader(src="ddb://antiope-legacy-discovery-payer-accounts").getdata()
+legacy_disco_payers_accounts=[ acct["account_id"] for acct in data if acct["account_status"] == "ACTIVE" ]
 
 # Lambda main routine
 def handler(event, context):
@@ -36,6 +42,14 @@ def handler(event, context):
 
         logger.info("Processing payer {}".format(payer_id))
         payer_account_list = get_consolidated_billing_subaccounts(payer_creds)
+
+        # we discard the discovery payer accounts that existed before payer consolidation
+        # which keeps them from getting scanned via inventory 
+        if payer_id == discovery_payer_id:
+            payer_account_list=[ acct for acct in payer_account_list if acct["Id"] not in legacy_disco_payers_accounts ]
+        
+        logger.info(f'{payer_id} {len(payer_account_list)} accounts discovered.')
+        
         for a in payer_account_list:
             if 'Payer Id' not in a:
                 a['Payer Id'] = payer_id
