@@ -15,6 +15,7 @@ logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', default='INFO')))
 logging.getLogger('botocore').setLevel(logging.WARNING)
 logging.getLogger('boto3').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.basicConfig()
 
 # here we extract Legacy Discovery accounts so we don't scan them since 
 # they are already being scanned by Discovery's Antiope as well as Divvy Cloud.
@@ -46,9 +47,9 @@ def handler(event, context):
         # we discard the discovery payer accounts that existed before payer consolidation
         # which keeps them from getting scanned via inventory 
         if payer_id == discovery_payer_id:
-            payer_account_list=[ acct for acct in payer_account_list if acct["Id"] not in legacy_disco_payers_accounts ]
+            payer_account_list=[ acct for acct in payer_account_list if acct["Id"] not in legacy_disco_payers_accounts or acct["Id"] ==  discovery_payer_id ]
         
-        logger.info(f'{payer_id} {len(payer_account_list)} accounts discovered.')
+        logger.info(f'Payer {payer_id} {len(payer_account_list)} accounts discovered.')
         
         for a in payer_account_list:
             if 'Payer Id' not in a:
